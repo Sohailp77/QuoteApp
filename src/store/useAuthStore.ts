@@ -3,16 +3,26 @@ import { User } from '../types';
 
 interface AuthState {
   user: User | null;
-  isLoading: boolean;
+  loading: boolean;
   setUser: (user: User | null) => void;
   setLoading: (loading: boolean) => void;
-  signOut: () => void;
+  logout: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  isLoading: true,
+  loading: true,
   setUser: (user) => set({ user }),
-  setLoading: (isLoading) => set({ isLoading }),
-  signOut: () => set({ user: null }),
+  setLoading: (loading) => set({ loading }),
+  logout: async () => {
+    try {
+      // Lazy import to avoid circular dependency issues at startup
+      const { account } = require('../config/appwrite');
+      await account.deleteSession('current');
+    } catch (e) {
+      // Ignore errors on logout
+    } finally {
+      set({ user: null });
+    }
+  },
 }));

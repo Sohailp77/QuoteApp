@@ -1,32 +1,11 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '../config/supabase';
+import { databases, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
 import { useAuthStore } from '../store/useAuthStore';
-
-export interface CompanySettings {
-  company_name: string;
-  address: string;
-  phone: string;
-  email: string;
-  bank_name: string;
-  account_number: string;
-  ifsc_code: string;
-  gst_number: string;
-}
-
-const defaultSettings: CompanySettings = {
-  company_name: '',
-  address: '',
-  phone: '',
-  email: '',
-  bank_name: '',
-  account_number: '',
-  ifsc_code: '',
-  gst_number: '',
-};
+import { CompanySettings } from '../types';
 
 export const useCompanySettings = () => {
   const user = useAuthStore((s) => s.user);
-  const [settings, setSettings] = useState<CompanySettings>(defaultSettings);
+  const [settings, setSettings] = useState<CompanySettings | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,27 +14,36 @@ export const useCompanySettings = () => {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: fetchError } = await supabase
-        .from('company_settings')
-        .select('*')
-        .eq('tenant_id', user.tenant_id)
-        .maybeSingle();
+      const response = await databases.listDocuments(
+        DATABASE_ID,
+        COLLECTIONS.COMPANY_SETTINGS,
+        [
+          Query.equal('tenant_id', user.tenant_id),
+          Query.limit(1)
+        ]
+      );
 
-      if (fetchError) throw fetchError;
-
-      if (data) {
+      if (response.documents.length > 0) {
+        const doc = response.documents[0];
         setSettings({
-          company_name: data.company_name || '',
-          address: data.address || '',
-          phone: data.phone || '',
-          email: data.email || '',
-          bank_name: data.bank_name || '',
-          account_number: data.account_number || '',
-          ifsc_code: data.ifsc_code || '',
-          gst_number: data.gst_number || '',
+          id: doc.$id,
+          tenant_id: doc.tenant_id,
+          company_name: doc.company_name || '',
+          email: doc.email || '',
+          phone: doc.phone || '',
+          website: doc.website || '',
+          gst_number: doc.gst_number || '',
+          address: doc.address || '',
+          currency: doc.currency || '₹',
+          date_format: doc.date_format || 'DD/MM/YYYY',
+          invoice_prefix: doc.invoice_prefix || 'INV-',
+          next_invoice_number: Number(doc.next_invoice_number) || 1,
+          default_notes: doc.default_notes || '',
+          terms_conditions: doc.terms_conditions || '',
+          logo_url: doc.logo_url || undefined,
         });
       } else {
-        setSettings(defaultSettings);
+        setSettings(null);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to fetch company settings');
@@ -64,30 +52,53 @@ export const useCompanySettings = () => {
     }
   }, [user]);
 
-  const update = async (newSettings: CompanySettings) => {
-    if (!user) return;
-    if (user.role !== 'boss') {
-      throw new Error('Only the owner (Boss) can update company or bank settings.');
-    }
+  const update = async (updates: Partial<CompanySettings>) => {
+    if (!user) return null;
     try {
-      const { error: updateError } = await supabase
-        .from('company_settings')
-        .upsert({
-          tenant_id: user.tenant_id,
-          company_name: newSettings.company_name,
-          address: newSettings.address,
-          phone: newSettings.phone,
-          email: newSettings.email,
-          bank_name: newSettings.bank_name,
-          account_number: newSettings.account_number,
-          ifsc_code: newSettings.ifsc_code,
-          gst_number: newSettings.gst_number,
-        });
-
-      if (updateError) throw updateError;
-
-      setSettings(newSettings);
-      return newSettings;
+      let updatedSettings: CompanySettings;
+      
+      if (settings?.id) {
+        // Update existing
+        const doc = await databases.updateDocument(
+          DATABASE_ID,
+          COLLECTIONS.COMPANY_SETTINGS,
+          settings.id,
+          updates
+        );
+        updatedSettings = { ...settings, ...updates } as CompanySettings;
+      } else {
+        // Create new
+        const doc = await databases.createDocument(
+          DATABASE_ID,
+          COLLECTIONS.COMPANY_SETTINGS,
+          ID.unique(),
+          {
+            company_name: 'My Company',
+            ...updates,
+            tenant_id: user.tenant_id,
+          }
+        );
+        updatedSettings = {
+          id: doc.$id,
+          tenant_id: doc.tenant_id,
+          company_name: doc.company_name || '',
+          email: doc.email || '',
+          phone: doc.phone || '',
+          website: doc.website || '',
+          gst_number: doc.gst_number || '',
+          address: doc.address || '',
+          currency: doc.currency || '₹',
+          date_format: doc.date_format || 'DD/MM/YYYY',
+          invoice_prefix: doc.invoice_prefix || 'INV-',
+          next_invoice_number: Number(doc.next_invoice_number) || 1,
+          default_notes: doc.default_notes || '',
+          terms_conditions: doc.terms_conditions || '',
+          logo_url: doc.logo_url || undefined,
+        };
+      }
+      
+      setSettings(updatedSettings);
+      return updatedSettings;
     } catch (err: any) {
       throw new Error(err.message || 'Failed to update company settings');
     }

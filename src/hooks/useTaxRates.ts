@@ -1,15 +1,7 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '../config/supabase';
+import { databases, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
 import { useAuthStore } from '../store/useAuthStore';
-
-export interface TaxRate {
-  id: string;
-  tenant_id: string;
-  name: string;
-  rate: number;
-  is_active: boolean;
-  created_at: string;
-}
+import { TaxRate } from '../types';
 
 export const useTaxRates = () => {
   const user = useAuthStore((s) => s.user);
@@ -22,24 +14,25 @@ export const useTaxRates = () => {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: fetchError } = await supabase
-        .from('tax_rates')
-        .select('*')
-        .eq('tenant_id', user.tenant_id);
+      const response = await databases.listDocuments(
+        DATABASE_ID,
+        COLLECTIONS.TAX_RATES,
+        [
+          Query.equal('tenant_id', user.tenant_id),
+          Query.limit(100)
+        ]
+      );
 
-      if (fetchError) throw fetchError;
-
-      const mappedData: TaxRate[] = (data || []).map((tr) => ({
-        id: tr.id,
-        tenant_id: tr.tenant_id || '',
-        name: tr.name || '',
-        rate: Number(tr.rate) || 0,
-        is_active: tr.is_active !== false,
-        created_at: tr.created_at || new Date().toISOString(),
-      }));
-
-      mappedData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      setTaxRates(mappedData);
+      setTaxRates(
+        response.documents.map((t) => ({
+          id: t.$id,
+          tenant_id: t.tenant_id,
+          name: t.name || '',
+          percentage: Number(t.percentage) || 0,
+          is_default: t.is_default !== false, // default true if missing for logic, but usually explicit
+          is_active: t.is_active !== false,
+        }))
+      );
     } catch (err: any) {
       setError(err.message || 'Failed to fetch tax rates');
     } finally {
@@ -47,86 +40,91 @@ export const useTaxRates = () => {
     }
   }, [user]);
 
-  const create = async (rateData: Omit<TaxRate, 'id' | 'tenant_id' | 'created_at'>) => {
+  const create = async (taxRate: Omit<TaxRate, 'id' | 'tenant_id'>) => {
     if (!user) return null;
-    if (user.role !== 'boss') {
-      throw new Error('Only the owner (Boss) can create or modify tax slabs.');
-    }
     try {
-      const newRateData = {
-        name: rateData.name,
-        rate: rateData.rate,
-        is_active: rateData.is_active,
-        tenant_id: user.tenant_id,
+      // If new one is default, we should ideally unset others.
+      // But we'll just handle it simply here.
+      if (taxRate.is_default) {
+        // Find existing default and unset it
+        const existingDefaults = taxRates.filter(t => t.is_default);
+        for (const ed of existingDefaults) {
+          await databases.updateDocument(DATABASE_ID, COLLECTIONS.TAX_RATES, ed.id, { is_default: false });
+        }
+      }
+
+      const doc = await databases.createDocument(
+        DATABASE_ID,
+        COLLECTIONS.TAX_RATES,
+        ID.unique(),
+        {
+          name: taxRate.name,
+          percentage: taxRate.percentage,
+          is_default: taxRate.is_default,
+          is_active: taxRate.is_active,
+          tenant_id: user.tenant_id,
+        }
+      );
+
+      const newTax: TaxRate = {
+        id: doc.$id,
+        tenant_id: doc.tenant_id,
+        name: doc.name || '',
+        percentage: Number(doc.percentage) || 0,
+        is_default: doc.is_default !== false,
+        is_active: doc.is_active !== false,
       };
 
-      const { data, error: createError } = await supabase
-        .from('tax_rates')
-        .insert(newRateData)
-        .select()
-        .single();
-
-      if (createError) throw createError;
-
-      const newTaxRate: TaxRate = {
-        id: data.id,
-        tenant_id: data.tenant_id || '',
-        name: data.name,
-        rate: Number(data.rate) || 0,
-        is_active: data.is_active,
-        created_at: data.created_at || new Date().toISOString(),
-      };
-
-      setTaxRates((prev) => [newTaxRate, ...prev]);
-      return newTaxRate;
+      setTaxRates((prev) => {
+        if (newTax.is_default) {
+          return [...prev.map(t => ({ ...t, is_default: false })), newTax];
+        }
+        return [...prev, newTax];
+      });
+      return newTax;
     } catch (err: any) {
       throw new Error(err.message || 'Failed to create tax rate');
     }
   };
 
   const update = async (id: string, updates: Partial<TaxRate>) => {
-    if (!user) return null;
-    if (user.role !== 'boss') {
-      throw new Error('Only the owner (Boss) can modify tax slabs.');
-    }
     try {
-      const { error: updateError } = await supabase
-        .from('tax_rates')
-        .update(updates)
-        .eq('id', id);
+      if (updates.is_default) {
+        const existingDefaults = taxRates.filter(t => t.is_default && t.id !== id);
+        for (const ed of existingDefaults) {
+          await databases.updateDocument(DATABASE_ID, COLLECTIONS.TAX_RATES, ed.id, { is_default: false });
+        }
+      }
 
-      if (updateError) throw updateError;
-
-      let updatedRate: TaxRate | null = null;
-      setTaxRates((prev) =>
-        prev.map((r) => {
-          if (r.id === id) {
-            updatedRate = { ...r, ...updates };
-            return updatedRate;
-          }
-          return r;
-        })
+      await databases.updateDocument(
+        DATABASE_ID,
+        COLLECTIONS.TAX_RATES,
+        id,
+        updates
       );
-      return updatedRate;
+
+      let updated: TaxRate | null = null;
+      setTaxRates((prev) => {
+        const next = prev.map((t) => {
+          if (updates.is_default && t.id !== id) return { ...t, is_default: false };
+          if (t.id === id) {
+            updated = { ...t, ...updates };
+            return updated;
+          }
+          return t;
+        });
+        return next;
+      });
+      return updated;
     } catch (err: any) {
       throw new Error(err.message || 'Failed to update tax rate');
     }
   };
 
   const remove = async (id: string) => {
-    if (!user) return;
-    if (user.role !== 'boss') {
-      throw new Error('Only the owner (Boss) can delete tax slabs.');
-    }
     try {
-      const { error: deleteError } = await supabase
-        .from('tax_rates')
-        .delete()
-        .eq('id', id);
-
-      if (deleteError) throw deleteError;
-
-      setTaxRates((prev) => prev.filter((r) => r.id !== id));
+      await databases.deleteDocument(DATABASE_ID, COLLECTIONS.TAX_RATES, id);
+      setTaxRates((prev) => prev.filter((t) => t.id !== id));
     } catch (err: any) {
       throw new Error(err.message || 'Failed to delete tax rate');
     }

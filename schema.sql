@@ -146,3 +146,46 @@ create index if not exists idx_categories_tenant_id on categories(tenant_id);
 create index if not exists idx_tax_rates_tenant_id on tax_rates(tenant_id);
 create index if not exists idx_products_tenant_id on products(tenant_id);
 create index if not exists idx_quotes_tenant_id on quotes(tenant_id);
+
+-- ============================================================
+-- CUSTOMERS (CRM)
+-- ============================================================
+create table if not exists customers (
+  id uuid default gen_random_uuid() primary key,
+  tenant_id text not null,
+  name text not null,
+  phone text default '',
+  email text default '',
+  billing_address text default '',
+  gst_number text default '',
+  notes text default '',
+  created_at timestamptz default now()
+);
+alter table customers enable row level security;
+create policy "Allow all for authenticated users" on customers for all using (true);
+create index if not exists idx_customers_tenant_id on customers(tenant_id);
+
+-- ============================================================
+-- STOCK MOVEMENTS (audit log)
+-- ============================================================
+create table if not exists stock_movements (
+  id uuid default gen_random_uuid() primary key,
+  tenant_id text not null,
+  product_id uuid not null references products(id) on delete cascade,
+  product_name text not null default '',
+  movement_type text not null check (movement_type in ('in', 'out', 'adjustment', 'damage', 'loss', 'purchase')),
+  quantity integer not null,
+  note text default '',
+  supplier text default '',
+  created_at timestamptz default now()
+);
+alter table stock_movements enable row level security;
+create policy "Allow all for authenticated users" on stock_movements for all using (true);
+create index if not exists idx_stock_movements_tenant_id on stock_movements(tenant_id);
+create index if not exists idx_stock_movements_product_id on stock_movements(product_id);
+
+-- ============================================================
+-- NEW COLUMNS on existing tables
+-- ============================================================
+alter table quotes add column if not exists customer_id uuid references customers(id) on delete set null;
+alter table products add column if not exists reorder_level integer;

@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '../config/supabase';
-import { Category } from '../types';
+import { databases, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
 import { useAuthStore } from '../store/useAuthStore';
+import { Category } from '../types';
 
 export const useCategories = () => {
   const user = useAuthStore((s) => s.user);
@@ -14,26 +14,24 @@ export const useCategories = () => {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: fetchError } = await supabase
-        .from('categories')
-        .select('*')
-        .eq('tenant_id', user.tenant_id);
+      const response = await databases.listDocuments(
+        DATABASE_ID,
+        COLLECTIONS.CATEGORIES,
+        [
+          Query.equal('tenant_id', user.tenant_id),
+          Query.limit(100)
+        ]
+      );
 
-      if (fetchError) throw fetchError;
-
-      const mappedData: Category[] = (data || []).map((cat) => ({
-        id: cat.id,
-        user_id: cat.user_id || '',
-        name: cat.name || '',
-        description: cat.description || '',
-        unit_name: cat.unit_name || 'Pcs',
-        metric_type: cat.metric_type || 'fixed',
-        is_active: cat.is_active !== false,
-        created_at: cat.created_at || new Date().toISOString(),
-      }));
-
-      mappedData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      setCategories(mappedData);
+      setCategories(
+        response.documents.map((c) => ({
+          id: c.$id,
+          tenant_id: c.tenant_id,
+          name: c.name || '',
+          is_active: c.is_active !== false,
+          unit_name: c.unit_name || null,
+        }))
+      );
     } catch (err: any) {
       setError(err.message || 'Failed to fetch categories');
     } finally {
@@ -41,40 +39,31 @@ export const useCategories = () => {
     }
   }, [user]);
 
-  const create = async (cat: Omit<Category, 'id' | 'user_id' | 'created_at'>) => {
+  const create = async (category: Omit<Category, 'id' | 'tenant_id'>) => {
     if (!user) return null;
     try {
-      const newCatData = {
-        name: cat.name,
-        description: cat.description || '',
-        unit_name: cat.unit_name || 'Pcs',
-        metric_type: cat.metric_type || 'fixed',
-        is_active: cat.is_active,
-        user_id: user.id,
-        tenant_id: user.tenant_id,
+      const doc = await databases.createDocument(
+        DATABASE_ID,
+        COLLECTIONS.CATEGORIES,
+        ID.unique(),
+        {
+          name: category.name,
+          is_active: category.is_active,
+          unit_name: category.unit_name || null,
+          tenant_id: user.tenant_id,
+        }
+      );
+
+      const newCat: Category = {
+        id: doc.$id,
+        tenant_id: doc.tenant_id,
+        name: doc.name || '',
+        is_active: doc.is_active !== false,
+        unit_name: doc.unit_name || null,
       };
 
-      const { data, error: createError } = await supabase
-        .from('categories')
-        .insert(newCatData)
-        .select()
-        .single();
-
-      if (createError) throw createError;
-
-      const newCategory: Category = {
-        id: data.id,
-        user_id: data.user_id || '',
-        name: data.name,
-        description: data.description || '',
-        unit_name: data.unit_name || 'Pcs',
-        metric_type: data.metric_type || 'fixed',
-        is_active: data.is_active,
-        created_at: data.created_at || new Date().toISOString(),
-      };
-
-      setCategories((prev) => [newCategory, ...prev]);
-      return newCategory;
+      setCategories((prev) => [...prev, newCat]);
+      return newCat;
     } catch (err: any) {
       throw new Error(err.message || 'Failed to create category');
     }
@@ -82,24 +71,24 @@ export const useCategories = () => {
 
   const update = async (id: string, updates: Partial<Category>) => {
     try {
-      const { error: updateError } = await supabase
-        .from('categories')
-        .update(updates)
-        .eq('id', id);
+      const doc = await databases.updateDocument(
+        DATABASE_ID,
+        COLLECTIONS.CATEGORIES,
+        id,
+        updates
+      );
 
-      if (updateError) throw updateError;
-
-      let updatedCategory: Category | null = null;
+      let updated: Category | null = null;
       setCategories((prev) =>
         prev.map((c) => {
           if (c.id === id) {
-            updatedCategory = { ...c, ...updates };
-            return updatedCategory;
+            updated = { ...c, ...updates };
+            return updated;
           }
           return c;
         })
       );
-      return updatedCategory;
+      return updated;
     } catch (err: any) {
       throw new Error(err.message || 'Failed to update category');
     }
@@ -107,13 +96,7 @@ export const useCategories = () => {
 
   const remove = async (id: string) => {
     try {
-      const { error: deleteError } = await supabase
-        .from('categories')
-        .delete()
-        .eq('id', id);
-
-      if (deleteError) throw deleteError;
-
+      await databases.deleteDocument(DATABASE_ID, COLLECTIONS.CATEGORIES, id);
       setCategories((prev) => prev.filter((c) => c.id !== id));
     } catch (err: any) {
       throw new Error(err.message || 'Failed to delete category');

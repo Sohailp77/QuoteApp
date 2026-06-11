@@ -15,9 +15,10 @@ import { useNavigation } from '@react-navigation/native';
 import { useQuotes } from '../../hooks/useQuotes';
 import { useProducts } from '../../hooks/useProducts';
 import { useTaxRates } from '../../hooks/useTaxRates';
+import { useCustomers } from '../../hooks/useCustomers';
 import { Button } from '../../components/ui/Button';
 import { Colors, Radius, Shadow } from '../../theme';
-import { QuoteItem, Product } from '../../types';
+import { QuoteItem, Product, Customer } from '../../types';
 import { BarcodeScannerModal } from '../../components/BarcodeScannerModal';
 
 const formatCurrency = (n: number) =>
@@ -30,10 +31,14 @@ export const CreateQuoteScreen: React.FC = () => {
   const { create } = useQuotes();
   const { products, fetch: fetchProducts } = useProducts();
   const { taxRates, fetch: fetchTaxRates } = useTaxRates();
+  const { search: searchCustomers, create: createCustomer } = useCustomers();
 
   const [clientName, setClientName] = useState('');
   const [clientEmail, setClientEmail] = useState('');
   const [clientPhone, setClientPhone] = useState('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | undefined>();
+  const [customerSuggestions, setCustomerSuggestions] = useState<Customer[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [notes, setNotes] = useState('');
   const [validDays, setValidDays] = useState('30');
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
@@ -122,6 +127,21 @@ export const CreateQuoteScreen: React.FC = () => {
       const validUntil = new Date();
       validUntil.setDate(validUntil.getDate() + (parseInt(validDays) || 30));
 
+      // Save as new customer if not already linked
+      let customerId = selectedCustomerId;
+      if (!customerId && clientName.trim()) {
+        try {
+          const newCust = await createCustomer({
+            name: clientName.trim(),
+            email: clientEmail.trim(),
+            phone: clientPhone.trim(),
+            billing_address: '',
+            gst_number: '',
+          });
+          customerId = newCust?.id;
+        } catch {}
+      }
+
       const newQuote = await create(
         {
           client_name: clientName,
@@ -134,6 +154,7 @@ export const CreateQuoteScreen: React.FC = () => {
           total,
           notes,
           valid_until: validUntil.toISOString(),
+          customer_id: customerId,
         },
         lineItems
       );
@@ -174,7 +195,62 @@ export const CreateQuoteScreen: React.FC = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Client Details</Text>
           <View style={styles.card}>
-            <Field label="Client Name *" value={clientName} onChangeText={setClientName} placeholder="Enter client name" />
+            {/* Customer Name with Autocomplete */}
+            <View style={fieldStyles.wrap}>
+              <Text style={fieldStyles.label}>Client Name *</Text>
+              <TextInput
+                style={fieldStyles.input}
+                value={clientName}
+                onChangeText={async (text) => {
+                  setClientName(text);
+                  setSelectedCustomerId(undefined);
+                  if (text.length >= 2) {
+                    const results = await searchCustomers(text);
+                    setCustomerSuggestions(results);
+                    setShowSuggestions(results.length > 0);
+                  } else {
+                    setShowSuggestions(false);
+                    setCustomerSuggestions([]);
+                  }
+                }}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                placeholder="Type to search or enter new name"
+                placeholderTextColor={Colors.textMuted}
+              />
+              {showSuggestions && customerSuggestions.length > 0 && (
+                <View style={styles.suggestionsBox}>
+                  {customerSuggestions.map((c) => (
+                    <TouchableOpacity
+                      key={c.id}
+                      style={styles.suggestionRow}
+                      onPress={() => {
+                        setClientName(c.name);
+                        setClientEmail(c.email);
+                        setClientPhone(c.phone);
+                        setSelectedCustomerId(c.id);
+                        setShowSuggestions(false);
+                        setCustomerSuggestions([]);
+                      }}
+                    >
+                      <View style={styles.suggestionAvatar}>
+                        <Text style={styles.suggestionAvatarText}>{c.name[0].toUpperCase()}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.suggestionName}>{c.name}</Text>
+                        {c.email ? <Text style={styles.suggestionDetail}>{c.email}</Text> : null}
+                      </View>
+                      <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+              {selectedCustomerId && (
+                <View style={styles.crmLinkedBadge}>
+                  <Ionicons name="person-circle-outline" size={14} color="#10B981" />
+                  <Text style={styles.crmLinkedText}>CRM customer linked</Text>
+                </View>
+              )}
+            </View>
             <Field label="Email *" value={clientEmail} onChangeText={setClientEmail} placeholder="client@email.com" keyboardType="email-address" />
             <Field label="Phone" value={clientPhone} onChangeText={setClientPhone} placeholder="+91 9876543210" keyboardType="phone-pad" />
           </View>
@@ -553,4 +629,35 @@ const styles = StyleSheet.create({
     color: Colors.accent,
     fontWeight: '700',
   },
+  // Autocomplete
+  suggestionsBox: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    borderWidth: 1, borderColor: Colors.border,
+    marginTop: 4,
+    overflow: 'hidden',
+    ...Shadow.md,
+  },
+  suggestionRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 14, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: Colors.divider,
+  },
+  suggestionAvatar: {
+    width: 34, height: 34, borderRadius: 17,
+    backgroundColor: Colors.accent + '20',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  suggestionAvatarText: { fontSize: 14, fontWeight: '700', color: Colors.accent },
+  suggestionName: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
+  suggestionDetail: { fontSize: 12, color: Colors.textSecondary },
+  crmLinkedBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    marginTop: 6,
+    backgroundColor: '#10B98118',
+    borderRadius: Radius.full,
+    paddingHorizontal: 10, paddingVertical: 4,
+    alignSelf: 'flex-start',
+  },
+  crmLinkedText: { fontSize: 12, fontWeight: '600', color: '#10B981' },
 });

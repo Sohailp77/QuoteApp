@@ -10,15 +10,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { signOut } from 'firebase/auth';
-import { auth } from '../../config/firebase';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Colors, Radius, Shadow } from '../../theme';
 
 export const ProfileScreen: React.FC = () => {
   const nav = useNavigation<any>();
   const user = useAuthStore((s) => s.user);
-  const storeSignOut = useAuthStore((s) => s.signOut);
+  const logout = useAuthStore((s) => s.logout);
   const firstName = user?.displayName?.split(' ')[0] || 'User';
 
   const handleSignOut = () => {
@@ -28,8 +26,7 @@ export const ProfileScreen: React.FC = () => {
         text: 'Sign Out',
         style: 'destructive',
         onPress: async () => {
-          await signOut(auth);
-          storeSignOut();
+          await logout();
         },
       },
     ]);

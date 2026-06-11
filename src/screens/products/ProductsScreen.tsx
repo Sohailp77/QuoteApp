@@ -44,13 +44,31 @@ export const ProductsScreen: React.FC = () => {
     <View style={styles.screen}>
       <View style={styles.header}>
         <Text style={styles.title}>Products</Text>
-        <TouchableOpacity
-          style={styles.addBtn}
-          onPress={() => nav.navigate('ProductForm', {})}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="add" size={22} color="#fff" />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.headerActionBtn}
+            onPress={() => nav.navigate('StockManagement')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="analytics-outline" size={18} color={Colors.accent} />
+            <Text style={styles.headerActionText}>Stock</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerActionBtn}
+            onPress={() => nav.navigate('CategoryManager')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="grid-outline" size={18} color={Colors.accent} />
+            <Text style={styles.headerActionText}>Categories</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.addBtn}
+            onPress={() => nav.navigate('ProductForm', {})}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="add" size={22} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <SearchBar
@@ -112,6 +130,14 @@ const styles = StyleSheet.create({
     paddingTop: 60, paddingBottom: 16,
   },
   title: { fontSize: 28, fontWeight: '800', color: Colors.textPrimary, letterSpacing: -0.5 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerActionBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: Colors.accent + '15',
+    borderRadius: Radius.full,
+    paddingHorizontal: 10, paddingVertical: 7,
+  },
+  headerActionText: { fontSize: 12, fontWeight: '700', color: Colors.accent },
   addBtn: {
     width: 42, height: 42, borderRadius: 21,
     backgroundColor: Colors.primary,

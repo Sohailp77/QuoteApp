@@ -43,16 +43,29 @@ export const EmployeesScreen: React.FC = () => {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <Text style={styles.title}>Employees</Text>
-        {isBoss && (
+        <View>
+          <Text style={styles.title}>Team</Text>
+          <Text style={styles.subtitle}>Employees</Text>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
           <TouchableOpacity
-            style={styles.addBtn}
-            onPress={() => nav.navigate('EmployeeForm', {})}
+            style={styles.crmBtn}
+            onPress={() => nav.navigate('CustomersList')}
             activeOpacity={0.8}
           >
-            <Ionicons name="add" size={22} color="#fff" />
+            <Ionicons name="people-circle-outline" size={16} color={Colors.accent} />
+            <Text style={styles.crmBtnText}>Customers</Text>
           </TouchableOpacity>
-        )}
+          {isBoss && (
+            <TouchableOpacity
+              style={styles.addBtn}
+              onPress={() => nav.navigate('EmployeeForm', {})}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="add" size={22} color="#fff" />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <SearchBar
@@ -103,12 +116,20 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 16,
   },
-  title: { fontSize: 28, fontWeight: '800', color: Colors.textPrimary, letterSpacing: -0.5 },
+  title: { fontSize: 26, fontWeight: '800', color: Colors.textPrimary, letterSpacing: -0.5 },
+  subtitle: { fontSize: 13, color: Colors.textSecondary, marginTop: 1 },
   addBtn: {
     width: 42, height: 42, borderRadius: 21,
     backgroundColor: Colors.primary,
     alignItems: 'center', justifyContent: 'center',
   },
+  crmBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: Colors.accent + '15',
+    borderRadius: 999,
+    paddingHorizontal: 10, paddingVertical: 7,
+  },
+  crmBtnText: { fontSize: 12, fontWeight: '700', color: Colors.accent },
   search: { marginBottom: 14 },
   empty: { alignItems: 'center', paddingTop: 80, gap: 10 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },

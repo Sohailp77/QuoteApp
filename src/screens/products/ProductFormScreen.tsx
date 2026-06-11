@@ -14,6 +14,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useProducts } from '../../hooks/useProducts';
 import { useCategories } from '../../hooks/useCategories';
 import { Button } from '../../components/ui/Button';
+import { BarcodeScannerModal } from '../../components/BarcodeScannerModal';
 import { Colors, Radius, Shadow } from '../../theme';
 import { Product } from '../../types';
 
@@ -52,7 +53,7 @@ export const ProductFormScreen: React.FC = () => {
   const route = useRoute<RouteProp<{ params: RouteParams }, 'params'>>();
   const existing = route.params?.product;
 
-  const { create: createProduct, update: updateProduct } = useProducts();
+  const { create: createProduct, update: updateProduct, findByBarcode } = useProducts();
   const { categories, fetch: fetchCategories, create: createCategory } = useCategories();
 
   const [name, setName] = useState(existing?.name || '');
@@ -66,8 +67,26 @@ export const ProductFormScreen: React.FC = () => {
   const [barcode, setBarcode] = useState(existing?.barcode || '');
   const [warehouseLocation, setWarehouseLocation] = useState(existing?.warehouse_location || '');
   const [loading, setLoading] = useState(false);
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
 
   const isEdit = !!existing;
+
+  const handleBarcodeScan = async (scannedCode: string) => {
+    setShowBarcodeScanner(false);
+    // Check for duplicate
+    const duplicate = await findByBarcode(scannedCode);
+    if (duplicate && duplicate.id !== existing?.id) {
+      Alert.alert(
+        'Barcode Already Exists',
+        `Product "${duplicate.name}" already uses barcode ${scannedCode}. Cannot assign the same barcode to another product.`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    setBarcode(scannedCode);
+    if (!sku) setSku(scannedCode);
+    Alert.alert('Barcode Scanned', `Barcode ${scannedCode} applied.`);
+  };
 
   useEffect(() => {
     fetchCategories();
@@ -193,16 +212,25 @@ export const ProductFormScreen: React.FC = () => {
             <View style={fieldStyles.wrap}>
               <View style={styles.fieldHeader}>
                 <Text style={fieldStyles.label}>Barcode</Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    const rnd = '890' + Math.floor(1000000000 + Math.random() * 9000000000).toString();
-                    setBarcode(rnd);
-                  }}
-                  style={styles.genLink}
-                >
-                  <Ionicons name="git-branch-outline" size={14} color={Colors.accent} />
-                  <Text style={styles.genLinkText}>Auto-Generate</Text>
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <TouchableOpacity
+                    onPress={() => setShowBarcodeScanner(true)}
+                    style={styles.genLink}
+                  >
+                    <Ionicons name="barcode-outline" size={14} color={Colors.accent} />
+                    <Text style={styles.genLinkText}>Scan</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const rnd = '890' + Math.floor(1000000000 + Math.random() * 9000000000).toString();
+                      setBarcode(rnd);
+                    }}
+                    style={styles.genLink}
+                  >
+                    <Ionicons name="git-branch-outline" size={14} color={Colors.accent} />
+                    <Text style={styles.genLinkText}>Auto-Generate</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
               <TextInput
                 style={fieldStyles.input}
@@ -333,6 +361,13 @@ export const ProductFormScreen: React.FC = () => {
 
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      <BarcodeScannerModal
+        visible={showBarcodeScanner}
+        onClose={() => setShowBarcodeScanner(false)}
+        onScan={handleBarcodeScan}
+        title="Scan Product Barcode"
+      />
     </View>
   );
 };

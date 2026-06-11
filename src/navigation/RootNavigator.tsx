@@ -1,9 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../config/firebase';
-import { supabase } from '../config/supabase';
+import { account, databases, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
 import { useAuthStore } from '../store/useAuthStore';
 import { AuthNavigator } from './AuthNavigator';
 import { MainNavigator } from './MainNavigator';
@@ -13,101 +11,106 @@ const Root = createStackNavigator();
 
 export const RootNavigator: React.FC = () => {
   const user = useAuthStore((s) => s.user);
-  const isLoading = useAuthStore((s) => s.isLoading);
   const setUser = useAuthStore((s) => s.setUser);
-  const setLoading = useAuthStore((s) => s.setLoading);
+  // Internal loading state for checking session
+  const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        try {
-          const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', firebaseUser.uid)
-            .maybeSingle();
-          
-          if (userData) {
-            setUser({
-              id: firebaseUser.uid,
-              email: firebaseUser.email || '',
-              displayName: firebaseUser.displayName || userData.display_name || 'User',
-              photoURL: firebaseUser.photoURL || userData.photo_url || undefined,
-              role: (userData.role as 'boss' | 'employee') || 'boss',
-              tenant_id: userData.tenant_id || `tenant_${firebaseUser.uid}`,
-            });
-          } else {
-            // Check if there is an employee record with this email
-            let resolvedRole: 'boss' | 'employee' = 'boss';
-            let resolvedTenantId = `tenant_${firebaseUser.uid}`;
-            
-            if (firebaseUser.email) {
-              const { data: empData, error: empError } = await supabase
-                .from('employees')
-                .select('*')
-                .eq('email', firebaseUser.email.toLowerCase().trim())
-                .limit(1);
-              
-              if (empData && empData.length > 0) {
-                const emp = empData[0];
-                resolvedRole = 'employee';
-                resolvedTenantId = emp.tenant_id || emp.user_id;
-                
-                // Update employee record with their actual Firebase UID
-                await updateEmployeeUid(emp.id, firebaseUser.uid);
-              }
-            }
-            
-            // Create user profile document in users table
-            const newUserData = {
-              id: firebaseUser.uid,
-              email: firebaseUser.email || '',
-              display_name: firebaseUser.displayName || 'User',
-              role: resolvedRole,
-              tenant_id: resolvedTenantId,
-              photo_url: firebaseUser.photoURL || null,
-            };
-            
-            await supabase.from('users').insert(newUserData);
-            
-            setUser({
-              id: firebaseUser.uid,
-              email: firebaseUser.email || '',
-              displayName: firebaseUser.displayName || 'User',
-              photoURL: firebaseUser.photoURL || undefined,
-              role: resolvedRole,
-              tenant_id: resolvedTenantId,
-            });
-          }
-        } catch (err) {
-          console.error('Error fetching user document:', err);
-          // Fallback to local state if offline or query fails
-          setUser({
-            id: firebaseUser.uid,
-            email: firebaseUser.email || '',
-            displayName: firebaseUser.displayName || 'User',
-            photoURL: firebaseUser.photoURL || undefined,
-            role: 'boss',
-            tenant_id: `tenant_${firebaseUser.uid}`,
-          });
-        }
-      } else {
-        setUser(null);
-      }
-      setLoading(false);
-    });
-    return unsubscribe;
+    checkSession();
   }, []);
 
-  const updateEmployeeUid = async (docId: string, uid: string) => {
+  const checkSession = async () => {
     try {
-      await supabase.from('employees').update({ user_id: uid }).eq('id', docId);
-    } catch (err) {
-      console.warn('Failed to update employee uid:', err);
+      // 1. Check if user is logged in
+      const appwriteUser = await account.get();
+      
+      // 2. Fetch user profile from `users` collection to get role & tenant_id
+      try {
+        const userDocs = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTIONS.USERS,
+          [Query.equal('email', appwriteUser.email)]
+        );
+
+        if (userDocs.documents.length > 0) {
+          const uDoc = userDocs.documents[0];
+          setUser({
+            id: appwriteUser.$id,
+            email: appwriteUser.email,
+            displayName: appwriteUser.name || uDoc.displayName || 'User',
+            role: (uDoc.role as 'boss' | 'employee') || 'boss',
+            tenant_id: uDoc.tenant_id,
+          });
+        } else {
+          // If no user doc, check if they are an employee created by a boss
+          let resolvedRole: 'boss' | 'employee' = 'boss';
+          let resolvedTenantId = `tenant_${appwriteUser.$id}`;
+
+          const empDocs = await databases.listDocuments(
+            DATABASE_ID,
+            COLLECTIONS.EMPLOYEES,
+            [Query.equal('email', appwriteUser.email.toLowerCase().trim())]
+          );
+
+          if (empDocs.documents.length > 0) {
+            const emp = empDocs.documents[0];
+            resolvedRole = 'employee';
+            resolvedTenantId = emp.tenant_id;
+            
+            // Link employee record
+            try {
+              await databases.updateDocument(
+                DATABASE_ID,
+                COLLECTIONS.EMPLOYEES,
+                emp.$id,
+                { user_id: appwriteUser.$id }
+              );
+            } catch (e) {
+              console.warn('Failed to link employee uid');
+            }
+          }
+
+          // Create the user profile
+          await databases.createDocument(
+            DATABASE_ID,
+            COLLECTIONS.USERS,
+            ID.unique(),
+            {
+              tenant_id: resolvedTenantId,
+              email: appwriteUser.email,
+              displayName: appwriteUser.name || 'User',
+              role: resolvedRole,
+            }
+          );
+
+          setUser({
+            id: appwriteUser.$id,
+            email: appwriteUser.email,
+            displayName: appwriteUser.name || 'User',
+            role: resolvedRole,
+            tenant_id: resolvedTenantId,
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching/creating user profile:', err);
+        // Fallback
+        setUser({
+          id: appwriteUser.$id,
+          email: appwriteUser.email,
+          displayName: appwriteUser.name || 'User',
+          role: 'boss',
+          tenant_id: `tenant_${appwriteUser.$id}`,
+        });
+      }
+    } catch (error) {
+      // Not logged in or error checking session
+      setUser(null);
+    } finally {
+      setIsInitializing(false);
     }
   };
 
-  if (isLoading) return <SplashScreen />;
+  if (isInitializing) return <SplashScreen />;
 
   return (
     <NavigationContainer>

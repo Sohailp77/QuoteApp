@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '../config/supabase';
-import { Quote, QuoteItem } from '../types';
+import { databases, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
+import { Quote, LineItem } from '../types';
 import { useAuthStore } from '../store/useAuthStore';
 
 export const useQuotes = () => {
@@ -14,40 +14,51 @@ export const useQuotes = () => {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: fetchError } = await supabase
-        .from('quotes')
-        .select('*')
-        .eq('tenant_id', user.tenant_id);
+      const response = await databases.listDocuments(
+        DATABASE_ID,
+        COLLECTIONS.QUOTES,
+        [
+          Query.equal('tenant_id', user.tenant_id),
+          Query.orderDesc('$createdAt'),
+          Query.limit(200)
+        ]
+      );
 
-      if (fetchError) throw fetchError;
+      setQuotes(
+        response.documents.map((q) => {
+          let parsedItems: LineItem[] = [];
+          try {
+            parsedItems = JSON.parse(q.items || '[]');
+          } catch {}
 
-      const mappedData: Quote[] = (data || []).map((docData) => ({
-        id: docData.id,
-        user_id: docData.user_id,
-        quote_number: docData.quote_number || '',
-        client_name: docData.client_name || '',
-        client_email: docData.client_email || '',
-        client_phone: docData.client_phone || '',
-        status: docData.status || 'Draft',
-        subtotal: Number(docData.subtotal) || 0,
-        discount: Number(docData.discount) || 0,
-        tax: Number(docData.tax) || 0,
-        total: Number(docData.total) || 0,
-        notes: docData.notes || '',
-        valid_until: docData.valid_until || '',
-        created_at: docData.created_at || new Date().toISOString(),
-        items: Array.isArray(docData.items) ? docData.items : [],
-        payment_status: docData.payment_status || 'Pending',
-        payment_method: docData.payment_method || '',
-        delivery_date: docData.delivery_date || '',
-        delivery_partner: docData.delivery_partner || '',
-        tracking_number: docData.tracking_number || '',
-        delivery_status: docData.delivery_status || 'Pending',
-        delivery_note: docData.delivery_note || '',
-      }));
-
-      mappedData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      setQuotes(mappedData);
+          return {
+            id: q.$id,
+            tenant_id: q.tenant_id,
+            user_id: q.user_id || '',
+            quote_number: q.quote_number || '',
+            client_name: q.client_name || '',
+            client_email: q.client_email || '',
+            client_phone: q.client_phone || '',
+            customer_id: q.customer_id || undefined,
+            status: q.status as any,
+            subtotal: Number(q.subtotal) || 0,
+            discount: Number(q.discount) || 0,
+            tax: Number(q.tax) || 0,
+            total: Number(q.total) || 0,
+            notes: q.notes || '',
+            valid_until: q.valid_until || '',
+            created_at: q.$createdAt || new Date().toISOString(),
+            items: parsedItems,
+            payment_status: q.payment_status as any || 'Pending',
+            payment_method: q.payment_method || undefined,
+            delivery_date: q.delivery_date || undefined,
+            delivery_partner: q.delivery_partner || undefined,
+            tracking_number: q.tracking_number || undefined,
+            delivery_status: q.delivery_status as any || 'Pending',
+            delivery_note: q.delivery_note || undefined,
+          };
+        })
+      );
     } catch (err: any) {
       setError(err.message || 'Failed to fetch quotes');
     } finally {
@@ -55,104 +66,50 @@ export const useQuotes = () => {
     }
   }, [user]);
 
-  const adjustStockForQuoteItems = async (items: QuoteItem[], direction: 'deduct' | 'revert') => {
-    for (const item of items) {
-      if (!item.product_id) continue;
-      try {
-        const { data: prodData, error: prodError } = await supabase
-          .from('products')
-          .select('stock_quantity')
-          .eq('id', item.product_id)
-          .maybeSingle();
-
-        if (prodError) throw prodError;
-
-        if (prodData) {
-          const currentStock = Number(prodData.stock_quantity);
-          if (!isNaN(currentStock)) {
-            const change = direction === 'deduct' ? -item.quantity : item.quantity;
-            const newStock = Math.max(0, currentStock + change);
-            const { error: updateError } = await supabase
-              .from('products')
-              .update({ stock_quantity: newStock })
-              .eq('id', item.product_id);
-
-            if (updateError) throw updateError;
-          }
-        }
-      } catch (err) {
-        console.error('Failed to adjust stock for product:', item.product_id, err);
-      }
-    }
-  };
-
-  const create = async (
-    quoteData: Omit<Quote, 'id' | 'user_id' | 'created_at' | 'quote_number' | 'items'>,
-    items: Omit<QuoteItem, 'id' | 'quote_id'>[]
-  ) => {
+  const create = async (quoteData: Omit<Quote, 'id' | 'user_id' | 'quote_number' | 'created_at' | 'items' | 'tenant_id'>, items: LineItem[]) => {
     if (!user) return null;
     try {
       const quoteNumber = `QT-${Date.now().toString().slice(-6)}`;
-      const newQuoteData = {
-        user_id: user.id,
-        tenant_id: user.tenant_id,
-        quote_number: quoteNumber,
-        client_name: quoteData.client_name,
-        client_email: quoteData.client_email,
-        client_phone: quoteData.client_phone || '',
-        status: quoteData.status,
-        subtotal: quoteData.subtotal,
-        discount: quoteData.discount,
-        tax: quoteData.tax,
-        total: quoteData.total,
-        notes: quoteData.notes || '',
-        valid_until: quoteData.valid_until,
-        items: items,
-        payment_status: quoteData.payment_status || 'Pending',
-        payment_method: quoteData.payment_method || '',
-        delivery_date: quoteData.delivery_date || '',
-        delivery_partner: quoteData.delivery_partner || '',
-        tracking_number: quoteData.tracking_number || '',
-        delivery_status: quoteData.delivery_status || 'Pending',
-        delivery_note: quoteData.delivery_note || '',
-      };
-
-      const { data, error: createError } = await supabase
-        .from('quotes')
-        .insert(newQuoteData)
-        .select()
-        .single();
-
-      if (createError) throw createError;
+      
+      const doc = await databases.createDocument(
+        DATABASE_ID,
+        COLLECTIONS.QUOTES,
+        ID.unique(),
+        {
+          ...quoteData,
+          items: JSON.stringify(items),
+          tenant_id: user.tenant_id,
+          user_id: user.id,
+          quote_number: quoteNumber,
+        }
+      );
 
       const newQuote: Quote = {
-        id: data.id,
-        user_id: data.user_id,
-        quote_number: data.quote_number,
-        client_name: data.client_name,
-        client_email: data.client_email,
-        client_phone: data.client_phone || '',
-        status: data.status,
-        subtotal: Number(data.subtotal) || 0,
-        discount: Number(data.discount) || 0,
-        tax: Number(data.tax) || 0,
-        total: Number(data.total) || 0,
-        notes: data.notes || '',
-        valid_until: data.valid_until || '',
-        created_at: data.created_at || new Date().toISOString(),
-        items: Array.isArray(data.items) ? data.items : [],
-        payment_status: data.payment_status || 'Pending',
-        payment_method: data.payment_method || '',
-        delivery_date: data.delivery_date || '',
-        delivery_partner: data.delivery_partner || '',
-        tracking_number: data.tracking_number || '',
-        delivery_status: data.delivery_status || 'Pending',
-        delivery_note: data.delivery_note || '',
+        id: doc.$id,
+        tenant_id: doc.tenant_id,
+        user_id: doc.user_id,
+        quote_number: doc.quote_number,
+        client_name: doc.client_name,
+        client_email: doc.client_email,
+        client_phone: doc.client_phone,
+        customer_id: doc.customer_id,
+        status: doc.status as any,
+        subtotal: Number(doc.subtotal),
+        discount: Number(doc.discount),
+        tax: Number(doc.tax),
+        total: Number(doc.total),
+        notes: doc.notes,
+        valid_until: doc.valid_until,
+        created_at: doc.$createdAt,
+        items,
+        payment_status: doc.payment_status as any || 'Pending',
+        payment_method: doc.payment_method,
+        delivery_date: doc.delivery_date,
+        delivery_partner: doc.delivery_partner,
+        tracking_number: doc.tracking_number,
+        delivery_status: doc.delivery_status as any || 'Pending',
+        delivery_note: doc.delivery_note,
       };
-
-      if (quoteData.status === 'Accepted') {
-        await adjustStockForQuoteItems(items as QuoteItem[], 'deduct');
-      }
 
       setQuotes((prev) => [newQuote, ...prev]);
       return newQuote;
@@ -161,132 +118,133 @@ export const useQuotes = () => {
     }
   };
 
-  const updateQuoteDetails = async (id: string, updates: Partial<Quote>) => {
+  const updateStatus = async (id: string, status: Quote['status']) => {
+    if (!user) return;
     try {
-      const { data: currentQuoteData, error: getError } = await supabase
-        .from('quotes')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle();
+      // 1. If accepting quote, deduct stock via movement
+      if (status === 'Accepted') {
+        const currentQuote = quotes.find(q => q.id === id);
+        if (currentQuote && currentQuote.items) {
+          for (const item of currentQuote.items) {
+            if (item.product_id) {
+              const prodDoc = await databases.getDocument(DATABASE_ID, COLLECTIONS.PRODUCTS, item.product_id);
+              const currentStock = Number(prodDoc.stock_quantity) || 0;
+              
+              // Only deduct if tracking stock (stock_quantity exists)
+              if (prodDoc.stock_quantity !== null) {
+                await databases.updateDocument(
+                  DATABASE_ID,
+                  COLLECTIONS.PRODUCTS,
+                  item.product_id,
+                  { stock_quantity: currentStock - item.quantity }
+                );
 
-      if (getError || !currentQuoteData) throw new Error('Quote does not exist');
-
-      const oldStatus = currentQuoteData.status || 'Draft';
-      const newStatus = updates.status || oldStatus;
-
-      const { error: updateError } = await supabase
-        .from('quotes')
-        .update(updates)
-        .eq('id', id);
-
-      if (updateError) throw updateError;
-
-      const items = Array.isArray(currentQuoteData.items) ? currentQuoteData.items : [];
-      if (newStatus === 'Accepted' && oldStatus !== 'Accepted') {
-        await adjustStockForQuoteItems(items, 'deduct');
-      }
-      if (oldStatus === 'Accepted' && newStatus !== 'Accepted') {
-        await adjustStockForQuoteItems(items, 'revert');
-      }
-
-      let updatedQuote: Quote | null = null;
-      setQuotes((prev) =>
-        prev.map((q) => {
-          if (q.id === id) {
-            updatedQuote = { ...q, ...updates };
-            return updatedQuote;
+                // Log movement
+                await databases.createDocument(
+                  DATABASE_ID,
+                  COLLECTIONS.STOCK_MOVEMENTS,
+                  ID.unique(),
+                  {
+                    tenant_id: user.tenant_id,
+                    product_id: item.product_id,
+                    product_name: item.name,
+                    movement_type: 'OUT',
+                    quantity: item.quantity,
+                    note: `Quote ${currentQuote.quote_number} accepted`,
+                  }
+                );
+              }
+            }
           }
-          return q;
-        })
+        }
+      }
+
+      await databases.updateDocument(
+        DATABASE_ID,
+        COLLECTIONS.QUOTES,
+        id,
+        { status }
       );
-      return updatedQuote;
+
+      setQuotes((prev) =>
+        prev.map((q) => (q.id === id ? { ...q, status } : q))
+      );
+    } catch (err: any) {
+      throw new Error(err.message || 'Failed to update quote status');
+    }
+  };
+
+  const updateDetails = async (id: string, updates: Partial<Quote>) => {
+    try {
+      const updatePayload: any = { ...updates };
+      
+      // Don't send arrays or objects directly, Appwrite attributes are specific types
+      delete updatePayload.items; 
+      delete updatePayload.id;
+      delete updatePayload.tenant_id;
+      delete updatePayload.created_at;
+
+      await databases.updateDocument(
+        DATABASE_ID,
+        COLLECTIONS.QUOTES,
+        id,
+        updatePayload
+      );
+
+      setQuotes((prev) =>
+        prev.map((q) => (q.id === id ? { ...q, ...updates } : q))
+      );
     } catch (err: any) {
       throw new Error(err.message || 'Failed to update quote details');
     }
   };
 
-  const updateStatus = async (id: string, status: Quote['status']) => {
-    return updateQuoteDetails(id, { status });
-  };
-
   const remove = async (id: string) => {
     try {
-      const { data: currentQuoteData, error: getError } = await supabase
-        .from('quotes')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle();
-
-      if (currentQuoteData) {
-        const oldStatus = currentQuoteData.status || 'Draft';
-        if (oldStatus === 'Accepted') {
-          const items = Array.isArray(currentQuoteData.items) ? currentQuoteData.items : [];
-          await adjustStockForQuoteItems(items, 'revert');
-        }
-      }
-
-      const { error: deleteError } = await supabase
-        .from('quotes')
-        .delete()
-        .eq('id', id);
-
-      if (deleteError) throw deleteError;
-
+      await databases.deleteDocument(DATABASE_ID, COLLECTIONS.QUOTES, id);
       setQuotes((prev) => prev.filter((q) => q.id !== id));
     } catch (err: any) {
       throw new Error(err.message || 'Failed to delete quote');
     }
   };
 
-  const getById = (id: string) => quotes.find((q) => q.id === id);
-
-  const fetchById = useCallback(async (id: string) => {
-    setLoading(true);
-    setError(null);
+  const fetchById = async (id: string): Promise<Quote | null> => {
+    if (!user) return null;
     try {
-      const { data, error: fetchError } = await supabase
-        .from('quotes')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle();
+      const doc = await databases.getDocument(DATABASE_ID, COLLECTIONS.QUOTES, id);
+      let parsedItems: LineItem[] = [];
+      try { parsedItems = JSON.parse(doc.items || '[]'); } catch {}
 
-      if (fetchError) throw fetchError;
-
-      if (data) {
-        const q: Quote = {
-          id: data.id,
-          user_id: data.user_id,
-          quote_number: data.quote_number || '',
-          client_name: data.client_name || '',
-          client_email: data.client_email || '',
-          client_phone: data.client_phone || '',
-          status: data.status || 'Draft',
-          subtotal: Number(data.subtotal) || 0,
-          discount: Number(data.discount) || 0,
-          tax: Number(data.tax) || 0,
-          total: Number(data.total) || 0,
-          notes: data.notes || '',
-          valid_until: data.valid_until || '',
-          created_at: data.created_at || new Date().toISOString(),
-          items: Array.isArray(data.items) ? data.items : [],
-          payment_status: data.payment_status || 'Pending',
-          payment_method: data.payment_method || '',
-          delivery_date: data.delivery_date || '',
-          delivery_partner: data.delivery_partner || '',
-          tracking_number: data.tracking_number || '',
-          delivery_status: data.delivery_status || 'Pending',
-          delivery_note: data.delivery_note || '',
-        };
-        return q;
-      }
+      return {
+        id: doc.$id,
+        tenant_id: doc.tenant_id,
+        user_id: doc.user_id || '',
+        quote_number: doc.quote_number || '',
+        client_name: doc.client_name || '',
+        client_email: doc.client_email || '',
+        client_phone: doc.client_phone || '',
+        customer_id: doc.customer_id || undefined,
+        status: doc.status as any,
+        subtotal: Number(doc.subtotal) || 0,
+        discount: Number(doc.discount) || 0,
+        tax: Number(doc.tax) || 0,
+        total: Number(doc.total) || 0,
+        notes: doc.notes || '',
+        valid_until: doc.valid_until || '',
+        created_at: doc.$createdAt || new Date().toISOString(),
+        items: parsedItems,
+        payment_status: doc.payment_status as any || 'Pending',
+        payment_method: doc.payment_method || undefined,
+        delivery_date: doc.delivery_date || undefined,
+        delivery_partner: doc.delivery_partner || undefined,
+        tracking_number: doc.tracking_number || undefined,
+        delivery_status: doc.delivery_status as any || 'Pending',
+        delivery_note: doc.delivery_note || undefined,
+      };
+    } catch {
       return null;
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch quote');
-      return null;
-    } finally {
-      setLoading(false);
     }
-  }, []);
+  };
 
-  return { quotes, loading, error, fetch, create, updateStatus, updateQuoteDetails, remove, getById, fetchById };
+  return { quotes, loading, error, fetch, fetchById, create, updateStatus, updateQuoteDetails: updateDetails, remove };
 };

@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '../config/supabase';
-import { Product } from '../types';
+import { databases, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
 import { useAuthStore } from '../store/useAuthStore';
+import { Product } from '../types';
 
 export const useProducts = () => {
   const user = useAuthStore((s) => s.user);
@@ -14,31 +14,33 @@ export const useProducts = () => {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: fetchError } = await supabase
-        .from('products')
-        .select('*')
-        .eq('tenant_id', user.tenant_id);
+      const response = await databases.listDocuments(
+        DATABASE_ID,
+        COLLECTIONS.PRODUCTS,
+        [
+          Query.equal('tenant_id', user.tenant_id),
+          Query.limit(500)
+        ]
+      );
 
-      if (fetchError) throw fetchError;
-
-      const mappedData: Product[] = (data || []).map((prod) => ({
-        id: prod.id,
-        user_id: prod.user_id || '',
-        name: prod.name || '',
-        description: prod.description || '',
-        unit_price: Number(prod.unit_price) || 0,
-        cost_price: prod.cost_price !== null && prod.cost_price !== undefined ? Number(prod.cost_price) : undefined,
-        stock_quantity: prod.stock_quantity !== null && prod.stock_quantity !== undefined ? Number(prod.stock_quantity) : undefined,
-        barcode: prod.barcode || '',
-        warehouse_location: prod.warehouse_location || '',
-        unit: prod.unit || 'Pcs',
-        category: prod.category || '',
-        sku: prod.sku || '',
-        created_at: prod.created_at || new Date().toISOString(),
-      }));
-
-      mappedData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      setProducts(mappedData);
+      setProducts(
+        response.documents.map((prod) => ({
+          id: prod.$id,
+          user_id: prod.user_id || '',
+          name: prod.name || '',
+          description: prod.description || '',
+          unit_price: Number(prod.unit_price) || 0,
+          cost_price: prod.cost_price !== null ? Number(prod.cost_price) : undefined,
+          stock_quantity: prod.stock_quantity !== null ? Number(prod.stock_quantity) : undefined,
+          unit: prod.unit || 'Pcs',
+          category: prod.category || '',
+          sku: prod.sku || '',
+          barcode: prod.barcode || '',
+          warehouse_location: prod.warehouse_location || '',
+          reorder_level: prod.reorder_level !== null ? Number(prod.reorder_level) : undefined,
+          created_at: prod.$createdAt || new Date().toISOString(),
+        }))
+      );
     } catch (err: any) {
       setError(err.message || 'Failed to fetch products');
     } finally {
@@ -46,46 +48,35 @@ export const useProducts = () => {
     }
   }, [user]);
 
-  const create = async (prod: Omit<Product, 'id' | 'user_id' | 'created_at'>) => {
+  const create = async (product: Omit<Product, 'id' | 'user_id' | 'created_at'>) => {
     if (!user) return null;
     try {
-      const newProdData = {
-        name: prod.name,
-        description: prod.description,
-        unit_price: prod.unit_price,
-        cost_price: prod.cost_price !== undefined ? prod.cost_price : null,
-        stock_quantity: prod.stock_quantity !== undefined ? prod.stock_quantity : null,
-        unit: prod.unit,
-        category: prod.category,
-        sku: prod.sku,
-        barcode: prod.barcode || '',
-        warehouse_location: prod.warehouse_location || '',
-        user_id: user.id,
-        tenant_id: user.tenant_id,
-      };
-
-      const { data, error: createError } = await supabase
-        .from('products')
-        .insert(newProdData)
-        .select()
-        .single();
-
-      if (createError) throw createError;
+      const doc = await databases.createDocument(
+        DATABASE_ID,
+        COLLECTIONS.PRODUCTS,
+        ID.unique(),
+        {
+          ...product,
+          tenant_id: user.tenant_id,
+          user_id: user.id,
+        }
+      );
 
       const newProduct: Product = {
-        id: data.id,
-        user_id: data.user_id || '',
-        name: data.name,
-        description: data.description || '',
-        unit_price: Number(data.unit_price) || 0,
-        cost_price: data.cost_price !== null && data.cost_price !== undefined ? Number(data.cost_price) : undefined,
-        stock_quantity: data.stock_quantity !== null && data.stock_quantity !== undefined ? Number(data.stock_quantity) : undefined,
-        unit: data.unit || 'Pcs',
-        category: data.category || '',
-        sku: data.sku || '',
-        barcode: data.barcode || '',
-        warehouse_location: data.warehouse_location || '',
-        created_at: data.created_at || new Date().toISOString(),
+        id: doc.$id,
+        user_id: doc.user_id || '',
+        name: doc.name || '',
+        description: doc.description || '',
+        unit_price: Number(doc.unit_price) || 0,
+        cost_price: doc.cost_price !== null ? Number(doc.cost_price) : undefined,
+        stock_quantity: doc.stock_quantity !== null ? Number(doc.stock_quantity) : undefined,
+        unit: doc.unit || 'Pcs',
+        category: doc.category || '',
+        sku: doc.sku || '',
+        barcode: doc.barcode || '',
+        warehouse_location: doc.warehouse_location || '',
+        reorder_level: doc.reorder_level !== null ? Number(doc.reorder_level) : undefined,
+        created_at: doc.$createdAt || new Date().toISOString(),
       };
 
       setProducts((prev) => [newProduct, ...prev]);
@@ -97,24 +88,24 @@ export const useProducts = () => {
 
   const update = async (id: string, updates: Partial<Product>) => {
     try {
-      const { error: updateError } = await supabase
-        .from('products')
-        .update(updates)
-        .eq('id', id);
+      const doc = await databases.updateDocument(
+        DATABASE_ID,
+        COLLECTIONS.PRODUCTS,
+        id,
+        updates
+      );
 
-      if (updateError) throw updateError;
-
-      let updatedProduct: Product | null = null;
+      let updated: Product | null = null;
       setProducts((prev) =>
         prev.map((p) => {
           if (p.id === id) {
-            updatedProduct = { ...p, ...updates };
-            return updatedProduct;
+            updated = { ...p, ...updates };
+            return updated;
           }
           return p;
         })
       );
-      return updatedProduct;
+      return updated;
     } catch (err: any) {
       throw new Error(err.message || 'Failed to update product');
     }
@@ -122,18 +113,50 @@ export const useProducts = () => {
 
   const remove = async (id: string) => {
     try {
-      const { error: deleteError } = await supabase
-        .from('products')
-        .delete()
-        .eq('id', id);
-
-      if (deleteError) throw deleteError;
-
+      await databases.deleteDocument(DATABASE_ID, COLLECTIONS.PRODUCTS, id);
       setProducts((prev) => prev.filter((p) => p.id !== id));
     } catch (err: any) {
       throw new Error(err.message || 'Failed to delete product');
     }
   };
 
-  return { products, loading, error, fetch, create, update, remove };
+  const findByBarcode = async (barcode: string): Promise<Product | null> => {
+    if (!user || !barcode.trim()) return null;
+    try {
+      const response = await databases.listDocuments(
+        DATABASE_ID,
+        COLLECTIONS.PRODUCTS,
+        [
+          Query.equal('tenant_id', user.tenant_id),
+          Query.equal('barcode', barcode.trim()),
+          Query.limit(1)
+        ]
+      );
+
+      if (response.documents.length > 0) {
+        const prod = response.documents[0];
+        return {
+          id: prod.$id,
+          user_id: prod.user_id || '',
+          name: prod.name || '',
+          description: prod.description || '',
+          unit_price: Number(prod.unit_price) || 0,
+          cost_price: prod.cost_price !== null ? Number(prod.cost_price) : undefined,
+          stock_quantity: prod.stock_quantity !== null ? Number(prod.stock_quantity) : undefined,
+          unit: prod.unit || 'Pcs',
+          category: prod.category || '',
+          sku: prod.sku || '',
+          barcode: prod.barcode || '',
+          warehouse_location: prod.warehouse_location || '',
+          reorder_level: prod.reorder_level !== null ? Number(prod.reorder_level) : undefined,
+          created_at: prod.$createdAt || new Date().toISOString(),
+        };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  return { products, loading, error, fetch, create, update, remove, findByBarcode };
 };

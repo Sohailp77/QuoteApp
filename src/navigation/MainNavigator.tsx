@@ -5,13 +5,18 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 
 import { HomeScreen } from '../screens/home/HomeScreen';
+import { AnalyticsDashboardScreen } from '../screens/home/AnalyticsDashboardScreen';
 import { QuotesScreen } from '../screens/quotes/QuotesScreen';
 import { QuoteDetailScreen } from '../screens/quotes/QuoteDetailScreen';
 import { CreateQuoteScreen } from '../screens/quotes/CreateQuoteScreen';
 import { EmployeesScreen } from '../screens/employees/EmployeesScreen';
 import { EmployeeFormScreen } from '../screens/employees/EmployeeFormScreen';
+import { CustomersScreen } from '../screens/customers/CustomersScreen';
+import { CustomerFormScreen } from '../screens/customers/CustomerFormScreen';
 import { ProductsScreen } from '../screens/products/ProductsScreen';
 import { ProductFormScreen } from '../screens/products/ProductFormScreen';
+import { CategoryManagerScreen } from '../screens/products/CategoryManagerScreen';
+import { StockManagementScreen } from '../screens/products/StockManagementScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { CompanySettingsScreen } from '../screens/profile/CompanySettingsScreen';
 import { TaxRatesScreen } from '../screens/profile/TaxRatesScreen';
@@ -21,10 +26,18 @@ import { WarehouseScreen } from '../screens/profile/WarehouseScreen';
 import { Colors } from '../theme';
 
 const Tab = createBottomTabNavigator();
+const HomeStack = createStackNavigator();
 const QuoteStack = createStackNavigator();
-const EmployeeStack = createStackNavigator();
+const PeopleStack = createStackNavigator();
 const ProductStack = createStackNavigator();
 const ProfileStack = createStackNavigator();
+
+const HomeStackNav = () => (
+  <HomeStack.Navigator screenOptions={{ headerShown: false }}>
+    <HomeStack.Screen name="HomeMain" component={HomeScreen} />
+    <HomeStack.Screen name="AnalyticsDashboard" component={AnalyticsDashboardScreen} />
+  </HomeStack.Navigator>
+);
 
 const QuotesStack = () => (
   <QuoteStack.Navigator screenOptions={{ headerShown: false }}>
@@ -34,17 +47,22 @@ const QuotesStack = () => (
   </QuoteStack.Navigator>
 );
 
-const EmployeesStack = () => (
-  <EmployeeStack.Navigator screenOptions={{ headerShown: false }}>
-    <EmployeeStack.Screen name="EmployeesList" component={EmployeesScreen} />
-    <EmployeeStack.Screen name="EmployeeForm" component={EmployeeFormScreen} />
-  </EmployeeStack.Navigator>
+// People = Employees + Customers combined under one tab
+const PeopleStackNav = () => (
+  <PeopleStack.Navigator screenOptions={{ headerShown: false }}>
+    <PeopleStack.Screen name="EmployeesList" component={EmployeesScreen} />
+    <PeopleStack.Screen name="EmployeeForm" component={EmployeeFormScreen} />
+    <PeopleStack.Screen name="CustomersList" component={CustomersScreen} />
+    <PeopleStack.Screen name="CustomerForm" component={CustomerFormScreen} />
+  </PeopleStack.Navigator>
 );
 
 const ProductsStack = () => (
   <ProductStack.Navigator screenOptions={{ headerShown: false }}>
     <ProductStack.Screen name="ProductsList" component={ProductsScreen} />
     <ProductStack.Screen name="ProductForm" component={ProductFormScreen} />
+    <ProductStack.Screen name="CategoryManager" component={CategoryManagerScreen} />
+    <ProductStack.Screen name="StockManagement" component={StockManagementScreen} />
   </ProductStack.Navigator>
 );
 
@@ -71,9 +89,8 @@ export const MainNavigator: React.FC = () => (
         const icons: Record<string, [string, string]> = {
           Home: ['home', 'home-outline'],
           Quotes: ['document-text', 'document-text-outline'],
-          Employees: ['people', 'people-outline'],
+          People: ['people', 'people-outline'],
           Products: ['cube', 'cube-outline'],
-          Categories: ['list', 'list-outline'],
           Profile: ['person', 'person-outline'],
         };
         const [filledIcon, outlineIcon] = icons[route.name] || ['ellipse', 'ellipse-outline'];
@@ -87,9 +104,9 @@ export const MainNavigator: React.FC = () => (
       },
     })}
   >
-    <Tab.Screen name="Home" component={HomeScreen} />
+    <Tab.Screen name="Home" component={HomeStackNav} />
     <Tab.Screen name="Quotes" component={QuotesStack} />
-    <Tab.Screen name="Employees" component={EmployeesStack} />
+    <Tab.Screen name="People" component={PeopleStackNav} />
     <Tab.Screen name="Products" component={ProductsStack} />
     <Tab.Screen name="Profile" component={ProfilesStack} />
   </Tab.Navigator>
