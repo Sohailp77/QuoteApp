@@ -7,27 +7,28 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useProducts } from '../../hooks/useProducts';
 import { useStockMovements } from '../../hooks/useStockMovements';
-import { MovementType } from '../../hooks/useStockMovements';
+import { StockMovement } from '../../types';
+
+type MovementType = StockMovement['movement_type'];
 import { Product } from '../../types';
 import { Colors, Radius, Shadow } from '../../theme';
 
 const MOVEMENT_TYPES: { type: MovementType; label: string; icon: string; color: string; sign: number }[] = [
-  { type: 'in', label: 'Stock In', icon: 'add-circle', color: '#10B981', sign: 1 },
-  { type: 'purchase', label: 'Purchase', icon: 'bag-add-outline', color: '#3B82F6', sign: 1 },
-  { type: 'out', label: 'Stock Out', icon: 'remove-circle', color: '#F59E0B', sign: -1 },
-  { type: 'adjustment', label: 'Adjustment', icon: 'sync-outline', color: '#6C63FF', sign: 1 },
-  { type: 'damage', label: 'Damage', icon: 'skull-outline', color: '#EF4444', sign: -1 },
-  { type: 'loss', label: 'Loss', icon: 'remove-circle-outline', color: '#EF4444', sign: -1 },
+  { type: 'IN', label: 'Stock In', icon: 'add-circle', color: '#10B981', sign: 1 },
+  { type: 'RETURN', label: 'Return', icon: 'sync-outline', color: '#3B82F6', sign: 1 },
+  { type: 'OUT', label: 'Stock Out', icon: 'remove-circle', color: '#F59E0B', sign: -1 },
+  { type: 'ADJUSTMENT', label: 'Adjustment', icon: 'sync-outline', color: '#6C63FF', sign: 1 },
+  { type: 'DAMAGE', label: 'Damage', icon: 'skull-outline', color: '#EF4444', sign: -1 },
 ];
 
 export const StockManagementScreen: React.FC = () => {
   const nav = useNavigation<any>();
   const { products, loading: prodLoading, fetch: fetchProducts, update: updateProduct } = useProducts();
-  const { movements, loading: movLoading, fetch: fetchMovements, recordMovement } = useStockMovements();
+  const { movements, loading: movLoading, fetch: fetchMovements, addMovement } = useStockMovements();
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showAdjustModal, setShowAdjustModal] = useState(false);
-  const [movType, setMovType] = useState<MovementType>('in');
+  const [movType, setMovType] = useState<MovementType>('IN');
   const [qtyInput, setQtyInput] = useState('');
   const [noteInput, setNoteInput] = useState('');
   const [supplierInput, setSupplierInput] = useState('');
@@ -67,24 +68,22 @@ export const StockManagementScreen: React.FC = () => {
 
     const movDef = MOVEMENT_TYPES.find((m) => m.type === movType)!;
     const currentStock = selectedProduct.stock_quantity ?? 0;
-    const newStock = movType === 'adjustment'
-      ? qty // absolute override for "adjustment"
+    const newStock = movType === 'ADJUSTMENT'
+      ? qty 
       : Math.max(0, currentStock + movDef.sign * qty);
 
     setSaving(true);
     try {
-      await recordMovement({
+      await addMovement({
         product_id: selectedProduct.id,
         product_name: selectedProduct.name,
         movement_type: movType,
         quantity: qty,
         note: noteInput.trim(),
-        supplier: supplierInput.trim(),
-        new_stock: newStock,
       });
       setShowAdjustModal(false);
       fetchProducts();
-      Alert.alert('Done', `Stock updated. New stock: ${newStock} ${selectedProduct.unit}.`);
+      Alert.alert('Done', 'Stock movement recorded.');
     } catch (err: any) {
       Alert.alert('Error', err.message);
     } finally {
@@ -194,7 +193,7 @@ export const StockManagementScreen: React.FC = () => {
 
                 {/* Quick action buttons */}
                 <View style={styles.actionRow}>
-                  {MOVEMENT_TYPES.filter((m) => ['in', 'out', 'adjustment', 'damage'].includes(m.type)).map((m) => (
+                  {MOVEMENT_TYPES.filter((m) => ['IN', 'OUT', 'ADJUSTMENT', 'DAMAGE'].includes(m.type)).map((m) => (
                     <TouchableOpacity
                       key={m.type}
                       style={[styles.movBtn, { borderColor: m.color + '50' }]}
@@ -280,19 +279,19 @@ export const StockManagementScreen: React.FC = () => {
             </View>
 
             <Text style={styles.fieldLabel}>
-              {movType === 'adjustment' ? 'Set New Stock Quantity' : 'Quantity'}
+              {movType === 'ADJUSTMENT' ? 'Set New Stock Quantity' : 'Quantity'}
             </Text>
             <TextInput
               style={styles.fieldInput}
               value={qtyInput}
               onChangeText={setQtyInput}
-              placeholder={movType === 'adjustment' ? 'Enter absolute new stock' : 'Enter quantity'}
+              placeholder={movType === 'ADJUSTMENT' ? 'Enter absolute new stock' : 'Enter quantity'}
               placeholderTextColor={Colors.textMuted}
               keyboardType="number-pad"
               autoFocus
             />
 
-            {(movType === 'in' || movType === 'purchase') && (
+            {(movType === 'IN' || movType === 'RETURN') && (
               <>
                 <Text style={styles.fieldLabel}>Supplier (optional)</Text>
                 <TextInput

@@ -66,9 +66,8 @@ export const ProductCategoriesScreen: React.FC = () => {
       } else {
         await create({
           name: catName.trim(),
-          description: catDesc.trim(),
-          unit_name: catUnit.trim(),
-          metric_type: 'fixed',
+          unit_name: catUnit.trim() || undefined,
+          metric_type: isMeasured ? 'measured' : 'fixed',
           is_active: true,
         });
         Alert.alert('Success', 'Category created successfully.');

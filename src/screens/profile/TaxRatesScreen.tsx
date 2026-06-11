@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { useTaxRates, TaxRate } from '../../hooks/useTaxRates';
+import { useTaxRates } from '../../hooks/useTaxRates';
+import { TaxRate } from '../../types';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Colors, Radius, Shadow } from '../../theme';
 
@@ -59,8 +60,9 @@ export const TaxRatesScreen: React.FC = () => {
                     try {
                       await create({
                         name: name.trim(),
-                        rate: rate,
+                        percentage: rate,
                         is_active: true,
+                        is_default: false,
                       });
                       Alert.alert('Success', `Tax slab "${name}" added successfully.`);
                     } catch (err: any) {
@@ -157,7 +159,7 @@ export const TaxRatesScreen: React.FC = () => {
             <View style={[styles.itemCard, !item.is_active && styles.itemCardInactive]}>
               <View style={styles.itemInfo}>
                 <Text style={[styles.itemName, !item.is_active && styles.textInactive]}>{item.name}</Text>
-                <Text style={styles.itemRate}>{item.rate}%</Text>
+                <Text style={styles.itemRate}>{item.percentage}%</Text>
               </View>
 
               <View style={styles.itemActions}>

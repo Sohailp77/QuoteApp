@@ -66,18 +66,24 @@ export const useQuotes = () => {
     }
   }, [user]);
 
-  const create = async (quoteData: Omit<Quote, 'id' | 'user_id' | 'quote_number' | 'created_at' | 'items' | 'tenant_id'>, items: LineItem[]) => {
+  const create = async (
+    quoteData: Omit<Quote, 'id' | 'user_id' | 'quote_number' | 'created_at' | 'items' | 'tenant_id'>,
+    items: Omit<LineItem, 'id' | 'quote_id'>[]
+  ) => {
     if (!user) return null;
     try {
       const quoteNumber = `QT-${Date.now().toString().slice(-6)}`;
       
+      // Inject dummy IDs for items to satisfy LineItem type if needed downstream
+      const finalItems: LineItem[] = items.map((i) => ({ ...i, id: ID.unique() }));
+
       const doc = await databases.createDocument(
         DATABASE_ID,
         COLLECTIONS.QUOTES,
         ID.unique(),
         {
           ...quoteData,
-          items: JSON.stringify(items),
+          items: JSON.stringify(finalItems),
           tenant_id: user.tenant_id,
           user_id: user.id,
           quote_number: quoteNumber,
@@ -101,7 +107,7 @@ export const useQuotes = () => {
         notes: doc.notes,
         valid_until: doc.valid_until,
         created_at: doc.$createdAt,
-        items,
+        items: finalItems,
         payment_status: doc.payment_status as any || 'Pending',
         payment_method: doc.payment_method,
         delivery_date: doc.delivery_date,
@@ -147,7 +153,7 @@ export const useQuotes = () => {
                   {
                     tenant_id: user.tenant_id,
                     product_id: item.product_id,
-                    product_name: item.name,
+                    product_name: item.product_name,
                     movement_type: 'OUT',
                     quantity: item.quantity,
                     note: `Quote ${currentQuote.quote_number} accepted`,

@@ -39,7 +39,7 @@ export const useCategories = () => {
     }
   }, [user]);
 
-  const create = async (category: Omit<Category, 'id' | 'tenant_id'>) => {
+  const create = async (category: Omit<Category, 'id' | 'tenant_id' | 'metric_type' | 'description'>) => {
     if (!user) return null;
     try {
       const doc = await databases.createDocument(

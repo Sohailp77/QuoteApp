@@ -99,6 +99,9 @@ export interface CompanySettings {
   default_notes?: string;
   terms_conditions?: string;
   logo_url?: string;
+  bank_name?: string;
+  account_number?: string;
+  ifsc_code?: string;
 }
 
 export type QuoteStatus = 'Draft' | 'Sent' | 'Accepted' | 'Rejected' | 'Expired';
@@ -107,7 +110,7 @@ export interface QuoteItem {
   id: string;
   quote_id?: string;
   product_id?: string;
-  name: string;
+  product_name: string;
   unit_price: number;
   quantity: number;
   discount: number; // percentage
@@ -142,3 +145,38 @@ export interface Quote {
   delivery_status?: 'Pending' | 'Shipped' | 'Delivered';
   delivery_note?: string;
 }
+
+// Navigation types
+export type RootStackParamList = {
+  Splash: undefined;
+  Auth: undefined;
+  Main: undefined;
+};
+
+export type AuthStackParamList = {
+  Login: undefined;
+};
+
+export type MainTabParamList = {
+  Home: undefined;
+  Quotes: undefined;
+  Employees: undefined;
+  Products: undefined;
+  Profile: undefined;
+};
+
+export type QuoteStackParamList = {
+  QuotesList: undefined;
+  QuoteDetail: { quoteId: string };
+  CreateQuote: undefined;
+};
+
+export type EmployeeStackParamList = {
+  EmployeesList: undefined;
+  EmployeeForm: { employee?: Employee };
+};
+
+export type ProductStackParamList = {
+  ProductsList: undefined;
+  ProductForm: { product?: Product };
+};

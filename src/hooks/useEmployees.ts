@@ -42,7 +42,7 @@ export const useEmployees = () => {
     }
   }, [user]);
 
-  const create = async (employee: Omit<Employee, 'id' | 'tenant_id'>) => {
+  const create = async (employee: Omit<Employee, 'id' | 'tenant_id' | 'user_id' | 'joined_date' | 'status'>) => {
     if (!user) return null;
     try {
       const doc = await databases.createDocument(
@@ -51,6 +51,7 @@ export const useEmployees = () => {
         ID.unique(),
         {
           ...employee,
+          status: 'Active',
           tenant_id: user.tenant_id,
         }
       );

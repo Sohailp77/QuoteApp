@@ -333,7 +333,7 @@ export const CreateQuoteScreen: React.FC = () => {
               <Text style={fieldStyles.label}>Tax Slab</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsContainer}>
                 {activeTaxes.map((rate) => {
-                  const isSelected = parseFloat(taxPct) === rate.rate;
+                  const isSelected = parseFloat(taxPct) === rate.percentage;
                   return (
                     <TouchableOpacity
                       key={rate.id}
@@ -341,10 +341,10 @@ export const CreateQuoteScreen: React.FC = () => {
                         styles.chip,
                         isSelected && styles.chipSelected
                       ]}
-                      onPress={() => setTaxPct(rate.rate.toString())}
+                      onPress={() => setTaxPct(rate.percentage.toString())}
                     >
                       <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
-                        {rate.name} ({rate.rate}%)
+                        {rate.name} ({rate.percentage}%)
                       </Text>
                     </TouchableOpacity>
                   );
@@ -352,7 +352,7 @@ export const CreateQuoteScreen: React.FC = () => {
                 <TouchableOpacity
                   style={[
                     styles.chip,
-                    !activeTaxes.some((t) => t.rate === parseFloat(taxPct)) && styles.chipSelected
+                    !activeTaxes.some((t) => t.percentage === parseFloat(taxPct)) && styles.chipSelected
                   ]}
                   onPress={() => {
                     Alert.prompt(
@@ -375,7 +375,7 @@ export const CreateQuoteScreen: React.FC = () => {
                     );
                   }}
                 >
-                  <Text style={[styles.chipText, !activeTaxes.some((t) => t.rate === parseFloat(taxPct)) && styles.chipTextSelected]}>
+                  <Text style={[styles.chipText, !activeTaxes.some((t) => t.percentage === parseFloat(taxPct)) && styles.chipTextSelected]}>
                     Custom ({taxPct}%)
                   </Text>
                 </TouchableOpacity>

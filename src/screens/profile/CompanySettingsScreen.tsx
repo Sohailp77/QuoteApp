@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { useCompanySettings, CompanySettings } from '../../hooks/useCompanySettings';
+import { useCompanySettings } from '../../hooks/useCompanySettings';
+import { CompanySettings } from '../../types';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Colors, Radius, Shadow, Spacing } from '../../theme';
 import { Button } from '../../components/ui/Button';
@@ -65,7 +66,7 @@ export const CompanySettingsScreen: React.FC = () => {
 
     setSaving(true);
     try {
-      const updated: CompanySettings = {
+      const updated: Partial<CompanySettings> = {
         company_name: companyName.trim(),
         address: address.trim(),
         phone: phone.trim(),

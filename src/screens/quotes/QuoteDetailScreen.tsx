@@ -30,7 +30,7 @@ export const QuoteDetailScreen: React.FC = () => {
   const nav = useNavigation<any>();
   const route = useRoute<RouteProp<{ params: { quoteId: string } }, 'params'>>();
   const { quoteId } = route.params;
-  const { fetchById, updateQuoteDetails, remove } = useQuotes();
+  const { fetchById, updateQuoteDetails, updateStatus, remove } = useQuotes();
 
   const { settings: company, fetch: fetchCompany } = useCompanySettings();
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -71,27 +71,10 @@ export const QuoteDetailScreen: React.FC = () => {
     loadQuote();
   }, [fetchCompany, loadQuote]);
 
-  if (fetching) {
-    return (
-      <View style={styles.notFound}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-      </View>
-    );
-  }
+  const generateHTML = () => {
+    if (!quote || !company) return '';
 
-  if (!quote) {
-    return (
-      <View style={styles.notFound}>
-        <Text style={styles.notFoundText}>Quote not found</Text>
-        <Button title="Go Back" onPress={() => nav.goBack()} variant="ghost" />
-      </View>
-    );
-  }
-
-  const handleSharePDF = async () => {
-    setPdfLoading(true);
-    try {
-      const html = `
+    return `
 <!DOCTYPE html>
 <html>
 <head>
@@ -386,7 +369,30 @@ export const QuoteDetailScreen: React.FC = () => {
   </div>
 </body>
 </html>
-      `;
+    `;
+  };
+
+  if (fetching) {
+    return (
+      <View style={styles.notFound}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
+  if (!quote) {
+    return (
+      <View style={styles.notFound}>
+        <Text style={styles.notFoundText}>Quote not found</Text>
+        <Button title="Go Back" onPress={() => nav.goBack()} variant="ghost" />
+      </View>
+    );
+  }
+
+  const handleSharePDF = async () => {
+    setPdfLoading(true);
+    try {
+      const html = generateHTML();
 
       const { uri } = await Print.printToFileAsync({ html });
       
@@ -406,14 +412,12 @@ export const QuoteDetailScreen: React.FC = () => {
     }
   };
 
-  const handleStatusChange = async (status: QuoteStatus) => {
+  const handleStatusChange = async (newStatus: QuoteStatus) => {
     setUpdating(true);
     try {
-      const updated = await updateQuoteDetails(quoteId, { status });
-      if (updated) {
-        setQuote(updated);
-      }
-      Alert.alert('Success', `Quote marked as ${status}`);
+      await updateStatus(quoteId, newStatus);
+      setQuote((prev) => (prev ? { ...prev, status: newStatus } : null));
+      Alert.alert('Status Updated', `Quote marked as ${newStatus}`);
     } catch (e: any) {
       Alert.alert('Error', e.message);
     } finally {
