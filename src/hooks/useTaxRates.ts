@@ -1,16 +1,5 @@
 import { useState, useCallback } from 'react';
-import { 
-  collection, 
-  query, 
-  where, 
-  getDocs, 
-  addDoc, 
-  doc, 
-  updateDoc, 
-  deleteDoc,
-  serverTimestamp
-} from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { supabase } from '../config/supabase';
 import { useAuthStore } from '../store/useAuthStore';
 
 export interface TaxRate {
@@ -33,28 +22,24 @@ export const useTaxRates = () => {
     setLoading(true);
     setError(null);
     try {
-      const q = query(
-        collection(db, 'tax_rates'),
-        where('tenant_id', '==', user.tenant_id)
-      );
-      const querySnapshot = await getDocs(q);
-      const data: TaxRate[] = [];
-      querySnapshot.forEach((docSnapshot) => {
-        const docData = docSnapshot.data();
-        data.push({
-          id: docSnapshot.id,
-          tenant_id: docData.tenant_id || '',
-          name: docData.name || '',
-          rate: Number(docData.rate) || 0,
-          is_active: docData.is_active !== false,
-          created_at: docData.created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
-        });
-      });
-      
-      // Sort in memory
-      data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      
-      setTaxRates(data);
+      const { data, error: fetchError } = await supabase
+        .from('tax_rates')
+        .select('*')
+        .eq('tenant_id', user.tenant_id);
+
+      if (fetchError) throw fetchError;
+
+      const mappedData: TaxRate[] = (data || []).map((tr) => ({
+        id: tr.id,
+        tenant_id: tr.tenant_id || '',
+        name: tr.name || '',
+        rate: Number(tr.rate) || 0,
+        is_active: tr.is_active !== false,
+        created_at: tr.created_at || new Date().toISOString(),
+      }));
+
+      mappedData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      setTaxRates(mappedData);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch tax rates');
     } finally {
@@ -69,19 +54,29 @@ export const useTaxRates = () => {
     }
     try {
       const newRateData = {
-        ...rateData,
-        tenant_id: user.tenant_id,
-        created_at: serverTimestamp()
-      };
-      const docRef = await addDoc(collection(db, 'tax_rates'), newRateData);
-      const newTaxRate: TaxRate = {
-        id: docRef.id,
-        tenant_id: user.tenant_id,
         name: rateData.name,
         rate: rateData.rate,
         is_active: rateData.is_active,
-        created_at: new Date().toISOString()
+        tenant_id: user.tenant_id,
       };
+
+      const { data, error: createError } = await supabase
+        .from('tax_rates')
+        .insert(newRateData)
+        .select()
+        .single();
+
+      if (createError) throw createError;
+
+      const newTaxRate: TaxRate = {
+        id: data.id,
+        tenant_id: data.tenant_id || '',
+        name: data.name,
+        rate: Number(data.rate) || 0,
+        is_active: data.is_active,
+        created_at: data.created_at || new Date().toISOString(),
+      };
+
       setTaxRates((prev) => [newTaxRate, ...prev]);
       return newTaxRate;
     } catch (err: any) {
@@ -95,11 +90,15 @@ export const useTaxRates = () => {
       throw new Error('Only the owner (Boss) can modify tax slabs.');
     }
     try {
-      const rateRef = doc(db, 'tax_rates', id);
-      await updateDoc(rateRef, updates);
-      
+      const { error: updateError } = await supabase
+        .from('tax_rates')
+        .update(updates)
+        .eq('id', id);
+
+      if (updateError) throw updateError;
+
       let updatedRate: TaxRate | null = null;
-      setTaxRates((prev) => 
+      setTaxRates((prev) =>
         prev.map((r) => {
           if (r.id === id) {
             updatedRate = { ...r, ...updates };
@@ -120,8 +119,13 @@ export const useTaxRates = () => {
       throw new Error('Only the owner (Boss) can delete tax slabs.');
     }
     try {
-      const rateRef = doc(db, 'tax_rates', id);
-      await deleteDoc(rateRef);
+      const { error: deleteError } = await supabase
+        .from('tax_rates')
+        .delete()
+        .eq('id', id);
+
+      if (deleteError) throw deleteError;
+
       setTaxRates((prev) => prev.filter((r) => r.id !== id));
     } catch (err: any) {
       throw new Error(err.message || 'Failed to delete tax rate');

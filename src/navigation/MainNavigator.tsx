@@ -16,6 +16,7 @@ import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { CompanySettingsScreen } from '../screens/profile/CompanySettingsScreen';
 import { TaxRatesScreen } from '../screens/profile/TaxRatesScreen';
 import { ProductCategoriesScreen } from '../screens/profile/ProductCategoriesScreen';
+import { WarehouseScreen } from '../screens/profile/WarehouseScreen';
 
 import { Colors } from '../theme';
 
@@ -53,6 +54,7 @@ const ProfilesStack = () => (
     <ProfileStack.Screen name="CompanySettings" component={CompanySettingsScreen} />
     <ProfileStack.Screen name="TaxRates" component={TaxRatesScreen} />
     <ProfileStack.Screen name="ProductCategories" component={ProductCategoriesScreen} />
+    <ProfileStack.Screen name="Warehouse" component={WarehouseScreen} />
   </ProfileStack.Navigator>
 );
 

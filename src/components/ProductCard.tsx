@@ -74,9 +74,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onDe
         </View>
       </View>
 
-      {product.sku ? (
-        <Text style={styles.sku}>SKU: {product.sku}</Text>
-      ) : null}
+      <View style={styles.cardFooter}>
+        {product.sku ? (
+          <Text style={styles.sku}>SKU: {product.sku}</Text>
+        ) : null}
+        {product.barcode ? (
+          <View style={styles.footerField}>
+            <Ionicons name="barcode-outline" size={12} color={Colors.textMuted} />
+            <Text style={styles.sku}>{product.barcode}</Text>
+          </View>
+        ) : null}
+        {product.warehouse_location ? (
+          <View style={styles.footerField}>
+            <Ionicons name="location-outline" size={12} color={Colors.textMuted} />
+            <Text style={styles.sku}>{product.warehouse_location}</Text>
+          </View>
+        ) : null}
+      </View>
     </TouchableOpacity>
   );
 };
@@ -125,5 +139,19 @@ const styles = StyleSheet.create({
   price: { fontSize: 17, fontWeight: '700', color: Colors.primary },
   costPrice: { fontSize: 12, color: Colors.textSecondary, fontWeight: '500' },
   deleteBtn: { marginTop: 4 },
-  sku: { fontSize: 11, color: Colors.textMuted, marginTop: 8 },
+  sku: { fontSize: 11, color: Colors.textMuted },
+  cardFooter: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: Colors.divider,
+    paddingTop: 8,
+  },
+  footerField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
 });

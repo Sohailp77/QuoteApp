@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Alert,
   Modal,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
@@ -16,6 +17,9 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Colors, Radius, Shadow, StatusColors } from '../../theme';
 import { Quote, QuoteStatus } from '../../types';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import { useCompanySettings } from '../../hooks/useCompanySettings';
 
 const formatCurrency = (amount: number) =>
   `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
@@ -26,8 +30,13 @@ export const QuoteDetailScreen: React.FC = () => {
   const nav = useNavigation<any>();
   const route = useRoute<RouteProp<{ params: { quoteId: string } }, 'params'>>();
   const { quoteId } = route.params;
-  const { getById, updateQuoteDetails, remove } = useQuotes();
-  
+  const { fetchById, updateQuoteDetails, remove } = useQuotes();
+
+  const { settings: company, fetch: fetchCompany } = useCompanySettings();
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [quote, setQuote] = useState<Quote | null>(null);
+  const [fetching, setFetching] = useState(true);
+
   const [updating, setUpdating] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
 
@@ -40,7 +49,36 @@ export const QuoteDetailScreen: React.FC = () => {
   const [trackingNum, setTrackingNum] = useState('');
   const [delNote, setDelNote] = useState('');
 
-  const quote = getById(quoteId);
+  const loadQuote = useCallback(async () => {
+    setFetching(true);
+    const data = await fetchById(quoteId);
+    if (data) {
+      setQuote(data);
+      // Initialize edit fields
+      setPayStatus(data.payment_status || 'Pending');
+      setPayMethod(data.payment_method || '');
+      setDelStatus(data.delivery_status || 'Pending');
+      setDelDate(data.delivery_date || '');
+      setDelPartner(data.delivery_partner || '');
+      setTrackingNum(data.tracking_number || '');
+      setDelNote(data.delivery_note || '');
+    }
+    setFetching(false);
+  }, [quoteId, fetchById]);
+
+  useEffect(() => {
+    fetchCompany();
+    loadQuote();
+  }, [fetchCompany, loadQuote]);
+
+  if (fetching) {
+    return (
+      <View style={styles.notFound}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
   if (!quote) {
     return (
       <View style={styles.notFound}>
@@ -50,10 +88,331 @@ export const QuoteDetailScreen: React.FC = () => {
     );
   }
 
+  const handleSharePDF = async () => {
+    setPdfLoading(true);
+    try {
+      const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Quote ${quote.quote_number}</title>
+  <style>
+    body {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 30px;
+      color: #333;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .header-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 30px;
+    }
+    .company-name {
+      font-size: 24px;
+      font-weight: bold;
+      color: #0F0F1A;
+      margin-bottom: 5px;
+    }
+    .company-details {
+      color: #666;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .title-cell {
+      text-align: right;
+      vertical-align: top;
+    }
+    .quote-title {
+      font-size: 28px;
+      font-weight: 800;
+      color: #6C63FF;
+      margin: 0 0 10px 0;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .quote-meta {
+      font-size: 13px;
+      color: #333;
+      line-height: 1.5;
+    }
+    .quote-meta span {
+      font-weight: bold;
+    }
+    .divider {
+      height: 2px;
+      background-color: #6C63FF;
+      margin: 20px 0;
+    }
+    .details-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 30px;
+    }
+    .details-cell {
+      width: 50%;
+      vertical-align: top;
+    }
+    .section-title {
+      font-size: 12px;
+      font-weight: bold;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+    .client-info {
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .client-name {
+      font-weight: bold;
+      color: #0F0F1A;
+    }
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 30px;
+    }
+    .items-table th {
+      background-color: #0F0F1A;
+      color: #ffffff;
+      text-align: left;
+      padding: 10px;
+      font-size: 12px;
+      text-transform: uppercase;
+      font-weight: bold;
+    }
+    .items-table td {
+      padding: 12px 10px;
+      border-bottom: 1px solid #eee;
+      font-size: 13px;
+    }
+    .items-table tr:last-child td {
+      border-bottom: 2px solid #0F0F1A;
+    }
+    .totals-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 40px;
+    }
+    .totals-label {
+      width: 80%;
+      text-align: right;
+      padding: 6px 10px;
+      font-size: 13px;
+      color: #666;
+    }
+    .totals-value {
+      width: 20%;
+      text-align: right;
+      padding: 6px 10px;
+      font-size: 13px;
+      font-weight: bold;
+      color: #333;
+    }
+    .final-row .totals-label {
+      font-size: 16px;
+      font-weight: bold;
+      color: #0F0F1A;
+      padding-top: 12px;
+    }
+    .final-row .totals-value {
+      font-size: 18px;
+      font-weight: bold;
+      color: #6C63FF;
+      padding-top: 12px;
+    }
+    .footer-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 30px;
+      font-size: 12px;
+      color: #555;
+      background-color: #f9f9fb;
+      border: 1px solid #eee;
+      border-radius: 6px;
+    }
+    .footer-cell {
+      padding: 15px;
+      vertical-align: top;
+      width: 50%;
+    }
+    .footer-title {
+      font-weight: bold;
+      color: #0F0F1A;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
+    .thankyou {
+      text-align: center;
+      margin-top: 40px;
+      font-size: 14px;
+      font-style: italic;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <table class="header-table">
+    <tr>
+      <td>
+        <div class="company-name">${company.company_name || 'QUOTEAPP CORP'}</div>
+        <div class="company-details">
+          ${company.address ? `${company.address}<br>` : ''}
+          ${company.phone ? `Phone: ${company.phone} &nbsp;|&nbsp; ` : ''}
+          ${company.email ? `Email: ${company.email}` : ''}
+          ${company.gst_number ? `<br>GSTIN: <strong>${company.gst_number}</strong>` : ''}
+        </div>
+      </td>
+      <td class="title-cell">
+        <h1 class="quote-title">Quotation</h1>
+        <div class="quote-meta">
+          Quote #: <strong>${quote.quote_number}</strong><br>
+          Date: <span>${new Date(quote.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span><br>
+          Valid Until: <span>${new Date(quote.valid_until).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+        </div>
+      </td>
+    </tr>
+  </table>
+
+  <div class="divider"></div>
+
+  <table class="details-table">
+    <tr>
+      <td class="details-cell">
+        <div class="section-title">Quotation For</div>
+        <div class="client-info">
+          <div class="client-name">${quote.client_name}</div>
+          <div>${quote.client_email}</div>
+          ${quote.client_phone ? `<div>Phone: ${quote.client_phone}</div>` : ''}
+        </div>
+      </td>
+      <td class="details-cell" style="text-align: right;">
+        <div class="section-title">Status</div>
+        <div style="font-size: 16px; font-weight: bold; color: ${
+          quote.status === 'Accepted' ? '#2EC4B6' : quote.status === 'Rejected' ? '#FF1E27' : '#6C63FF'
+        };">
+          ${quote.status}
+        </div>
+      </td>
+    </tr>
+  </table>
+
+  <table class="items-table">
+    <thead>
+      <tr>
+        <th style="width: 5%">#</th>
+        <th style="width: 50%">Product / Service Description</th>
+        <th style="width: 15%; text-align: right;">Unit Price</th>
+        <th style="width: 10%; text-align: center;">Qty</th>
+        <th style="width: 10%; text-align: center;">Disc %</th>
+        <th style="width: 15%; text-align: right;">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${(quote.items || []).map((item, idx) => `
+        <tr>
+          <td>${idx + 1}</td>
+          <td><strong>${item.product_name}</strong></td>
+          <td style="text-align: right;">₹${item.unit_price.toLocaleString('en-IN')}</td>
+          <td style="text-align: center;">${item.quantity}</td>
+          <td style="text-align: center;">${item.discount}%</td>
+          <td style="text-align: right; font-weight: bold;">₹${item.line_total.toLocaleString('en-IN')}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+
+  <table class="totals-table">
+    <tr>
+      <td class="totals-label">Subtotal</td>
+      <td class="totals-value">₹${quote.subtotal.toLocaleString('en-IN')}</td>
+    </tr>
+    ${quote.discount > 0 ? `
+      <tr>
+        <td class="totals-label">Discount</td>
+        <td class="totals-value" style="color: #2EC4B6;">-₹${quote.discount.toLocaleString('en-IN')}</td>
+      </tr>
+    ` : ''}
+    ${quote.tax > 0 ? `
+      <tr>
+        <td class="totals-label">Tax (GST)</td>
+        <td class="totals-value">₹${quote.tax.toLocaleString('en-IN')}</td>
+      </tr>
+    ` : ''}
+    <tr class="final-row">
+      <td class="totals-label">Grand Total</td>
+      <td class="totals-value">₹${quote.total.toLocaleString('en-IN')}</td>
+    </tr>
+  </table>
+
+  <table class="footer-table">
+    <tr>
+      ${company.bank_name || company.account_number ? `
+        <td class="footer-cell" style="border-right: 1px solid #eee;">
+          <div class="footer-title">Bank Details (For Payments)</div>
+          <div>Bank Name: <strong>${company.bank_name || 'N/A'}</strong></div>
+          <div>Account Number: <strong>${company.account_number || 'N/A'}</strong></div>
+          <div>IFSC Code: <strong>${company.ifsc_code || 'N/A'}</strong></div>
+        </td>
+      ` : ''}
+      
+      ${quote.status === 'Accepted' && (quote.delivery_date || quote.delivery_partner) ? `
+        <td class="footer-cell">
+          <div class="footer-title">Delivery & Logistics</div>
+          <div>Delivery Partner: <strong>${quote.delivery_partner || 'Pending'}</strong></div>
+          ${quote.tracking_number ? `<div>Tracking #: <strong>${quote.tracking_number}</strong></div>` : ''}
+          ${quote.delivery_date ? `<div>Expected Date: <strong>${new Date(quote.delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</strong></div>` : ''}
+          <div>Delivery Status: <strong>${quote.delivery_status || 'Pending'}</strong></div>
+        </td>
+      ` : `
+        <td class="footer-cell">
+          <div class="footer-title">Terms & Conditions</div>
+          <div>1. Validity of this quotation is ${Math.round((new Date(quote.valid_until).getTime() - new Date(quote.created_at).getTime()) / (1000 * 60 * 60 * 24))} days.</div>
+          <div>2. Deliveries will be executed as per schedule.</div>
+        </td>
+      `}
+    </tr>
+  </table>
+
+  <div class="thankyou">
+    Thank you for choosing ${company.company_name || 'our services'}!
+  </div>
+</body>
+</html>
+      `;
+
+      const { uri } = await Print.printToFileAsync({ html });
+      
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: `Share Quote ${quote.quote_number}`,
+          UTI: 'com.adobe.pdf',
+        });
+      } else {
+        Alert.alert('Error', 'Sharing is not available on this device');
+      }
+    } catch (e: any) {
+      Alert.alert('PDF Error', e.message || 'Failed to generate PDF');
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   const handleStatusChange = async (status: QuoteStatus) => {
     setUpdating(true);
     try {
-      await updateQuoteDetails(quoteId, { status });
+      const updated = await updateQuoteDetails(quoteId, { status });
+      if (updated) {
+        setQuote(updated);
+      }
       Alert.alert('Success', `Quote marked as ${status}`);
     } catch (e: any) {
       Alert.alert('Error', e.message);
@@ -76,7 +435,7 @@ export const QuoteDetailScreen: React.FC = () => {
   const handleSaveDetails = async () => {
     setUpdating(true);
     try {
-      await updateQuoteDetails(quoteId, {
+      const updated = await updateQuoteDetails(quoteId, {
         payment_status: payStatus,
         payment_method: payMethod.trim(),
         delivery_status: delStatus,
@@ -85,6 +444,9 @@ export const QuoteDetailScreen: React.FC = () => {
         tracking_number: trackingNum.trim(),
         delivery_note: delNote.trim(),
       });
+      if (updated) {
+        setQuote(updated);
+      }
       setShowEditModal(false);
       Alert.alert('Success', 'Delivery and Payment information updated successfully.');
     } catch (e: any) {
@@ -118,9 +480,18 @@ export const QuoteDetailScreen: React.FC = () => {
           <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{quote.quote_number}</Text>
-        <TouchableOpacity onPress={handleDelete} style={styles.deleteBtn}>
-          <Ionicons name="trash-outline" size={20} color={Colors.statusRejected} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <TouchableOpacity onPress={handleSharePDF} style={styles.shareBtn} disabled={pdfLoading}>
+            {pdfLoading ? (
+              <ActivityIndicator size="small" color={Colors.accent} />
+            ) : (
+              <Ionicons name="share-social-outline" size={20} color={Colors.accent} />
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleDelete} style={styles.deleteBtn}>
+            <Ionicons name="trash-outline" size={20} color={Colors.statusRejected} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -140,6 +511,24 @@ export const QuoteDetailScreen: React.FC = () => {
               day: 'numeric', month: 'long', year: 'numeric',
             })}
           </Text>
+          <View style={styles.barcodeWrapper}>
+            <View style={styles.barcodeLines}>
+              {Array.from(quote.quote_number).map((char, index) => {
+                const val = char.charCodeAt(0) % 4;
+                const width = val === 0 ? 1 : val === 1 ? 2 : val === 2 ? 3 : 4;
+                return (
+                  <View
+                    key={index}
+                    style={[
+                      styles.barcodeBar,
+                      { width, backgroundColor: Colors.textPrimary, marginRight: index % 2 === 0 ? 2 : 1 },
+                    ]}
+                  />
+                );
+              })}
+            </View>
+            <Text style={styles.barcodeText}>{quote.quote_number}</Text>
+          </View>
         </View>
 
         {/* Client Info */}
@@ -511,6 +900,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  shareBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: Colors.accent + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   hero: {
     marginHorizontal: 20,
     marginBottom: 20,
@@ -719,5 +1116,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: Colors.textSecondary,
+  },
+  barcodeWrapper: {
+    marginTop: 16,
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    padding: 10,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  barcodeLines: {
+    flexDirection: 'row',
+    height: 36,
+    alignItems: 'stretch',
+    marginBottom: 4,
+  },
+  barcodeBar: {
+    height: '100%',
+  },
+  barcodeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    letterSpacing: 2,
   },
 });

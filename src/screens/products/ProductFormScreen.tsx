@@ -21,6 +21,32 @@ type RouteParams = { product?: Product };
 
 const UNITS = ['piece', 'kg', 'litre', 'meter', 'box', 'hour', 'day', 'month'];
 
+const BarcodeGraphic: React.FC<{ value: string }> = ({ value }) => {
+  if (!value) return null;
+  // Generate pseudo-widths based on characters in value
+  const barWidths = Array.from(value).map((char) => {
+    const val = char.charCodeAt(0) % 4;
+    return val === 0 ? 1 : val === 1 ? 2 : val === 2 ? 3 : 4;
+  });
+
+  return (
+    <View style={styles.barcodeGraphicWrap}>
+      <View style={styles.barcodeLines}>
+        {barWidths.map((w, index) => (
+          <View
+            key={index}
+            style={[
+              styles.barcodeBar,
+              { width: w, backgroundColor: Colors.textPrimary, marginRight: index % 2 === 0 ? 2 : 1 },
+            ]}
+          />
+        ))}
+      </View>
+      <Text style={styles.barcodeText}>{value}</Text>
+    </View>
+  );
+};
+
 export const ProductFormScreen: React.FC = () => {
   const nav = useNavigation<any>();
   const route = useRoute<RouteProp<{ params: RouteParams }, 'params'>>();
@@ -37,6 +63,8 @@ export const ProductFormScreen: React.FC = () => {
   const [unit, setUnit] = useState(existing?.unit || 'piece');
   const [category, setCategory] = useState(existing?.category || '');
   const [sku, setSku] = useState(existing?.sku || '');
+  const [barcode, setBarcode] = useState(existing?.barcode || '');
+  const [warehouseLocation, setWarehouseLocation] = useState(existing?.warehouse_location || '');
   const [loading, setLoading] = useState(false);
 
   const isEdit = !!existing;
@@ -77,6 +105,8 @@ export const ProductFormScreen: React.FC = () => {
         unit,
         category,
         sku: sku.trim(),
+        barcode: barcode.trim(),
+        warehouse_location: warehouseLocation.trim(),
       };
 
       if (isEdit) {
@@ -159,6 +189,39 @@ export const ProductFormScreen: React.FC = () => {
           <View style={styles.card}>
             <Field label="Product Name *" value={name} onChangeText={setName} placeholder="e.g. Web Design Package" />
             <Field label="SKU / Code" value={sku} onChangeText={setSku} placeholder="PROD-001" />
+
+            <View style={fieldStyles.wrap}>
+              <View style={styles.fieldHeader}>
+                <Text style={fieldStyles.label}>Barcode</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    const rnd = '890' + Math.floor(1000000000 + Math.random() * 9000000000).toString();
+                    setBarcode(rnd);
+                  }}
+                  style={styles.genLink}
+                >
+                  <Ionicons name="git-branch-outline" size={14} color={Colors.accent} />
+                  <Text style={styles.genLinkText}>Auto-Generate</Text>
+                </TouchableOpacity>
+              </View>
+              <TextInput
+                style={fieldStyles.input}
+                value={barcode}
+                onChangeText={setBarcode}
+                placeholder="e.g. 8901030752834"
+                placeholderTextColor={Colors.textMuted}
+                keyboardType="number-pad"
+              />
+            </View>
+
+            {barcode ? <BarcodeGraphic value={barcode} /> : null}
+
+            <Field
+              label="Warehouse Location"
+              value={warehouseLocation}
+              onChangeText={setWarehouseLocation}
+              placeholder="e.g. Aisle 3, Shelf B"
+            />
             
             {/* Category selection */}
             <View style={fieldStyles.wrap}>
@@ -365,4 +428,47 @@ const styles = StyleSheet.create({
   categoryChipText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
   categoryChipTextActive: { color: Colors.accent },
   noCategoriesText: { fontSize: 12, color: Colors.textMuted, fontStyle: 'italic' },
+
+  // Barcode visualization styles
+  fieldHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  genLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  genLinkText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.accent,
+  },
+  barcodeGraphicWrap: {
+    backgroundColor: Colors.surfaceAlt,
+    padding: 12,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderStyle: 'dashed',
+  },
+  barcodeLines: {
+    flexDirection: 'row',
+    height: 48,
+    alignItems: 'stretch',
+    marginBottom: 6,
+  },
+  barcodeBar: {
+    height: '100%',
+  },
+  barcodeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    letterSpacing: 3,
+  },
 });

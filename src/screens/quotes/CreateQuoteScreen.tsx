@@ -18,6 +18,7 @@ import { useTaxRates } from '../../hooks/useTaxRates';
 import { Button } from '../../components/ui/Button';
 import { Colors, Radius, Shadow } from '../../theme';
 import { QuoteItem, Product } from '../../types';
+import { BarcodeScannerModal } from '../../components/BarcodeScannerModal';
 
 const formatCurrency = (n: number) =>
   `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 0 })}`;
@@ -39,7 +40,26 @@ export const CreateQuoteScreen: React.FC = () => {
   const [taxPct, setTaxPct] = useState('18');
   const [discountAmt, setDiscountAmt] = useState('0');
   const [showProductPicker, setShowProductPicker] = useState(false);
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const handleBarcodeScan = (barcodeData: string) => {
+    // Find product by barcode or SKU
+    const matched = products.find(
+      (p) => 
+        (p.barcode && p.barcode.trim() === barcodeData.trim()) ||
+        (p.sku && p.sku.trim() === barcodeData.trim())
+    );
+
+    if (matched) {
+      addProduct(matched);
+      setShowBarcodeScanner(false);
+      Alert.alert('Added Product', `"${matched.name}" has been added.`);
+    } else {
+      setShowBarcodeScanner(false);
+      Alert.alert('Not Found', `No product matches barcode/SKU "${barcodeData}".`);
+    }
+  };
 
   useEffect(() => {
     fetchProducts();
@@ -102,7 +122,7 @@ export const CreateQuoteScreen: React.FC = () => {
       const validUntil = new Date();
       validUntil.setDate(validUntil.getDate() + (parseInt(validDays) || 30));
 
-      await create(
+      const newQuote = await create(
         {
           client_name: clientName,
           client_email: clientEmail,
@@ -118,9 +138,19 @@ export const CreateQuoteScreen: React.FC = () => {
         lineItems
       );
 
-      Alert.alert('Success', 'Quote created successfully!', [
-        { text: 'OK', onPress: () => nav.goBack() },
-      ]);
+      if (newQuote) {
+        Alert.alert('Success', 'Quote created successfully!', [
+          {
+            text: 'View & Share PDF',
+            onPress: () => nav.replace('QuoteDetail', { quoteId: newQuote.id }),
+          },
+          { text: 'OK', onPress: () => nav.goBack() },
+        ]);
+      } else {
+        Alert.alert('Success', 'Quote created successfully!', [
+          { text: 'OK', onPress: () => nav.goBack() },
+        ]);
+      }
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to create quote');
     } finally {
@@ -154,13 +184,22 @@ export const CreateQuoteScreen: React.FC = () => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Products</Text>
-            <TouchableOpacity
-              style={styles.addItemBtn}
-              onPress={() => setShowProductPicker(true)}
-            >
-              <Ionicons name="add" size={16} color={Colors.accent} />
-              <Text style={styles.addItemText}>Add</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity
+                style={styles.addItemBtn}
+                onPress={() => setShowBarcodeScanner(true)}
+              >
+                <Ionicons name="barcode-outline" size={16} color={Colors.accent} />
+                <Text style={styles.addItemText}>Scan</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.addItemBtn}
+                onPress={() => setShowProductPicker(true)}
+              >
+                <Ionicons name="add" size={16} color={Colors.accent} />
+                <Text style={styles.addItemText}>Add</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {lineItems.length === 0 ? (
@@ -337,6 +376,13 @@ export const CreateQuoteScreen: React.FC = () => {
           />
         </View>
       </Modal>
+
+      <BarcodeScannerModal
+        visible={showBarcodeScanner}
+        onClose={() => setShowBarcodeScanner(false)}
+        onScan={handleBarcodeScan}
+        title="Scan Product Barcode"
+      />
     </View>
   );
 };

@@ -2,8 +2,8 @@ import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
+import { auth } from '../config/firebase';
+import { supabase } from '../config/supabase';
 import { useAuthStore } from '../store/useAuthStore';
 import { AuthNavigator } from './AuthNavigator';
 import { MainNavigator } from './MainNavigator';
@@ -21,17 +21,19 @@ export const RootNavigator: React.FC = () => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         try {
-          const userDocRef = doc(db, 'users', firebaseUser.uid);
-          const userDoc = await getDoc(userDocRef);
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', firebaseUser.uid)
+            .maybeSingle();
           
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
+          if (userData) {
             setUser({
               id: firebaseUser.uid,
               email: firebaseUser.email || '',
-              displayName: firebaseUser.displayName || userData.displayName || 'User',
-              photoURL: firebaseUser.photoURL || undefined,
-              role: userData.role || 'boss',
+              displayName: firebaseUser.displayName || userData.display_name || 'User',
+              photoURL: firebaseUser.photoURL || userData.photo_url || undefined,
+              role: (userData.role as 'boss' | 'employee') || 'boss',
               tenant_id: userData.tenant_id || `tenant_${firebaseUser.uid}`,
             });
           } else {
@@ -40,31 +42,33 @@ export const RootNavigator: React.FC = () => {
             let resolvedTenantId = `tenant_${firebaseUser.uid}`;
             
             if (firebaseUser.email) {
-              const empQuery = query(
-                collection(db, 'employees'),
-                where('email', '==', firebaseUser.email.toLowerCase().trim())
-              );
-              const empSnap = await getDocs(empQuery);
-              if (!empSnap.empty) {
-                const empDoc = empSnap.docs[0];
-                const empData = empDoc.data();
+              const { data: empData, error: empError } = await supabase
+                .from('employees')
+                .select('*')
+                .eq('email', firebaseUser.email.toLowerCase().trim())
+                .limit(1);
+              
+              if (empData && empData.length > 0) {
+                const emp = empData[0];
                 resolvedRole = 'employee';
-                resolvedTenantId = empData.tenant_id || empData.user_id;
+                resolvedTenantId = emp.tenant_id || emp.user_id;
                 
                 // Update employee record with their actual Firebase UID
-                await updateEmployeeUid(empDoc.id, firebaseUser.uid);
+                await updateEmployeeUid(emp.id, firebaseUser.uid);
               }
             }
             
-            // Create user profile document in users collection
+            // Create user profile document in users table
             const newUserData = {
+              id: firebaseUser.uid,
               email: firebaseUser.email || '',
-              displayName: firebaseUser.displayName || 'User',
+              display_name: firebaseUser.displayName || 'User',
               role: resolvedRole,
               tenant_id: resolvedTenantId,
+              photo_url: firebaseUser.photoURL || null,
             };
             
-            await setDoc(userDocRef, newUserData);
+            await supabase.from('users').insert(newUserData);
             
             setUser({
               id: firebaseUser.uid,
@@ -77,7 +81,7 @@ export const RootNavigator: React.FC = () => {
           }
         } catch (err) {
           console.error('Error fetching user document:', err);
-          // Fallback to local state if offline or Firestore query fails
+          // Fallback to local state if offline or query fails
           setUser({
             id: firebaseUser.uid,
             email: firebaseUser.email || '',
@@ -97,8 +101,7 @@ export const RootNavigator: React.FC = () => {
 
   const updateEmployeeUid = async (docId: string, uid: string) => {
     try {
-      const empRef = doc(db, 'employees', docId);
-      await setDoc(empRef, { user_id: uid }, { merge: true });
+      await supabase.from('employees').update({ user_id: uid }).eq('id', docId);
     } catch (err) {
       console.warn('Failed to update employee uid:', err);
     }

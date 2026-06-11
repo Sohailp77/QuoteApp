@@ -131,7 +131,17 @@ export const HomeScreen: React.FC = () => {
           <TouchableOpacity
             key={action.screen}
             style={styles.actionBtn}
-            onPress={() => nav.navigate(action.screen)}
+            onPress={() => {
+              if (action.screen === 'CreateQuote') {
+                nav.navigate('Quotes', { screen: 'CreateQuote' });
+              } else if (action.screen === 'EmployeeForm') {
+                nav.navigate('Employees', { screen: 'EmployeeForm' });
+              } else if (action.screen === 'ProductForm') {
+                nav.navigate('Products', { screen: 'ProductForm' });
+              } else {
+                nav.navigate(action.screen);
+              }
+            }}
             activeOpacity={0.8}
           >
             <View style={styles.actionIcon}>
@@ -157,7 +167,7 @@ export const HomeScreen: React.FC = () => {
           <Text style={styles.emptySubtitle}>Create your first quote to get started</Text>
           <TouchableOpacity
             style={styles.emptyBtn}
-            onPress={() => nav.navigate('CreateQuote')}
+            onPress={() => nav.navigate('Quotes', { screen: 'CreateQuote' })}
           >
             <Text style={styles.emptyBtnText}>Create Quote</Text>
           </TouchableOpacity>
@@ -167,7 +177,7 @@ export const HomeScreen: React.FC = () => {
           <QuoteCard
             key={quote.id}
             quote={quote}
-            onPress={() => nav.navigate('QuoteDetail', { quoteId: quote.id })}
+            onPress={() => nav.navigate('Quotes', { screen: 'QuoteDetail', params: { quoteId: quote.id } })}
           />
         ))
       )}

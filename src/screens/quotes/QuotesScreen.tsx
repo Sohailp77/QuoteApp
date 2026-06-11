@@ -15,6 +15,7 @@ import { QuoteCard } from '../../components/QuoteCard';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { Colors, Radius } from '../../theme';
 import { QuoteStatus } from '../../types';
+import { BarcodeScannerModal } from '../../components/BarcodeScannerModal';
 
 const STATUS_FILTERS: (QuoteStatus | 'All')[] = ['All', 'Draft', 'Sent', 'Accepted', 'Rejected'];
 
@@ -23,6 +24,21 @@ export const QuotesScreen: React.FC = () => {
   const { quotes, loading, fetch, remove } = useQuotes();
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<QuoteStatus | 'All'>('All');
+  const [showScanner, setShowScanner] = useState(false);
+
+  const handleBarcodeScan = (barcodeData: string) => {
+    setShowScanner(false);
+    // Find quote by quote number
+    const matched = quotes.find(
+      (q) => q.quote_number.toLowerCase().trim() === barcodeData.toLowerCase().trim()
+    );
+
+    if (matched) {
+      nav.navigate('QuoteDetail', { quoteId: matched.id });
+    } else {
+      Alert.alert('Not Found', `Quote with number "${barcodeData}" not found.`);
+    }
+  };
 
   useEffect(() => { fetch(); }, []);
 
@@ -58,12 +74,23 @@ export const QuotesScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      <SearchBar
-        value={search}
-        onChangeText={setSearch}
-        placeholder="Search quotes..."
-        style={styles.search}
-      />
+      <View style={styles.searchRow}>
+        <View style={{ flex: 1 }}>
+          <SearchBar
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search quotes..."
+            style={styles.search}
+          />
+        </View>
+        <TouchableOpacity
+          style={styles.scanBtn}
+          onPress={() => setShowScanner(true)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="barcode-outline" size={20} color="#fff" />
+        </TouchableOpacity>
+      </View>
 
       {/* Filter chips */}
       <View style={styles.filterRow}>
@@ -105,6 +132,13 @@ export const QuotesScreen: React.FC = () => {
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       />
+
+      <BarcodeScannerModal
+        visible={showScanner}
+        onClose={() => setShowScanner(false)}
+        onScan={handleBarcodeScan}
+        title="Scan Quote Barcode"
+      />
     </View>
   );
 };
@@ -127,11 +161,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  search: { marginBottom: 14 },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  search: { flex: 1 },
+  scanBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
   filterRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 16,
+    marginVertical: 16,
     flexWrap: 'wrap',
   },
   chip: {

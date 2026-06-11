@@ -39,6 +39,7 @@ export const ProfileScreen: React.FC = () => {
     { icon: 'business-outline', label: 'Company Profile & Bank Info', action: () => nav.navigate('CompanySettings') },
     { icon: 'receipt-outline', label: 'Tax Slabs', action: () => nav.navigate('TaxRates') },
     { icon: 'grid-outline', label: 'Product Categories', action: () => nav.navigate('ProductCategories') },
+    { icon: 'barcode-outline', label: 'Warehouse & Barcodes', action: () => nav.navigate('Warehouse') },
     { icon: 'information-circle-outline', label: 'About QuoteApp', action: () => {} },
   ];
 

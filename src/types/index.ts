@@ -45,6 +45,8 @@ export interface Product {
   created_at: string;
   cost_price?: number;
   stock_quantity?: number;
+  barcode?: string;
+  warehouse_location?: string;
 }
 
 export type QuoteStatus = 'Draft' | 'Sent' | 'Accepted' | 'Rejected' | 'Expired';

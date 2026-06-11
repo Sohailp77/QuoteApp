@@ -1,16 +1,5 @@
 import { useState, useCallback } from 'react';
-import { 
-  collection, 
-  query, 
-  where, 
-  getDocs, 
-  addDoc, 
-  doc, 
-  updateDoc, 
-  deleteDoc,
-  serverTimestamp
-} from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { supabase } from '../config/supabase';
 import { Product } from '../types';
 import { useAuthStore } from '../store/useAuthStore';
 
@@ -25,33 +14,31 @@ export const useProducts = () => {
     setLoading(true);
     setError(null);
     try {
-      const q = query(
-        collection(db, 'products'),
-        where('tenant_id', '==', user.tenant_id)
-      );
-      const querySnapshot = await getDocs(q);
-      const data: Product[] = [];
-      querySnapshot.forEach((docSnapshot) => {
-        const docData = docSnapshot.data();
-        data.push({
-          id: docSnapshot.id,
-          user_id: docData.user_id || '',
-          name: docData.name || '',
-          description: docData.description || '',
-          unit_price: Number(docData.unit_price) || 0,
-          cost_price: docData.cost_price !== undefined ? Number(docData.cost_price) : undefined,
-          stock_quantity: docData.stock_quantity !== undefined ? Number(docData.stock_quantity) : undefined,
-          unit: docData.unit || 'Pcs',
-          category: docData.category || '',
-          sku: docData.sku || '',
-          created_at: docData.created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
-        });
-      });
-      
-      // Sort in memory to avoid requiring a Firebase composite index
-      data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      
-      setProducts(data);
+      const { data, error: fetchError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('tenant_id', user.tenant_id);
+
+      if (fetchError) throw fetchError;
+
+      const mappedData: Product[] = (data || []).map((prod) => ({
+        id: prod.id,
+        user_id: prod.user_id || '',
+        name: prod.name || '',
+        description: prod.description || '',
+        unit_price: Number(prod.unit_price) || 0,
+        cost_price: prod.cost_price !== null && prod.cost_price !== undefined ? Number(prod.cost_price) : undefined,
+        stock_quantity: prod.stock_quantity !== null && prod.stock_quantity !== undefined ? Number(prod.stock_quantity) : undefined,
+        barcode: prod.barcode || '',
+        warehouse_location: prod.warehouse_location || '',
+        unit: prod.unit || 'Pcs',
+        category: prod.category || '',
+        sku: prod.sku || '',
+        created_at: prod.created_at || new Date().toISOString(),
+      }));
+
+      mappedData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      setProducts(mappedData);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch products');
     } finally {
@@ -63,25 +50,44 @@ export const useProducts = () => {
     if (!user) return null;
     try {
       const newProdData = {
-        ...prod,
-        user_id: user.id,
-        tenant_id: user.tenant_id,
-        created_at: serverTimestamp()
-      };
-      const docRef = await addDoc(collection(db, 'products'), newProdData);
-      const newProduct: Product = {
-        id: docRef.id,
-        user_id: user.id,
         name: prod.name,
         description: prod.description,
         unit_price: prod.unit_price,
-        cost_price: prod.cost_price,
-        stock_quantity: prod.stock_quantity,
+        cost_price: prod.cost_price !== undefined ? prod.cost_price : null,
+        stock_quantity: prod.stock_quantity !== undefined ? prod.stock_quantity : null,
         unit: prod.unit,
         category: prod.category,
         sku: prod.sku,
-        created_at: new Date().toISOString()
+        barcode: prod.barcode || '',
+        warehouse_location: prod.warehouse_location || '',
+        user_id: user.id,
+        tenant_id: user.tenant_id,
       };
+
+      const { data, error: createError } = await supabase
+        .from('products')
+        .insert(newProdData)
+        .select()
+        .single();
+
+      if (createError) throw createError;
+
+      const newProduct: Product = {
+        id: data.id,
+        user_id: data.user_id || '',
+        name: data.name,
+        description: data.description || '',
+        unit_price: Number(data.unit_price) || 0,
+        cost_price: data.cost_price !== null && data.cost_price !== undefined ? Number(data.cost_price) : undefined,
+        stock_quantity: data.stock_quantity !== null && data.stock_quantity !== undefined ? Number(data.stock_quantity) : undefined,
+        unit: data.unit || 'Pcs',
+        category: data.category || '',
+        sku: data.sku || '',
+        barcode: data.barcode || '',
+        warehouse_location: data.warehouse_location || '',
+        created_at: data.created_at || new Date().toISOString(),
+      };
+
       setProducts((prev) => [newProduct, ...prev]);
       return newProduct;
     } catch (err: any) {
@@ -91,11 +97,15 @@ export const useProducts = () => {
 
   const update = async (id: string, updates: Partial<Product>) => {
     try {
-      const productRef = doc(db, 'products', id);
-      await updateDoc(productRef, updates);
-      
+      const { error: updateError } = await supabase
+        .from('products')
+        .update(updates)
+        .eq('id', id);
+
+      if (updateError) throw updateError;
+
       let updatedProduct: Product | null = null;
-      setProducts((prev) => 
+      setProducts((prev) =>
         prev.map((p) => {
           if (p.id === id) {
             updatedProduct = { ...p, ...updates };
@@ -112,8 +122,13 @@ export const useProducts = () => {
 
   const remove = async (id: string) => {
     try {
-      const productRef = doc(db, 'products', id);
-      await deleteDoc(productRef);
+      const { error: deleteError } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', id);
+
+      if (deleteError) throw deleteError;
+
       setProducts((prev) => prev.filter((p) => p.id !== id));
     } catch (err: any) {
       throw new Error(err.message || 'Failed to delete product');

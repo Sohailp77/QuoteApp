@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { supabase } from '../config/supabase';
 import { useAuthStore } from '../store/useAuthStore';
 
 export interface CompanySettings {
@@ -36,10 +35,25 @@ export const useCompanySettings = () => {
     setLoading(true);
     setError(null);
     try {
-      const docRef = doc(db, 'company_settings', user.tenant_id);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        setSettings(docSnap.data() as CompanySettings);
+      const { data, error: fetchError } = await supabase
+        .from('company_settings')
+        .select('*')
+        .eq('tenant_id', user.tenant_id)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+
+      if (data) {
+        setSettings({
+          company_name: data.company_name || '',
+          address: data.address || '',
+          phone: data.phone || '',
+          email: data.email || '',
+          bank_name: data.bank_name || '',
+          account_number: data.account_number || '',
+          ifsc_code: data.ifsc_code || '',
+          gst_number: data.gst_number || '',
+        });
       } else {
         setSettings(defaultSettings);
       }
@@ -56,8 +70,22 @@ export const useCompanySettings = () => {
       throw new Error('Only the owner (Boss) can update company or bank settings.');
     }
     try {
-      const docRef = doc(db, 'company_settings', user.tenant_id);
-      await setDoc(docRef, newSettings, { merge: true });
+      const { error: updateError } = await supabase
+        .from('company_settings')
+        .upsert({
+          tenant_id: user.tenant_id,
+          company_name: newSettings.company_name,
+          address: newSettings.address,
+          phone: newSettings.phone,
+          email: newSettings.email,
+          bank_name: newSettings.bank_name,
+          account_number: newSettings.account_number,
+          ifsc_code: newSettings.ifsc_code,
+          gst_number: newSettings.gst_number,
+        });
+
+      if (updateError) throw updateError;
+
       setSettings(newSettings);
       return newSettings;
     } catch (err: any) {
