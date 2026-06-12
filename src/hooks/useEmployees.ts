@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { databases, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
+import { tablesDB, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
 import { useAuthStore } from '../store/useAuthStore';
 import { Employee } from '../types';
 
@@ -14,21 +14,22 @@ export const useEmployees = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTIONS.EMPLOYEES,
-        [
+      const response = await tablesDB.listRows({
+        databaseId: DATABASE_ID,
+        tableId: COLLECTIONS.EMPLOYEES,
+        queries: [
           Query.equal('tenant_id', user.tenant_id),
           Query.limit(100)
         ]
-      );
+      });
 
-      const mapped: Employee[] = response.documents.map((e) => ({
+      const mapped: Employee[] = response.rows.map((e) => ({
         id: e.$id,
         user_id: e.user_id || '',
         tenant_id: e.tenant_id,
         name: e.name || '',
         email: e.email || '',
+        phone: e.phone || '',
         role: e.role || 'employee',
         department: e.department || '',
         status: e.status || 'Active',
@@ -42,19 +43,19 @@ export const useEmployees = () => {
     }
   }, [user]);
 
-  const create = async (employee: Omit<Employee, 'id' | 'tenant_id' | 'user_id' | 'joined_date' | 'status'>) => {
+  const create = useCallback(async (employee: Omit<Employee, 'id' | 'tenant_id' | 'user_id' | 'joined_date' | 'status'>) => {
     if (!user) return null;
     try {
-      const doc = await databases.createDocument(
-        DATABASE_ID,
-        COLLECTIONS.EMPLOYEES,
-        ID.unique(),
-        {
+      const doc = await tablesDB.createRow({
+        databaseId: DATABASE_ID,
+        tableId: COLLECTIONS.EMPLOYEES,
+        rowId: ID.unique(),
+        data: {
           ...employee,
           status: 'Active',
           tenant_id: user.tenant_id,
         }
-      );
+      });
 
       const newEmp: Employee = {
         id: doc.$id,
@@ -62,6 +63,7 @@ export const useEmployees = () => {
         tenant_id: doc.tenant_id,
         name: doc.name || '',
         email: doc.email || '',
+        phone: doc.phone || '',
         role: doc.role || 'employee',
         department: doc.department || '',
         status: doc.status || 'Active',
@@ -72,30 +74,34 @@ export const useEmployees = () => {
     } catch (err: any) {
       throw new Error(err.message || 'Failed to create employee');
     }
-  };
+  }, [user]);
 
-  const update = async (id: string, updates: Partial<Employee>) => {
+  const update = useCallback(async (id: string, updates: Partial<Employee>) => {
     try {
-      const doc = await databases.updateDocument(
-        DATABASE_ID,
-        COLLECTIONS.EMPLOYEES,
-        id,
-        updates
-      );
+      await tablesDB.updateRow({
+        databaseId: DATABASE_ID,
+        tableId: COLLECTIONS.EMPLOYEES,
+        rowId: id,
+        data: updates
+      });
       setEmployees((prev) => prev.map((e) => (e.id === id ? { ...e, ...updates } : e)));
     } catch (err: any) {
       throw new Error(err.message || 'Failed to update employee');
     }
-  };
+  }, []);
 
-  const remove = async (id: string) => {
+  const remove = useCallback(async (id: string) => {
     try {
-      await databases.deleteDocument(DATABASE_ID, COLLECTIONS.EMPLOYEES, id);
+      await tablesDB.deleteRow({
+        databaseId: DATABASE_ID,
+        tableId: COLLECTIONS.EMPLOYEES,
+        rowId: id
+      });
       setEmployees((prev) => prev.filter((e) => e.id !== id));
     } catch (err: any) {
       throw new Error(err.message || 'Failed to delete employee');
     }
-  };
+  }, []);
 
   return { employees, loading, error, fetch, create, update, remove };
 };

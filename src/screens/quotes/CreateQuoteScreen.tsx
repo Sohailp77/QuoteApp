@@ -9,11 +9,13 @@ import {
   Alert,
   Modal,
   FlatList,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useQuotes } from '../../hooks/useQuotes';
 import { useProducts } from '../../hooks/useProducts';
+import { useCategories } from '../../hooks/useCategories';
 import { useTaxRates } from '../../hooks/useTaxRates';
 import { useCustomers } from '../../hooks/useCustomers';
 import { Button } from '../../components/ui/Button';
@@ -30,6 +32,7 @@ export const CreateQuoteScreen: React.FC = () => {
   const nav = useNavigation<any>();
   const { create } = useQuotes();
   const { products, fetch: fetchProducts } = useProducts();
+  const { categories, fetch: fetchCategories } = useCategories();
   const { taxRates, fetch: fetchTaxRates } = useTaxRates();
   const { search: searchCustomers, create: createCustomer } = useCustomers();
 
@@ -47,6 +50,23 @@ export const CreateQuoteScreen: React.FC = () => {
   const [showProductPicker, setShowProductPicker] = useState(false);
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Custom tax modal states
+  const [customTaxModalVisible, setCustomTaxModalVisible] = useState(false);
+  const [customTaxInput, setCustomTaxInput] = useState('');
+
+  // Item calculator modal states
+  const [calculatorModalVisible, setCalculatorModalVisible] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [calcMode, setCalcMode] = useState<'simple' | 'size' | 'area' | 'length' | 'weight'>('simple');
+  const [pcs, setPcs] = useState('1');
+  const [length, setLength] = useState('');
+  const [width, setWidth] = useState('');
+  const [area, setArea] = useState('');
+  const [rate, setRate] = useState('0');
+  const [itemDiscount, setItemDiscount] = useState('0');
+  const [productName, setProductName] = useState('');
 
   const handleBarcodeScan = (barcodeData: string) => {
     // Find product by barcode or SKU
@@ -69,8 +89,46 @@ export const CreateQuoteScreen: React.FC = () => {
   useEffect(() => {
     fetchProducts();
     fetchTaxRates();
+    fetchCategories();
   }, []);
 
+  // Area calculation hook
+  useEffect(() => {
+    if (calcMode === 'size') {
+      const l = parseFloat(length) || 0;
+      const w = parseFloat(width) || 0;
+      if (l > 0 && w > 0) {
+        setArea((l * w).toString());
+      } else {
+        setArea('');
+      }
+    }
+  }, [length, width, calcMode]);
+
+  const calcQty = () => {
+    const p = parseFloat(pcs) || 0;
+    if (calcMode === 'simple' || calcMode === 'weight') {
+      return p;
+    } else if (calcMode === 'size') {
+      const l = parseFloat(length) || 0;
+      const w = parseFloat(width) || 0;
+      return p * l * w;
+    } else if (calcMode === 'area') {
+      const a = parseFloat(area) || 0;
+      return p * a;
+    } else if (calcMode === 'length') {
+      const l = parseFloat(length) || 0;
+      return p * l;
+    }
+    return p;
+  };
+
+  const calcLineTotal = () => {
+    const qty = calcQty();
+    const r = parseFloat(rate) || 0;
+    const d = parseFloat(itemDiscount) || 0;
+    return qty * r * (1 - d / 100);
+  };
   const subtotal = lineItems.reduce((s, i) => s + i.line_total, 0);
   const discount = parseFloat(discountAmt) || 0;
   const tax = ((subtotal - discount) * (parseFloat(taxPct) || 0)) / 100;
@@ -79,38 +137,78 @@ export const CreateQuoteScreen: React.FC = () => {
   const activeTaxes = taxRates.filter((t) => t.is_active);
 
   const addProduct = (product: Product) => {
-    const existing = lineItems.findIndex((i) => i.product_id === product.id);
-    if (existing >= 0) {
-      const updated = [...lineItems];
-      updated[existing].quantity += 1;
-      updated[existing].line_total =
-        updated[existing].unit_price *
-        updated[existing].quantity *
-        (1 - updated[existing].discount / 100);
-      setLineItems(updated);
-    } else {
-      setLineItems([
-        ...lineItems,
-        {
-          product_id: product.id,
-          product_name: product.name,
-          unit_price: product.unit_price,
-          quantity: 1,
-          discount: 0,
-          line_total: product.unit_price,
-        },
-      ]);
-    }
+    setSelectedProduct(product);
+    setProductName(product.name);
+    setRate(product.unit_price.toString());
+    setPcs('1');
+    setLength('');
+    setWidth('');
+    setArea('');
+    setItemDiscount('0');
+
+    // Resolve calc mode: product calc_type -> category calc_type -> default 'pcs'
+    const cat = categories.find((c) => c.name === product.category);
+    const resolvedCalcType = product.calc_type || cat?.calc_type || 'pcs';
+    const defaultMode = resolvedCalcType === 'pcs' ? 'simple' : resolvedCalcType;
+    setCalcMode(defaultMode as any);
+
+    setEditingIndex(null);
+    setCalculatorModalVisible(true);
     setShowProductPicker(false);
   };
 
-  const updateQty = (idx: number, qty: number) => {
-    if (qty < 1) return;
-    const updated = [...lineItems];
-    updated[idx].quantity = qty;
-    updated[idx].line_total =
-      updated[idx].unit_price * qty * (1 - updated[idx].discount / 100);
-    setLineItems(updated);
+  const editProduct = (index: number) => {
+    const item = lineItems[index];
+    // Find matching product in state
+    const matched = products.find(p => p.id === item.product_id);
+    setSelectedProduct(matched || null);
+    
+    setProductName(item.product_name);
+    setRate(item.unit_price.toString());
+    setPcs((item.pcs || item.quantity).toString());
+    setLength((item.length || '').toString());
+    setWidth((item.width || '').toString());
+    setArea((item.area || '').toString());
+    setItemDiscount((item.discount || 0).toString());
+    setCalcMode(item.calc_mode || 'simple');
+    setEditingIndex(index);
+    setCalculatorModalVisible(true);
+  };
+
+  const handleSaveLineItem = () => {
+    const r = parseFloat(rate) || 0;
+    const d = parseFloat(itemDiscount) || 0;
+    const p = parseFloat(pcs) || 0;
+    const qty = calcQty();
+    const total = calcLineTotal();
+
+    if (p <= 0) {
+      Alert.alert('Error', 'Quantity/Pcs must be greater than zero.');
+      return;
+    }
+
+    const newItem: LineItem = {
+      product_id: selectedProduct?.id,
+      product_name: productName,
+      unit_price: r,
+      quantity: qty,
+      discount: d,
+      line_total: total,
+      pcs: p,
+      length: (calcMode === 'size' || calcMode === 'length') ? (parseFloat(length) || undefined) : undefined,
+      width: calcMode === 'size' ? (parseFloat(width) || undefined) : undefined,
+      area: (calcMode === 'size' || calcMode === 'area') ? (parseFloat(area) || undefined) : undefined,
+      calc_mode: calcMode,
+    };
+
+    if (editingIndex !== null) {
+      const updated = [...lineItems];
+      updated[editingIndex] = newItem;
+      setLineItems(updated);
+    } else {
+      setLineItems([...lineItems, newItem]);
+    }
+    setCalculatorModalVisible(false);
   };
 
   const removeItem = (idx: number) => {
@@ -291,31 +389,50 @@ export const CreateQuoteScreen: React.FC = () => {
             <View style={styles.card}>
               {lineItems.map((item, idx) => (
                 <View key={idx} style={[styles.lineItem, idx > 0 && styles.lineItemBorder]}>
-                  <View style={styles.lineItemTop}>
-                    <Text style={styles.lineItemName} numberOfLines={1}>{item.product_name}</Text>
-                    <TouchableOpacity onPress={() => removeItem(idx)}>
-                      <Ionicons name="close-circle" size={18} color={Colors.statusRejected} />
-                    </TouchableOpacity>
-                  </View>
-                  <View style={styles.lineItemBottom}>
-                    <Text style={styles.lineItemPrice}>{formatCurrency(item.unit_price)}/unit</Text>
-                    <View style={styles.qtyControls}>
-                      <TouchableOpacity
-                        style={styles.qtyBtn}
-                        onPress={() => updateQty(idx, item.quantity - 1)}
-                      >
-                        <Ionicons name="remove" size={14} color={Colors.textPrimary} />
-                      </TouchableOpacity>
-                      <Text style={styles.qtyText}>{item.quantity}</Text>
-                      <TouchableOpacity
-                        style={styles.qtyBtn}
-                        onPress={() => updateQty(idx, item.quantity + 1)}
-                      >
-                        <Ionicons name="add" size={14} color={Colors.textPrimary} />
+                  <TouchableOpacity style={{ flex: 1 }} onPress={() => editProduct(idx)}>
+                    <View style={styles.lineItemTop}>
+                      <Text style={styles.lineItemName} numberOfLines={1}>{item.product_name}</Text>
+                      <TouchableOpacity onPress={() => removeItem(idx)} style={{ padding: 4 }}>
+                        <Ionicons name="close-circle" size={18} color={Colors.statusRejected} />
                       </TouchableOpacity>
                     </View>
-                    <Text style={styles.lineTotal}>{formatCurrency(item.line_total)}</Text>
-                  </View>
+                    <View style={styles.lineItemBottom}>
+                      <View style={{ gap: 2 }}>
+                        <Text style={styles.lineItemPrice}>
+                          {formatCurrency(item.unit_price)} per unit
+                        </Text>
+                        {item.calc_mode === 'size' && (
+                          <Text style={styles.lineItemDimensions}>
+                            Size: {item.length} × {item.width} | Area: {item.area} | Pcs: {item.pcs}
+                          </Text>
+                        )}
+                        {item.calc_mode === 'area' && (
+                          <Text style={styles.lineItemDimensions}>
+                            Area: {item.area} | Pcs: {item.pcs}
+                          </Text>
+                        )}
+                        {item.calc_mode === 'length' && (
+                          <Text style={styles.lineItemDimensions}>
+                            Length: {item.length} | Pcs: {item.pcs}
+                          </Text>
+                        )}
+                        {item.calc_mode === 'weight' && (
+                          <Text style={styles.lineItemDimensions}>
+                            Weight: {item.pcs}
+                          </Text>
+                        )}
+                        {item.calc_mode === 'simple' && (
+                          <Text style={styles.lineItemDimensions}>
+                            Qty: {item.quantity}
+                          </Text>
+                        )}
+                        {item.discount > 0 && (
+                          <Text style={styles.lineItemDiscount}>{item.discount}% off</Text>
+                        )}
+                      </View>
+                      <Text style={styles.lineTotal}>{formatCurrency(item.line_total)}</Text>
+                    </View>
+                  </TouchableOpacity>
                 </View>
               ))}
             </View>
@@ -355,24 +472,8 @@ export const CreateQuoteScreen: React.FC = () => {
                     !activeTaxes.some((t) => t.percentage === parseFloat(taxPct)) && styles.chipSelected
                   ]}
                   onPress={() => {
-                    Alert.prompt(
-                      'Custom Tax Rate',
-                      'Enter custom tax rate percentage:',
-                      [
-                        { text: 'Cancel', style: 'cancel' },
-                        {
-                          text: 'Set',
-                          onPress: (val?: string) => {
-                            const parsed = parseFloat(val || '');
-                            if (!isNaN(parsed) && parsed >= 0) {
-                              setTaxPct(parsed.toString());
-                            }
-                          },
-                        },
-                      ],
-                      'plain-text',
-                      taxPct
-                    );
+                    setCustomTaxInput(taxPct);
+                    setCustomTaxModalVisible(true);
                   }}
                 >
                   <Text style={[styles.chipText, !activeTaxes.some((t) => t.percentage === parseFloat(taxPct)) && styles.chipTextSelected]}>
@@ -432,7 +533,11 @@ export const CreateQuoteScreen: React.FC = () => {
             renderItem={({ item }) => (
               <TouchableOpacity style={styles.productRow} onPress={() => addProduct(item)}>
                 <View style={styles.productIcon}>
-                  <Ionicons name="cube-outline" size={20} color={Colors.accent} />
+                  {item.image_url ? (
+                    <Image source={{ uri: item.image_url }} style={styles.productRowImage} />
+                  ) : (
+                    <Ionicons name="cube-outline" size={20} color={Colors.accent} />
+                  )}
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.productName}>{item.name}</Text>
@@ -459,6 +564,231 @@ export const CreateQuoteScreen: React.FC = () => {
         onScan={handleBarcodeScan}
         title="Scan Product Barcode"
       />
+
+      {/* Custom Tax Rate Modal */}
+      <Modal
+        visible={customTaxModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCustomTaxModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Custom Tax Rate</Text>
+            
+            <View style={styles.fieldWrap}>
+              <Text style={styles.fieldLabel}>Tax Percentage (%) *</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={customTaxInput}
+                onChangeText={setCustomTaxInput}
+                placeholder="e.g. 18"
+                placeholderTextColor={Colors.textMuted}
+                keyboardType="numeric"
+                autoFocus
+              />
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                onPress={() => setCustomTaxModalVisible(false)}
+                style={[styles.modalBtn, styles.modalCancelBtn]}
+              >
+                <Text style={styles.modalCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  const parsed = parseFloat(customTaxInput);
+                  if (!isNaN(parsed) && parsed >= 0) {
+                    setTaxPct(parsed.toString());
+                    setCustomTaxModalVisible(false);
+                  } else {
+                    Alert.alert('Error', 'Please enter a valid percentage.');
+                  }
+                }}
+                style={[styles.modalBtn, styles.modalCreateBtn]}
+              >
+                <Text style={styles.modalCreateBtnText}>Apply</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Custom Item Calculator Modal */}
+      <Modal
+        visible={calculatorModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCalculatorModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxWidth: 450, width: '100%' }]}>
+            <Text style={styles.modalTitle}>
+              {editingIndex !== null ? 'Edit Quote Item' : 'Configure Quote Item'}
+            </Text>
+            <Text style={styles.modalProductName}>{productName}</Text>
+
+            {/* Calc Mode Selector */}
+            <Text style={styles.calcModeLabel}>Calculation Method</Text>
+            <View style={styles.calcModeTabsContainer}>
+              {[
+                { type: 'simple', label: 'PCS' },
+                { type: 'size', label: 'Size (L × W)' },
+                { type: 'area', label: 'Area' },
+                { type: 'length', label: 'Length' },
+                { type: 'weight', label: 'Weight (KG)' }
+              ].map((tab) => (
+                <TouchableOpacity
+                  key={tab.type}
+                  style={[styles.calcModeTabChip, calcMode === tab.type && styles.calcModeTabChipActive]}
+                  onPress={() => {
+                    setCalcMode(tab.type as any);
+                    if (tab.type === 'weight') {
+                      setPcs('1');
+                    }
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.calcModeTabChipText, calcMode === tab.type && styles.calcModeTabChipTextActive]}>
+                    {tab.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
+              <View style={styles.row}>
+                <View style={{ flex: 1 }}>
+                  <Field
+                    label={
+                      calcMode === 'simple' ? 'Quantity' : 
+                      calcMode === 'weight' ? 'Weight (KG)' : 
+                      'Pcs / Qty'
+                    }
+                    value={pcs}
+                    onChangeText={setPcs}
+                    placeholder="1"
+                    keyboardType="numeric"
+                  />
+                </View>
+                {calcMode === 'size' && (
+                  <>
+                    <View style={{ width: 12 }} />
+                    <View style={{ flex: 1 }}>
+                      <Field
+                        label="Length"
+                        value={length}
+                        onChangeText={setLength}
+                        placeholder="e.g. 4"
+                        keyboardType="numeric"
+                      />
+                    </View>
+                    <View style={{ width: 12 }} />
+                    <View style={{ flex: 1 }}>
+                      <Field
+                        label="Width"
+                        value={width}
+                        onChangeText={setWidth}
+                        placeholder="e.g. 3"
+                        keyboardType="numeric"
+                      />
+                    </View>
+                  </>
+                )}
+                {calcMode === 'length' && (
+                  <>
+                    <View style={{ width: 12 }} />
+                    <View style={{ flex: 1 }}>
+                      <Field
+                        label="Length"
+                        value={length}
+                        onChangeText={setLength}
+                        placeholder="e.g. 4"
+                        keyboardType="numeric"
+                      />
+                    </View>
+                  </>
+                )}
+                {calcMode === 'area' && (
+                  <>
+                    <View style={{ width: 12 }} />
+                    <View style={{ flex: 1 }}>
+                      <Field
+                        label="Area"
+                        value={area}
+                        onChangeText={setArea}
+                        placeholder="e.g. 12"
+                        keyboardType="numeric"
+                      />
+                    </View>
+                  </>
+                )}
+              </View>
+
+              {calcMode === 'size' && (
+                <View style={styles.calcPreviewRow}>
+                  <Text style={styles.calcPreviewLabel}>Calculated Area:</Text>
+                  <Text style={styles.calcPreviewVal}>
+                    {area ? `${area} sq units` : '--'}
+                  </Text>
+                </View>
+              )}
+
+              {calcMode !== 'simple' && calcMode !== 'weight' && (
+                <View style={styles.calcPreviewRow}>
+                  <Text style={styles.calcPreviewLabel}>Total Effective Qty:</Text>
+                  <Text style={styles.calcPreviewVal}>
+                    {calcQty().toLocaleString('en-IN', { maximumFractionDigits: 3 })}
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.row}>
+                <View style={{ flex: 1 }}>
+                  <Field
+                    label="Rate / Price per Unit (₹)"
+                    value={rate}
+                    onChangeText={setRate}
+                    placeholder="0"
+                    keyboardType="numeric"
+                  />
+                </View>
+                <View style={{ width: 12 }} />
+                <View style={{ flex: 1 }}>
+                  <Field
+                    label="Discount (%)"
+                    value={itemDiscount}
+                    onChangeText={setItemDiscount}
+                    placeholder="0"
+                    keyboardType="numeric"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.calcTotalBox}>
+                <Text style={styles.calcTotalLabel}>Line Total</Text>
+                <Text style={styles.calcTotalVal}>{formatCurrency(calcLineTotal())}</Text>
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                onPress={() => setCalculatorModalVisible(false)}
+                style={[styles.modalBtn, styles.modalCancelBtn]}
+              >
+                <Text style={styles.modalCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSaveLineItem}
+                style={[styles.modalBtn, styles.modalCreateBtn]}
+              >
+                <Text style={styles.modalCreateBtnText}>Save Item</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -592,6 +922,12 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: 10,
     backgroundColor: Colors.accent + '15',
     alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  productRowImage: {
+    width: 40,
+    height: 40,
+    resizeMode: 'cover',
   },
   productName: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
   productCategory: { fontSize: 12, color: Colors.textSecondary },
@@ -660,4 +996,164 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   crmLinkedText: { fontSize: 12, fontWeight: '600', color: '#10B981' },
+  
+  // Calculator Modal styling
+  modalProductName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.accent,
+    marginBottom: 16,
+  },
+  calcModeLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  calcModeTabsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 16,
+  },
+  calcModeTabChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  calcModeTabChipActive: {
+    backgroundColor: Colors.accent + '15',
+    borderColor: Colors.accent,
+  },
+  calcModeTabChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  calcModeTabChipTextActive: {
+    color: Colors.accent,
+    fontWeight: '700',
+  },
+  calcPreviewRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.surfaceAlt,
+    padding: 10,
+    borderRadius: Radius.md,
+    marginBottom: 14,
+  },
+  calcPreviewLabel: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  calcPreviewVal: {
+    fontSize: 13,
+    color: Colors.textPrimary,
+    fontWeight: '700',
+  },
+  calcTotalBox: {
+    backgroundColor: Colors.accent + '08',
+    padding: 14,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    marginVertical: 10,
+    borderWidth: 1,
+    borderColor: Colors.accent + '15',
+  },
+  calcTotalLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  calcTotalVal: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: Colors.accent,
+  },
+  lineItemDimensions: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  lineItemDiscount: {
+    fontSize: 11,
+    color: Colors.statusAccepted,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    padding: 20,
+    width: '100%',
+    maxWidth: 340,
+    ...Shadow.md,
+  },
+  fieldWrap: {
+    marginBottom: 14,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
+  modalInput: {
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: Radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: Colors.textPrimary,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 10,
+  },
+  modalBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 90,
+  },
+  modalCancelBtn: {
+    backgroundColor: Colors.surfaceAlt,
+  },
+  modalCancelBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  modalCreateBtn: {
+    backgroundColor: Colors.primary,
+  },
+  modalCreateBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
+  },
 });

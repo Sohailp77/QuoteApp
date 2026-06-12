@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { databases, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
+import { tablesDB, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
 import { useAuthStore } from '../store/useAuthStore';
 import { CompanySettings } from '../types';
 
@@ -14,17 +14,17 @@ export const useCompanySettings = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTIONS.COMPANY_SETTINGS,
-        [
+      const response = await tablesDB.listRows({
+        databaseId: DATABASE_ID,
+        tableId: COLLECTIONS.COMPANY_SETTINGS,
+        queries: [
           Query.equal('tenant_id', user.tenant_id),
           Query.limit(1)
         ]
-      );
+      });
 
-      if (response.documents.length > 0) {
-        const doc = response.documents[0];
+      if (response.rows.length > 0) {
+        const doc = response.rows[0];
         setSettings({
           id: doc.$id,
           tenant_id: doc.tenant_id,
@@ -41,6 +41,9 @@ export const useCompanySettings = () => {
           default_notes: doc.default_notes || '',
           terms_conditions: doc.terms_conditions || '',
           logo_url: doc.logo_url || undefined,
+          bank_name: doc.bank_name || '',
+          account_number: doc.account_number || '',
+          ifsc_code: doc.ifsc_code || '',
         });
       } else {
         setSettings(null);
@@ -59,25 +62,25 @@ export const useCompanySettings = () => {
       
       if (settings?.id) {
         // Update existing
-        const doc = await databases.updateDocument(
-          DATABASE_ID,
-          COLLECTIONS.COMPANY_SETTINGS,
-          settings.id,
-          updates
-        );
+        await tablesDB.updateRow({
+          databaseId: DATABASE_ID,
+          tableId: COLLECTIONS.COMPANY_SETTINGS,
+          rowId: settings.id,
+          data: updates
+        });
         updatedSettings = { ...settings, ...updates } as CompanySettings;
       } else {
         // Create new
-        const doc = await databases.createDocument(
-          DATABASE_ID,
-          COLLECTIONS.COMPANY_SETTINGS,
-          ID.unique(),
-          {
+        const doc = await tablesDB.createRow({
+          databaseId: DATABASE_ID,
+          tableId: COLLECTIONS.COMPANY_SETTINGS,
+          rowId: ID.unique(),
+          data: {
             company_name: 'My Company',
             ...updates,
             tenant_id: user.tenant_id,
           }
-        );
+        });
         updatedSettings = {
           id: doc.$id,
           tenant_id: doc.tenant_id,
@@ -94,6 +97,9 @@ export const useCompanySettings = () => {
           default_notes: doc.default_notes || '',
           terms_conditions: doc.terms_conditions || '',
           logo_url: doc.logo_url || undefined,
+          bank_name: doc.bank_name || '',
+          account_number: doc.account_number || '',
+          ifsc_code: doc.ifsc_code || '',
         };
       }
       

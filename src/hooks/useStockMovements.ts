@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { databases, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
+import { tablesDB, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
 import { StockMovement } from '../types';
 import { useAuthStore } from '../store/useAuthStore';
 
@@ -23,14 +23,14 @@ export const useStockMovements = () => {
         queries.push(Query.equal('product_id', productId));
       }
 
-      const response = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTIONS.STOCK_MOVEMENTS,
+      const response = await tablesDB.listRows({
+        databaseId: DATABASE_ID,
+        tableId: COLLECTIONS.STOCK_MOVEMENTS,
         queries
-      );
+      });
 
       setMovements(
-        response.documents.map((m) => ({
+        response.rows.map((m) => ({
           id: m.$id,
           tenant_id: m.tenant_id,
           product_id: m.product_id || '',
@@ -53,7 +53,11 @@ export const useStockMovements = () => {
     if (!user) return null;
     try {
       // 1. Fetch current product to calculate new stock
-      const productDoc = await databases.getDocument(DATABASE_ID, COLLECTIONS.PRODUCTS, movement.product_id);
+      const productDoc = await tablesDB.getRow({
+        databaseId: DATABASE_ID,
+        tableId: COLLECTIONS.PRODUCTS,
+        rowId: movement.product_id
+      });
       
       const currentStock = Number(productDoc.stock_quantity) || 0;
       let newStock = currentStock;
@@ -65,11 +69,11 @@ export const useStockMovements = () => {
       }
 
       // 2. Insert movement record
-      const doc = await databases.createDocument(
-        DATABASE_ID,
-        COLLECTIONS.STOCK_MOVEMENTS,
-        ID.unique(),
-        {
+      const doc = await tablesDB.createRow({
+        databaseId: DATABASE_ID,
+        tableId: COLLECTIONS.STOCK_MOVEMENTS,
+        rowId: ID.unique(),
+        data: {
           tenant_id: user.tenant_id,
           product_id: movement.product_id,
           product_name: movement.product_name,
@@ -78,15 +82,15 @@ export const useStockMovements = () => {
           note: movement.note,
           supplier: movement.supplier,
         }
-      );
+      });
 
       // 3. Update product stock
-      await databases.updateDocument(
-        DATABASE_ID,
-        COLLECTIONS.PRODUCTS,
-        movement.product_id,
-        { stock_quantity: newStock }
-      );
+      await tablesDB.updateRow({
+        databaseId: DATABASE_ID,
+        tableId: COLLECTIONS.PRODUCTS,
+        rowId: movement.product_id,
+        data: { stock_quantity: newStock }
+      });
 
       const newMov: StockMovement = {
         id: doc.$id,

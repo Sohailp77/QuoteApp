@@ -20,6 +20,8 @@ import { Quote, QuoteStatus } from '../../types';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { useCompanySettings } from '../../hooks/useCompanySettings';
+import { useProducts } from '../../hooks/useProducts';
+import { useStockMovements } from '../../hooks/useStockMovements';
 
 const formatCurrency = (amount: number) =>
   `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
@@ -31,6 +33,8 @@ export const QuoteDetailScreen: React.FC = () => {
   const route = useRoute<RouteProp<{ params: { quoteId: string } }, 'params'>>();
   const { quoteId } = route.params;
   const { fetchById, updateQuoteDetails, updateStatus, remove } = useQuotes();
+  const { products, fetch: fetchProducts } = useProducts();
+  const { addMovement } = useStockMovements();
 
   const { settings: company, fetch: fetchCompany } = useCompanySettings();
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -69,7 +73,8 @@ export const QuoteDetailScreen: React.FC = () => {
   useEffect(() => {
     fetchCompany();
     loadQuote();
-  }, [fetchCompany, loadQuote]);
+    fetchProducts();
+  }, [fetchCompany, loadQuote, fetchProducts]);
 
   const generateHTML = () => {
     if (!quote || !company) return '';
@@ -299,16 +304,37 @@ export const QuoteDetailScreen: React.FC = () => {
       </tr>
     </thead>
     <tbody>
-      ${(quote.items || []).map((item, idx) => `
-        <tr>
-          <td>${idx + 1}</td>
-          <td><strong>${item.product_name}</strong></td>
-          <td style="text-align: right;">₹${item.unit_price.toLocaleString('en-IN')}</td>
-          <td style="text-align: center;">${item.quantity}</td>
-          <td style="text-align: center;">${item.discount}%</td>
-          <td style="text-align: right; font-weight: bold;">₹${item.line_total.toLocaleString('en-IN')}</td>
-        </tr>
-      `).join('')}
+      ${(quote.items || []).map((item, idx) => {
+        let descHtml = `<strong>${item.product_name}</strong>`;
+        if (item.calc_mode === 'size') {
+          descHtml += `<div style="font-size: 11px; color: #666; margin-top: 3px;">
+            Size: ${item.length} &times; ${item.width} | Area: ${item.area} | Pcs: ${item.pcs}
+          </div>`;
+        } else if (item.calc_mode === 'area') {
+          descHtml += `<div style="font-size: 11px; color: #666; margin-top: 3px;">
+            Area: ${item.area} | Pcs: ${item.pcs}
+          </div>`;
+        } else if (item.calc_mode === 'length') {
+          descHtml += `<div style="font-size: 11px; color: #666; margin-top: 3px;">
+            Length: ${item.length} | Pcs: ${item.pcs}
+          </div>`;
+        } else if (item.calc_mode === 'weight') {
+          descHtml += `<div style="font-size: 11px; color: #666; margin-top: 3px;">
+            Weight: ${item.pcs}
+          </div>`;
+        }
+        
+        return `
+          <tr>
+            <td>${idx + 1}</td>
+            <td>${descHtml}</td>
+            <td style="text-align: right;">₹${item.unit_price.toLocaleString('en-IN')}</td>
+            <td style="text-align: center;">${item.quantity}${item.calc_mode && item.calc_mode !== 'simple' && item.calc_mode !== 'weight' ? ' (eff.)' : ''}</td>
+            <td style="text-align: center;">${item.discount}%</td>
+            <td style="text-align: right; font-weight: bold;">₹${item.line_total.toLocaleString('en-IN')}</td>
+          </tr>
+        `;
+      }).join('')}
     </tbody>
   </table>
 
@@ -412,12 +438,92 @@ export const QuoteDetailScreen: React.FC = () => {
     }
   };
 
+  const executeAcceptQuote = async (targetQuote: Quote) => {
+    // 1. Update quote status to Accepted
+    await updateStatus(quoteId, 'Accepted');
+    setQuote((prev) => (prev ? { ...prev, status: 'Accepted' } : null));
+
+    // 2. Decrement stock & log stock movements
+    const items = targetQuote.items || [];
+    for (const item of items) {
+      if (item.product_id) {
+        try {
+          await addMovement({
+            product_id: item.product_id,
+            product_name: item.product_name,
+            movement_type: 'OUT',
+            quantity: item.quantity,
+            note: `Quote #${targetQuote.quote_number} Accepted`,
+          });
+        } catch (err) {
+          console.error(`Failed to register stock movement for product ${item.product_name}:`, err);
+        }
+      }
+    }
+    Alert.alert('Status Updated', 'Quote marked as Accepted and inventory updated.');
+  };
+
   const handleStatusChange = async (newStatus: QuoteStatus) => {
+    if (!quote) return;
     setUpdating(true);
     try {
-      await updateStatus(quoteId, newStatus);
-      setQuote((prev) => (prev ? { ...prev, status: newStatus } : null));
-      Alert.alert('Status Updated', `Quote marked as ${newStatus}`);
+      if (newStatus === 'Accepted') {
+        const lowStockItems: Array<{ name: string; requested: number; available: number }> = [];
+        const items = quote.items || [];
+        for (const item of items) {
+          if (item.product_id) {
+            const prod = products.find((p) => p.id === item.product_id);
+            const availableStock = prod?.stock_quantity ?? 0;
+            if (availableStock < item.quantity) {
+              lowStockItems.push({
+                name: item.product_name,
+                requested: item.quantity,
+                available: availableStock,
+              });
+            }
+          }
+        }
+
+        if (lowStockItems.length > 0) {
+          const itemListStr = lowStockItems
+            .map((i) => `- ${i.name}: requested ${i.requested}, available ${i.available}`)
+            .join('\n');
+          
+          Alert.alert(
+            'Low Stock Alert',
+            `The following products have insufficient stock:\n\n${itemListStr}\n\nDo you want to proceed and mark the quote as Accepted anyway?`,
+            [
+              {
+                text: 'Wait for Stock',
+                style: 'cancel',
+                onPress: () => {
+                  setUpdating(false);
+                },
+              },
+              {
+                text: 'Proceed Anyway',
+                style: 'destructive',
+                onPress: async () => {
+                  try {
+                    await executeAcceptQuote(quote);
+                  } catch (e: any) {
+                    Alert.alert('Error', e.message);
+                  } finally {
+                    setUpdating(false);
+                  }
+                },
+              },
+            ]
+          );
+          return;
+        } else {
+          await executeAcceptQuote(quote);
+        }
+      } else {
+        await updateStatus(quoteId, newStatus);
+        setQuote((prev) => (prev ? { ...prev, status: newStatus } : null));
+        Alert.alert('Status Updated', `Quote marked as ${newStatus}`);
+      }
     } catch (e: any) {
       Alert.alert('Error', e.message);
     } finally {
@@ -655,11 +761,33 @@ export const QuoteDetailScreen: React.FC = () => {
                   <View style={{ flex: 3 }}>
                     <Text style={styles.itemName}>{item.product_name}</Text>
                     <Text style={styles.itemUnit}>{formatCurrency(item.unit_price)} each</Text>
+                    {item.calc_mode === 'size' && (
+                      <Text style={styles.itemDimensions}>
+                        Size: {item.length} × {item.width} | Area: {item.area} | Pcs: {item.pcs}
+                      </Text>
+                    )}
+                    {item.calc_mode === 'area' && (
+                      <Text style={styles.itemDimensions}>
+                        Area: {item.area} | Pcs: {item.pcs}
+                      </Text>
+                    )}
+                    {item.calc_mode === 'length' && (
+                      <Text style={styles.itemDimensions}>
+                        Length: {item.length} | Pcs: {item.pcs}
+                      </Text>
+                    )}
+                    {item.calc_mode === 'weight' && (
+                      <Text style={styles.itemDimensions}>
+                        Weight: {item.pcs}
+                      </Text>
+                    )}
                     {item.discount > 0 && (
                       <Text style={styles.itemDiscount}>{item.discount}% off</Text>
                     )}
                   </View>
-                  <Text style={[styles.tableCell, styles.tableRight]}>{item.quantity}</Text>
+                  <Text style={[styles.tableCell, styles.tableRight]}>
+                    {item.calc_mode && item.calc_mode !== 'simple' && item.calc_mode !== 'weight' ? `${item.quantity}` : item.quantity}
+                  </Text>
                   <Text style={[styles.tableCell, styles.tableRight, styles.itemTotal]}>
                     {formatCurrency(item.line_total)}
                   </Text>
@@ -975,6 +1103,7 @@ const styles = StyleSheet.create({
   itemName: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
   itemUnit: { fontSize: 12, color: Colors.textMuted },
   itemDiscount: { fontSize: 11, color: Colors.statusAccepted, fontWeight: '600' },
+  itemDimensions: { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
   itemTotal: { fontWeight: '700', color: Colors.textPrimary, fontSize: 14 },
   totalsCard: {
     backgroundColor: Colors.surface,

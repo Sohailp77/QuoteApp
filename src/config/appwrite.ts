@@ -1,12 +1,12 @@
-import { Client, Account, Databases, ID, Query } from 'react-native-appwrite';
+import { Client, Account, TablesDB, ID, Query, Storage } from 'react-native-appwrite';
 
-// Replace these with your actual Appwrite project details
-export const APPWRITE_ENDPOINT = 'https://cloud.appwrite.io/v1'; // e.g. 'http://localhost/v1' for self-hosted
-export const APPWRITE_PROJECT_ID = 'YOUR_PROJECT_ID'; // e.g. '64f...'
-export const DATABASE_ID = 'quoteapp_db'; // We will use this string ID for the DB
+export const APPWRITE_ENDPOINT = 'https://syd.cloud.appwrite.io/v1';
+export const APPWRITE_PROJECT_ID = "6a2a9df8001ac14f2796"
+export const APPWRITE_PROJECT_NAME = "quote-app"
+export const DATABASE_ID = '6a2a9e52003d6f85443e';
+export const API_KEY = 'standard_c3f8c962ab1eb584c5c6f2c9ae49c643fe5664a5904bd409ca4b6bc37293f1239609f5fe631699578ef6f44b7f7ad220e6bc1d64df91b8078266066f09cd82cb5e8f9f7b4e33014f75c3d2500209d1fadcbf910e098f55f58ddc2fb359bbec72baf12e9950e49c5887e79428b226720fa920349229b3ca7176c0014af589a735';
 
-// Collection IDs
-export const COLLECTIONS = {
+export const TABLES = {
   USERS: 'users',
   EMPLOYEES: 'employees',
   CATEGORIES: 'categories',
@@ -18,6 +18,8 @@ export const COLLECTIONS = {
   QUOTES: 'quotes',
 };
 
+export const COLLECTIONS = TABLES;
+
 // Init Appwrite SDK
 const client = new Client();
 client
@@ -25,6 +27,7 @@ client
   .setProject(APPWRITE_PROJECT_ID);
 
 export const account = new Account(client);
-export const databases = new Databases(client);
+export const tablesDB = new TablesDB(client);
+export const storage = new Storage(client);
 
 export { ID, Query };

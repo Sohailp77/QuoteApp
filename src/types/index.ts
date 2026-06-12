@@ -42,6 +42,8 @@ export interface Category {
   unit_name?: string | null;
   metric_type?: 'fixed' | 'measured';
   description?: string;
+  calc_type?: 'pcs' | 'size' | 'area' | 'length' | 'weight';
+  image_url?: string;
 }
 
 export interface TaxRate {
@@ -69,6 +71,8 @@ export interface Product {
   barcode?: string;
   warehouse_location?: string;
   created_at: string;
+  calc_type?: 'pcs' | 'size' | 'area' | 'length' | 'weight';
+  image_url?: string;
 }
 
 export interface StockMovement {
@@ -115,6 +119,11 @@ export interface QuoteItem {
   quantity: number;
   discount: number; // percentage
   line_total: number;
+  pcs?: number;
+  length?: number;
+  width?: number;
+  area?: number;
+  calc_mode?: 'simple' | 'size' | 'area' | 'length' | 'weight';
 }
 
 export type LineItem = QuoteItem;

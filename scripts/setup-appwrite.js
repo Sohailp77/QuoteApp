@@ -11,17 +11,17 @@
  * Usage: node scripts/setup-appwrite.js
  */
 
-const { Client, Databases } = require('node-appwrite');
+const { Client, Databases, Permission, Role, Storage } = require('node-appwrite');
 
 // ==========================================
 // CONFIGURATION - Update these values!
 // ==========================================
-const ENDPOINT = 'https://cloud.appwrite.io/v1'; // Or your self-hosted endpoint
-const PROJECT_ID = 'YOUR_PROJECT_ID';
-const API_KEY = 'YOUR_API_KEY'; // Create an API key with full Database permissions
+const ENDPOINT = process.env.APPWRITE_ENDPOINT || 'https://syd.cloud.appwrite.io/v1';
+const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || '6a2a9df8001ac14f2796';
+const API_KEY = process.env.APPWRITE_API_KEY || 'standard_c3f8c962ab1eb584c5c6f2c9ae49c643fe5664a5904bd409ca4b6bc37293f1239609f5fe631699578ef6f44b7f7ad220e6bc1d64df91b8078266066f09cd82cb5e8f9f7b4e33014f75c3d2500209d1fadcbf910e098f55f58ddc2fb359bbec72baf12e9950e49c5887e79428b226720fa920349229b3ca7176c0014af589a735'; // Create an API key with full Database permissions
 
-const DB_ID = 'quoteapp_db';
-const DB_NAME = 'QuoteApp Database';
+const DB_ID = '6a2a9e52003d6f85443e';
+const DB_NAME = 'quoteapp_db';
 
 const client = new Client()
   .setEndpoint(ENDPOINT)
@@ -29,6 +29,7 @@ const client = new Client()
   .setKey(API_KEY);
 
 const databases = new Databases(client);
+const storage = new Storage(client);
 
 // Helper constants
 const STRING_SIZE = 255;
@@ -54,6 +55,7 @@ const COLLECTIONS = [
       { key: 'user_id', type: 'string', size: STRING_SIZE, required: false },
       { key: 'name', type: 'string', size: STRING_SIZE, required: true },
       { key: 'email', type: 'string', size: STRING_SIZE, required: true },
+      { key: 'phone', type: 'string', size: 50, required: false },
       { key: 'role', type: 'string', size: 50, required: true },
       { key: 'department', type: 'string', size: STRING_SIZE, required: false },
       { key: 'status', type: 'string', size: 50, required: false, default: 'Active' },
@@ -69,6 +71,8 @@ const COLLECTIONS = [
       { key: 'name', type: 'string', size: STRING_SIZE, required: true },
       { key: 'is_active', type: 'boolean', required: false, default: true },
       { key: 'unit_name', type: 'string', size: 50, required: false },
+      { key: 'calc_type', type: 'string', size: 50, required: false },
+      { key: 'image_url', type: 'string', size: 1000, required: false },
     ],
     indexes: [{ key: 'tenant_id', type: 'key', attributes: ['tenant_id'] }]
   },
@@ -101,6 +105,8 @@ const COLLECTIONS = [
       { key: 'sku', type: 'string', size: STRING_SIZE, required: false },
       { key: 'barcode', type: 'string', size: STRING_SIZE, required: false },
       { key: 'warehouse_location', type: 'string', size: STRING_SIZE, required: false },
+      { key: 'calc_type', type: 'string', size: 50, required: false },
+      { key: 'image_url', type: 'string', size: 1000, required: false },
     ],
     indexes: [{ key: 'tenant_id', type: 'key', attributes: ['tenant_id'] }, { key: 'barcode', type: 'key', attributes: ['barcode'] }]
   },
@@ -142,14 +148,17 @@ const COLLECTIONS = [
       { key: 'phone', type: 'string', size: STRING_SIZE, required: false },
       { key: 'website', type: 'string', size: STRING_SIZE, required: false },
       { key: 'gst_number', type: 'string', size: 50, required: false },
-      { key: 'address', type: 'string', size: LARGE_STRING_SIZE, required: false },
+      { key: 'address', type: 'string', size: 2000, required: false },
       { key: 'currency', type: 'string', size: 10, required: false, default: '₹' },
       { key: 'date_format', type: 'string', size: 20, required: false, default: 'DD/MM/YYYY' },
       { key: 'invoice_prefix', type: 'string', size: 20, required: false, default: 'INV-' },
       { key: 'next_invoice_number', type: 'integer', required: false, default: 1 },
-      { key: 'default_notes', type: 'string', size: LARGE_STRING_SIZE, required: false },
-      { key: 'terms_conditions', type: 'string', size: LARGE_STRING_SIZE, required: false },
-      { key: 'logo_url', type: 'string', size: LARGE_STRING_SIZE, required: false },
+      { key: 'default_notes', type: 'string', size: 2000, required: false },
+      { key: 'terms_conditions', type: 'string', size: 2000, required: false },
+      { key: 'logo_url', type: 'string', size: 1000, required: false },
+      { key: 'bank_name', type: 'string', size: STRING_SIZE, required: false },
+      { key: 'account_number', type: 'string', size: STRING_SIZE, required: false },
+      { key: 'ifsc_code', type: 'string', size: STRING_SIZE, required: false },
     ],
     indexes: [{ key: 'tenant_id', type: 'key', attributes: ['tenant_id'] }]
   },
@@ -169,17 +178,17 @@ const COLLECTIONS = [
       { key: 'discount', type: 'double', required: true },
       { key: 'tax', type: 'double', required: true },
       { key: 'total', type: 'double', required: true },
-      { key: 'notes', type: 'string', size: LARGE_STRING_SIZE, required: false },
+      { key: 'notes', type: 'string', size: 2000, required: false },
       { key: 'valid_until', type: 'string', size: 50, required: true },
       // Appwrite doesn't have a JSONB array column, so we serialize the line items as a large string
-      { key: 'items', type: 'string', size: LARGE_STRING_SIZE, required: false },
+      { key: 'items', type: 'string', size: 2000, required: false },
       { key: 'payment_status', type: 'string', size: 50, required: false },
       { key: 'payment_method', type: 'string', size: 50, required: false },
       { key: 'delivery_date', type: 'string', size: 50, required: false },
       { key: 'delivery_partner', type: 'string', size: STRING_SIZE, required: false },
       { key: 'tracking_number', type: 'string', size: STRING_SIZE, required: false },
       { key: 'delivery_status', type: 'string', size: 50, required: false },
-      { key: 'delivery_note', type: 'string', size: LARGE_STRING_SIZE, required: false },
+      { key: 'delivery_note', type: 'string', size: 1000, required: false },
     ],
     indexes: [{ key: 'tenant_id', type: 'key', attributes: ['tenant_id'] }]
   }
@@ -198,17 +207,42 @@ async function setup() {
       } else throw e;
     }
 
+    console.log('Checking storage bucket...');
+    try {
+      await storage.getBucket('images');
+      console.log(`Storage Bucket 'images' already exists.`);
+    } catch (e) {
+      if (e.code === 404) {
+        console.log(`Creating Storage Bucket 'images'...`);
+        await storage.createBucket('images', 'Images', [
+          Permission.read(Role.any()),
+          Permission.create(Role.users()),
+          Permission.update(Role.users()),
+          Permission.delete(Role.users()),
+        ]);
+        console.log(`Storage Bucket 'images' created.`);
+      } else {
+        console.warn(`Could not check/create storage bucket: ${e.message}`);
+      }
+    }
+
+    const permissions = [
+      Permission.read(Role.users()),
+      Permission.create(Role.users()),
+      Permission.update(Role.users()),
+      Permission.delete(Role.users()),
+    ];
+
     for (const col of COLLECTIONS) {
       console.log(`\n--- Checking Collection '${col.name}' ---`);
       try {
         await databases.getCollection(DB_ID, col.id);
-        console.log(`Collection '${col.name}' already exists.`);
+        console.log(`Collection '${col.name}' already exists. Updating permissions...`);
+        await databases.updateCollection(DB_ID, col.id, col.name, permissions, false);
       } catch (e) {
         if (e.code === 404) {
           console.log(`Creating Collection '${col.name}'...`);
-          await databases.createCollection(DB_ID, col.id, col.name);
-          // Set Document Security (optional, defaults to false, but good to enable for RLS logic)
-          await databases.updateCollection(DB_ID, col.id, col.name, [], true);
+          await databases.createCollection(DB_ID, col.id, col.name, permissions, false);
         } else throw e;
       }
 

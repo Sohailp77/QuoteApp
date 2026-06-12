@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { account, databases, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
+import { account, tablesDB, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
 import { useAuthStore } from '../store/useAuthStore';
 import { AuthNavigator } from './AuthNavigator';
 import { MainNavigator } from './MainNavigator';
@@ -26,14 +26,14 @@ export const RootNavigator: React.FC = () => {
       
       // 2. Fetch user profile from `users` collection to get role & tenant_id
       try {
-        const userDocs = await databases.listDocuments(
-          DATABASE_ID,
-          COLLECTIONS.USERS,
-          [Query.equal('email', appwriteUser.email)]
-        );
+        const userDocs = await tablesDB.listRows({
+          databaseId: DATABASE_ID,
+          tableId: COLLECTIONS.USERS,
+          queries: [Query.equal('email', appwriteUser.email)]
+        });
 
-        if (userDocs.documents.length > 0) {
-          const uDoc = userDocs.documents[0];
+        if (userDocs.rows.length > 0) {
+          const uDoc = userDocs.rows[0];
           setUser({
             id: appwriteUser.$id,
             email: appwriteUser.email,
@@ -46,42 +46,42 @@ export const RootNavigator: React.FC = () => {
           let resolvedRole: 'boss' | 'employee' = 'boss';
           let resolvedTenantId = `tenant_${appwriteUser.$id}`;
 
-          const empDocs = await databases.listDocuments(
-            DATABASE_ID,
-            COLLECTIONS.EMPLOYEES,
-            [Query.equal('email', appwriteUser.email.toLowerCase().trim())]
-          );
+          const empDocs = await tablesDB.listRows({
+            databaseId: DATABASE_ID,
+            tableId: COLLECTIONS.EMPLOYEES,
+            queries: [Query.equal('email', appwriteUser.email.toLowerCase().trim())]
+          });
 
-          if (empDocs.documents.length > 0) {
-            const emp = empDocs.documents[0];
+          if (empDocs.rows.length > 0) {
+            const emp = empDocs.rows[0];
             resolvedRole = 'employee';
             resolvedTenantId = emp.tenant_id;
             
             // Link employee record
             try {
-              await databases.updateDocument(
-                DATABASE_ID,
-                COLLECTIONS.EMPLOYEES,
-                emp.$id,
-                { user_id: appwriteUser.$id }
-              );
+              await tablesDB.updateRow({
+                databaseId: DATABASE_ID,
+                tableId: COLLECTIONS.EMPLOYEES,
+                rowId: emp.$id,
+                data: { user_id: appwriteUser.$id }
+              });
             } catch (e) {
               console.warn('Failed to link employee uid');
             }
           }
 
           // Create the user profile
-          await databases.createDocument(
-            DATABASE_ID,
-            COLLECTIONS.USERS,
-            ID.unique(),
-            {
+          await tablesDB.createRow({
+            databaseId: DATABASE_ID,
+            tableId: COLLECTIONS.USERS,
+            rowId: ID.unique(),
+            data: {
               tenant_id: resolvedTenantId,
               email: appwriteUser.email,
               displayName: appwriteUser.name || 'User',
               role: resolvedRole,
             }
-          );
+          });
 
           setUser({
             id: appwriteUser.$id,

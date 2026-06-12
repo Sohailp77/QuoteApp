@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { databases, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
+import { tablesDB, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
 import { useAuthStore } from '../store/useAuthStore';
 import { Product } from '../types';
 
@@ -14,17 +14,17 @@ export const useProducts = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTIONS.PRODUCTS,
-        [
+      const response = await tablesDB.listRows({
+        databaseId: DATABASE_ID,
+        tableId: COLLECTIONS.PRODUCTS,
+        queries: [
           Query.equal('tenant_id', user.tenant_id),
           Query.limit(500)
         ]
-      );
+      });
 
       setProducts(
-        response.documents.map((prod) => ({
+        response.rows.map((prod) => ({
           id: prod.$id,
           user_id: prod.user_id || '',
           name: prod.name || '',
@@ -39,6 +39,8 @@ export const useProducts = () => {
           warehouse_location: prod.warehouse_location || '',
           reorder_level: prod.reorder_level !== null ? Number(prod.reorder_level) : undefined,
           created_at: prod.$createdAt || new Date().toISOString(),
+          calc_type: prod.calc_type || 'pcs',
+          image_url: prod.image_url || '',
         }))
       );
     } catch (err: any) {
@@ -51,16 +53,17 @@ export const useProducts = () => {
   const create = async (product: Omit<Product, 'id' | 'user_id' | 'created_at'>) => {
     if (!user) return null;
     try {
-      const doc = await databases.createDocument(
-        DATABASE_ID,
-        COLLECTIONS.PRODUCTS,
-        ID.unique(),
-        {
+      const doc = await tablesDB.createRow({
+        databaseId: DATABASE_ID,
+        tableId: COLLECTIONS.PRODUCTS,
+        rowId: ID.unique(),
+        data: {
           ...product,
+          image_url: product.image_url || null,
           tenant_id: user.tenant_id,
           user_id: user.id,
         }
-      );
+      });
 
       const newProduct: Product = {
         id: doc.$id,
@@ -77,6 +80,8 @@ export const useProducts = () => {
         warehouse_location: doc.warehouse_location || '',
         reorder_level: doc.reorder_level !== null ? Number(doc.reorder_level) : undefined,
         created_at: doc.$createdAt || new Date().toISOString(),
+        calc_type: doc.calc_type || 'pcs',
+        image_url: doc.image_url || '',
       };
 
       setProducts((prev) => [newProduct, ...prev]);
@@ -88,12 +93,12 @@ export const useProducts = () => {
 
   const update = async (id: string, updates: Partial<Product>) => {
     try {
-      const doc = await databases.updateDocument(
-        DATABASE_ID,
-        COLLECTIONS.PRODUCTS,
-        id,
-        updates
-      );
+      await tablesDB.updateRow({
+        databaseId: DATABASE_ID,
+        tableId: COLLECTIONS.PRODUCTS,
+        rowId: id,
+        data: updates
+      });
 
       let updated: Product | null = null;
       setProducts((prev) =>
@@ -113,7 +118,11 @@ export const useProducts = () => {
 
   const remove = async (id: string) => {
     try {
-      await databases.deleteDocument(DATABASE_ID, COLLECTIONS.PRODUCTS, id);
+      await tablesDB.deleteRow({
+        databaseId: DATABASE_ID,
+        tableId: COLLECTIONS.PRODUCTS,
+        rowId: id
+      });
       setProducts((prev) => prev.filter((p) => p.id !== id));
     } catch (err: any) {
       throw new Error(err.message || 'Failed to delete product');
@@ -123,18 +132,18 @@ export const useProducts = () => {
   const findByBarcode = async (barcode: string): Promise<Product | null> => {
     if (!user || !barcode.trim()) return null;
     try {
-      const response = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTIONS.PRODUCTS,
-        [
+      const response = await tablesDB.listRows({
+        databaseId: DATABASE_ID,
+        tableId: COLLECTIONS.PRODUCTS,
+        queries: [
           Query.equal('tenant_id', user.tenant_id),
           Query.equal('barcode', barcode.trim()),
           Query.limit(1)
         ]
-      );
+      });
 
-      if (response.documents.length > 0) {
-        const prod = response.documents[0];
+      if (response.rows.length > 0) {
+        const prod = response.rows[0];
         return {
           id: prod.$id,
           user_id: prod.user_id || '',
@@ -150,6 +159,8 @@ export const useProducts = () => {
           warehouse_location: prod.warehouse_location || '',
           reorder_level: prod.reorder_level !== null ? Number(prod.reorder_level) : undefined,
           created_at: prod.$createdAt || new Date().toISOString(),
+          calc_type: prod.calc_type || 'pcs',
+          image_url: prod.image_url || '',
         };
       }
       return null;

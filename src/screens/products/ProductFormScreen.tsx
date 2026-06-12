@@ -8,8 +8,11 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Modal,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { selectAndUploadImage } from '../../utils/upload';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useProducts } from '../../hooks/useProducts';
 import { useCategories } from '../../hooks/useCategories';
@@ -63,11 +66,36 @@ export const ProductFormScreen: React.FC = () => {
   const [stockQuantity, setStockQuantity] = useState(existing?.stock_quantity?.toString() || '');
   const [unit, setUnit] = useState(existing?.unit || 'piece');
   const [category, setCategory] = useState(existing?.category || '');
+  const [calcType, setCalcType] = useState<'pcs' | 'size' | 'area' | 'length' | 'weight'>(existing?.calc_type || 'pcs');
   const [sku, setSku] = useState(existing?.sku || '');
   const [barcode, setBarcode] = useState(existing?.barcode || '');
   const [warehouseLocation, setWarehouseLocation] = useState(existing?.warehouse_location || '');
+  const [productImage, setProductImage] = useState(existing?.image_url || '');
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+
+  // Category modal states
+  const [categoryModalVisible, setCategoryModalVisible] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+
+  const handleSelectCategory = (catName: string) => {
+    if (category === catName) {
+      setCategory('');
+    } else {
+      setCategory(catName);
+      const cat = categories.find((c) => c.name === catName);
+      if (cat?.calc_type) {
+        setCalcType(cat.calc_type);
+        if (unit === 'piece') {
+          if (cat.calc_type === 'size' || cat.calc_type === 'area') setUnit('Sq Ft');
+          else if (cat.calc_type === 'length') setUnit('meter');
+          else if (cat.calc_type === 'weight') setUnit('kg');
+        }
+      }
+    }
+  };
+  const [categoryAdding, setCategoryAdding] = useState(false);
 
   const isEdit = !!existing;
 
@@ -126,6 +154,8 @@ export const ProductFormScreen: React.FC = () => {
         sku: sku.trim(),
         barcode: barcode.trim(),
         warehouse_location: warehouseLocation.trim(),
+        calc_type: calcType,
+        image_url: productImage,
       };
 
       if (isEdit) {
@@ -147,35 +177,31 @@ export const ProductFormScreen: React.FC = () => {
   };
 
   const handleAddNewCategory = () => {
-    Alert.prompt(
-      'New Category',
-      'Enter the name of the new category:',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Add',
-          onPress: async (catName?: string) => {
-            if (!catName || !catName.trim()) return;
-            try {
-              const newCat = await createCategory({
-                name: catName.trim(),
-                is_active: true,
-              });
-              if (newCat) {
-                setCategory(newCat.name);
-                Alert.alert('Success', `Category "${newCat.name}" added`);
-              }
-            } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to add category');
-            }
-          },
-        },
-      ],
-      'plain-text'
-    );
+    setNewCategoryName('');
+    setCategoryModalVisible(true);
+  };
+
+  const handleCreateCategory = async () => {
+    if (!newCategoryName.trim()) {
+      Alert.alert('Error', 'Please enter a category name.');
+      return;
+    }
+    setCategoryAdding(true);
+    try {
+      const newCat = await createCategory({
+        name: newCategoryName.trim(),
+        is_active: true,
+      });
+      if (newCat) {
+        setCategory(newCat.name);
+        setCategoryModalVisible(false);
+        Alert.alert('Success', `Category "${newCat.name}" added`);
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to add category');
+    } finally {
+      setCategoryAdding(false);
+    }
   };
 
   return (
@@ -191,8 +217,36 @@ export const ProductFormScreen: React.FC = () => {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Icon preview */}
         <View style={styles.iconSection}>
-          <View style={styles.productIconCircle}>
-            <Ionicons name="cube" size={40} color={Colors.accent} />
+          <View style={styles.imageSectionContainer}>
+            {productImage ? (
+              <View style={styles.imageWrapper}>
+                <Image source={{ uri: productImage }} style={styles.imagePreview} />
+                <TouchableOpacity 
+                  style={styles.removeImageBtn} 
+                  onPress={() => setProductImage('')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="trash" size={16} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity 
+                style={[styles.imagePlaceholder, uploadingImage && { opacity: 0.6 }]} 
+                onPress={async () => {
+                  setUploadingImage(true);
+                  const url = await selectAndUploadImage();
+                  setUploadingImage(false);
+                  if (url) setProductImage(url);
+                }}
+                disabled={uploadingImage}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="camera-outline" size={24} color={Colors.textSecondary} />
+                <Text style={styles.imagePlaceholderText}>
+                  {uploadingImage ? 'Uploading...' : 'Add Product Image'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
           {name ? <Text style={styles.productNamePreview}>{name}</Text> : null}
           {unitPrice ? (
@@ -272,7 +326,7 @@ export const ProductFormScreen: React.FC = () => {
                         <TouchableOpacity
                           key={cat.id}
                           style={[styles.categoryChip, isSelected && styles.categoryChipActive]}
-                          onPress={() => setCategory(isSelected ? '' : cat.name)}
+                          onPress={() => handleSelectCategory(cat.name)}
                           activeOpacity={0.8}
                         >
                           <Text style={[styles.categoryChipText, isSelected && styles.categoryChipTextActive]}>
@@ -347,6 +401,26 @@ export const ProductFormScreen: React.FC = () => {
                 </TouchableOpacity>
               ))}
             </View>
+
+            <Text style={[fieldStyles.label, { marginTop: 14 }]}>Calculation Method</Text>
+            <View style={styles.calcGrid}>
+              {[
+                { type: 'pcs', label: 'PCS' },
+                { type: 'size', label: 'Size (L × W)' },
+                { type: 'area', label: 'Area' },
+                { type: 'length', label: 'Length' },
+                { type: 'weight', label: 'Weight (KG)' },
+              ].map((c) => (
+                <TouchableOpacity
+                  key={c.type}
+                  style={[styles.calcChip, calcType === c.type && styles.calcChipActive]}
+                  onPress={() => setCalcType(c.type as any)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.calcText, calcType === c.type && styles.calcTextActive]}>{c.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </View>
 
@@ -368,6 +442,52 @@ export const ProductFormScreen: React.FC = () => {
         onScan={handleBarcodeScan}
         title="Scan Product Barcode"
       />
+
+      {/* Custom Category Modal */}
+      <Modal
+        visible={categoryModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCategoryModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>New Category</Text>
+            
+            <View style={styles.fieldWrap}>
+              <Text style={styles.fieldLabel}>Category Name *</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={newCategoryName}
+                onChangeText={setNewCategoryName}
+                placeholder="e.g. Hardware"
+                placeholderTextColor={Colors.textMuted}
+                autoFocus
+              />
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                onPress={() => setCategoryModalVisible(false)}
+                style={[styles.modalBtn, styles.modalCancelBtn]}
+              >
+                <Text style={styles.modalCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleCreateCategory}
+                style={[styles.modalBtn, styles.modalCreateBtn]}
+                disabled={categoryAdding}
+              >
+                {categoryAdding ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.modalCreateBtnText}>Add Category</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -418,10 +538,54 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary },
   iconSection: { alignItems: 'center', paddingVertical: 24, gap: 8 },
-  productIconCircle: {
-    width: 80, height: 80, borderRadius: 24,
-    backgroundColor: Colors.accent + '15',
-    alignItems: 'center', justifyContent: 'center',
+  imageSectionContainer: {
+    width: '100%',
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  imagePlaceholder: {
+    width: 120,
+    height: 120,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderStyle: 'dashed',
+    borderRadius: Radius.lg,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.surfaceAlt,
+    gap: 8,
+  },
+  imagePlaceholderText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+    textAlign: 'center',
+    paddingHorizontal: 4,
+  },
+  imageWrapper: {
+    width: 120,
+    height: 120,
+    borderRadius: Radius.lg,
+    overflow: 'hidden',
+    position: 'relative',
+    ...Shadow.md,
+  },
+  imagePreview: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  removeImageBtn: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: Colors.statusRejected,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Shadow.sm,
   },
   productNamePreview: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
   pricePreview: { fontSize: 16, color: Colors.accent, fontWeight: '600' },
@@ -506,4 +670,85 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     letterSpacing: 3,
   },
+  
+  // Custom Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    padding: 20,
+    width: '100%',
+    maxWidth: 340,
+    ...Shadow.md,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+    marginBottom: 16,
+  },
+  fieldWrap: {
+    marginBottom: 14,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
+  modalInput: {
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: Radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: Colors.textPrimary,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 10,
+  },
+  modalBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 90,
+  },
+  modalCancelBtn: {
+    backgroundColor: Colors.surfaceAlt,
+  },
+  modalCancelBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  modalCreateBtn: {
+    backgroundColor: Colors.primary,
+  },
+  modalCreateBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  calcGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  calcChip: {
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.surfaceAlt,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  calcChipActive: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  calcText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  calcTextActive: { color: '#fff' },
 });

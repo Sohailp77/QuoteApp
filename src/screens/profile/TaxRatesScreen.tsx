@@ -7,6 +7,8 @@ import {
   FlatList,
   Alert,
   ActivityIndicator,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -22,6 +24,11 @@ export const TaxRatesScreen: React.FC = () => {
 
   const isBoss = user?.role === 'boss';
 
+  const [modalVisible, setModalVisible] = useState(false);
+  const [newSlabName, setNewSlabName] = useState('');
+  const [newSlabPercentage, setNewSlabPercentage] = useState('');
+  const [adding, setAdding] = useState(false);
+
   useEffect(() => {
     fetch();
   }, []);
@@ -31,55 +38,38 @@ export const TaxRatesScreen: React.FC = () => {
       Alert.alert('Access Denied', 'Only the owner (Boss) can create tax slabs.');
       return;
     }
+    setNewSlabName('');
+    setNewSlabPercentage('');
+    setModalVisible(true);
+  };
 
-    Alert.prompt(
-      'New Tax Slab',
-      'Enter the tax name (e.g. GST 18%):',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Next',
-          onPress: (name?: string) => {
-            if (!name || !name.trim()) return;
-            
-            // Ask for the rate percentage
-            Alert.prompt(
-              'Tax Rate',
-              'Enter the tax rate percentage (e.g. 18):',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Add',
-                  onPress: async (rateStr?: string) => {
-                    const rate = parseFloat(rateStr || '');
-                    if (isNaN(rate) || rate < 0) {
-                      Alert.alert('Error', 'Please enter a valid rate percentage.');
-                      return;
-                    }
+  const handleCreateTaxSlab = async () => {
+    if (!newSlabName.trim()) {
+      Alert.alert('Error', 'Please enter a tax slab name.');
+      return;
+    }
 
-                    try {
-                      await create({
-                        name: name.trim(),
-                        percentage: rate,
-                        is_active: true,
-                        is_default: false,
-                      });
-                      Alert.alert('Success', `Tax slab "${name}" added successfully.`);
-                    } catch (err: any) {
-                      Alert.alert('Error', err.message || 'Failed to create tax slab.');
-                    }
-                  },
-                },
-              ],
-              'plain-text',
-              ''
-            );
-          },
-        },
-      ],
-      'plain-text',
-      ''
-    );
+    const rate = parseFloat(newSlabPercentage);
+    if (isNaN(rate) || rate < 0) {
+      Alert.alert('Error', 'Please enter a valid rate percentage.');
+      return;
+    }
+
+    setAdding(true);
+    try {
+      await create({
+        name: newSlabName.trim(),
+        percentage: rate,
+        is_active: true,
+        is_default: false,
+      });
+      setModalVisible(false);
+      Alert.alert('Success', `Tax slab "${newSlabName.trim()}" added successfully.`);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to create tax slab.');
+    } finally {
+      setAdding(false);
+    }
   };
 
   const handleToggleActive = async (item: TaxRate) => {
@@ -130,7 +120,7 @@ export const TaxRatesScreen: React.FC = () => {
         <Text style={styles.headerTitle}>Tax Slabs</Text>
         {isBoss ? (
           <TouchableOpacity onPress={handleAddTaxSlab} style={styles.addBtn}>
-            <Ionicons name="add" size={22} color={Colors.textInverse} />
+            <Ionicons name="add" size={22} color="#fff" />
           </TouchableOpacity>
         ) : (
           <View style={{ width: 38 }} />
@@ -207,6 +197,64 @@ export const TaxRatesScreen: React.FC = () => {
           }
         />
       )}
+
+      {/* Custom Add Tax Slab Modal */}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>New Tax Slab</Text>
+            
+            <View style={styles.fieldWrap}>
+              <Text style={styles.fieldLabel}>Tax Name *</Text>
+              <TextInput
+                style={styles.input}
+                value={newSlabName}
+                onChangeText={setNewSlabName}
+                placeholder="e.g. GST 18%"
+                placeholderTextColor={Colors.textMuted}
+                autoFocus
+              />
+            </View>
+
+            <View style={styles.fieldWrap}>
+              <Text style={styles.fieldLabel}>Tax Rate (%) *</Text>
+              <TextInput
+                style={styles.input}
+                value={newSlabPercentage}
+                onChangeText={setNewSlabPercentage}
+                placeholder="e.g. 18"
+                placeholderTextColor={Colors.textMuted}
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                onPress={() => setModalVisible(false)}
+                style={[styles.modalBtn, styles.modalCancelBtn]}
+              >
+                <Text style={styles.modalCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleCreateTaxSlab}
+                style={[styles.modalBtn, styles.modalCreateBtn]}
+                disabled={adding}
+              >
+                {adding ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.modalCreateBtnText}>Create Slab</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -302,4 +350,75 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 100, gap: 10 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
   emptySub: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', paddingHorizontal: 40 },
+  
+  // Custom Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    padding: 20,
+    width: '100%',
+    maxWidth: 340,
+    ...Shadow.md,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+    marginBottom: 16,
+  },
+  fieldWrap: {
+    marginBottom: 14,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
+  input: {
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: Radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: Colors.textPrimary,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 10,
+  },
+  modalBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 90,
+  },
+  modalCancelBtn: {
+    backgroundColor: Colors.surfaceAlt,
+  },
+  modalCancelBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  modalCreateBtn: {
+    backgroundColor: Colors.primary,
+  },
+  modalCreateBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
+  },
 });

@@ -9,8 +9,11 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
+  ScrollView,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { selectAndUploadImage } from '../../utils/upload';
 import { useNavigation } from '@react-navigation/native';
 import { useCategories } from '../../hooks/useCategories';
 import { Category } from '../../types';
@@ -24,6 +27,9 @@ export const CategoryManagerScreen: React.FC = () => {
   const [editTarget, setEditTarget] = useState<Category | null>(null);
   const [catName, setCatName] = useState('');
   const [catUnit, setCatUnit] = useState('Pcs');
+  const [catCalcType, setCatCalcType] = useState<'pcs' | 'size' | 'area' | 'length' | 'weight'>('pcs');
+  const [catImage, setCatImage] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -34,6 +40,8 @@ export const CategoryManagerScreen: React.FC = () => {
     setEditTarget(null);
     setCatName('');
     setCatUnit('Pcs');
+    setCatCalcType('pcs');
+    setCatImage('');
     setShowForm(true);
   };
 
@@ -41,6 +49,8 @@ export const CategoryManagerScreen: React.FC = () => {
     setEditTarget(cat);
     setCatName(cat.name);
     setCatUnit(cat.unit_name || 'Pcs');
+    setCatCalcType(cat.calc_type || 'pcs');
+    setCatImage(cat.image_url || '');
     setShowForm(true);
   };
 
@@ -52,10 +62,21 @@ export const CategoryManagerScreen: React.FC = () => {
     setSaving(true);
     try {
       if (editTarget) {
-        await update(editTarget.id, { name: catName.trim(), unit_name: catUnit.trim() });
+        await update(editTarget.id, { 
+          name: catName.trim(), 
+          unit_name: catUnit.trim(), 
+          calc_type: catCalcType, 
+          image_url: catImage 
+        });
         Alert.alert('Updated', `Category "${catName.trim()}" updated.`);
       } else {
-        await create({ name: catName.trim(), unit_name: catUnit.trim(), is_active: true });
+        await create({ 
+          name: catName.trim(), 
+          unit_name: catUnit.trim(), 
+          calc_type: catCalcType, 
+          is_active: true, 
+          image_url: catImage 
+        });
         Alert.alert('Created', `Category "${catName.trim()}" created.`);
       }
       setShowForm(false);
@@ -124,15 +145,19 @@ export const CategoryManagerScreen: React.FC = () => {
         renderItem={({ item }) => (
           <View style={[styles.catCard, !item.is_active && styles.catCardInactive]}>
             <View style={styles.catIconWrap}>
-              <Ionicons name="grid-outline" size={22} color={item.is_active ? Colors.accent : Colors.textMuted} />
+              {item.image_url ? (
+                <Image source={{ uri: item.image_url }} style={styles.catCardImage} />
+              ) : (
+                <Ionicons name="grid-outline" size={22} color={item.is_active ? Colors.accent : Colors.textMuted} />
+              )}
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.catName, !item.is_active && styles.catNameInactive]}>
                 {item.name}
               </Text>
-              {item.unit_name ? (
-                <Text style={styles.catMeta}>Unit: {item.unit_name}</Text>
-              ) : null}
+              <Text style={styles.catMeta}>
+                Unit: {item.unit_name || 'Pcs'} | Calc: {item.calc_type?.toUpperCase() || 'PCS'}
+              </Text>
             </View>
             <View style={styles.catActions}>
               <TouchableOpacity
@@ -177,15 +202,47 @@ export const CategoryManagerScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.modalBody}>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.modalBody} showsVerticalScrollIndicator={false}>
+            <Text style={styles.label}>Category Image</Text>
+            <View style={styles.imageSelectorContainer}>
+              {catImage ? (
+                <View style={styles.imageWrapper}>
+                  <Image source={{ uri: catImage }} style={styles.imagePreview} />
+                  <TouchableOpacity 
+                    style={styles.removeImageBtn} 
+                    onPress={() => setCatImage('')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="trash" size={16} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity 
+                  style={[styles.imagePlaceholder, uploadingImage && { opacity: 0.6 }]} 
+                  onPress={async () => {
+                    setUploadingImage(true);
+                    const url = await selectAndUploadImage();
+                    setUploadingImage(false);
+                    if (url) setCatImage(url);
+                  }}
+                  disabled={uploadingImage}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="camera-outline" size={24} color={Colors.textSecondary} />
+                  <Text style={styles.imagePlaceholderText}>
+                    {uploadingImage ? 'Uploading...' : 'Select Category Image'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
             <Text style={styles.label}>Category Name *</Text>
             <TextInput
               style={styles.input}
               value={catName}
               onChangeText={setCatName}
-              placeholder="e.g. Electronics, Apparel..."
+              placeholder="e.g. Plywood, Tiles..."
               placeholderTextColor={Colors.textMuted}
-              autoFocus
             />
 
             <Text style={[styles.label, { marginTop: 16 }]}>Default Unit</Text>
@@ -193,9 +250,45 @@ export const CategoryManagerScreen: React.FC = () => {
               style={styles.input}
               value={catUnit}
               onChangeText={setCatUnit}
-              placeholder="e.g. Pcs, Kg, Litre..."
+              placeholder="e.g. Sq Ft, Pcs, Kg..."
               placeholderTextColor={Colors.textMuted}
             />
+
+            <Text style={[styles.label, { marginTop: 16 }]}>Calculation Method</Text>
+            <View style={styles.calcSelectorGrid}>
+              {[
+                { type: 'pcs', label: 'Pieces (PCS)', desc: 'Simple unit count (e.g. accessories, furniture)' },
+                { type: 'size', label: 'Size (Length × Width)', desc: 'Length × Width × Pcs area calculation (e.g. glass, plywood)' },
+                { type: 'area', label: 'Area (Direct)', desc: 'Direct area × Pcs calculation (e.g. tiles, flooring)' },
+                { type: 'length', label: 'Length', desc: 'Length × Pcs calculation (e.g. cables, pipes)' },
+                { type: 'weight', label: 'Weight (KG)', desc: 'Weight or decimal count (e.g. cement, chemicals)' }
+              ].map((item) => {
+                const isActive = catCalcType === item.type;
+                return (
+                  <TouchableOpacity
+                    key={item.type}
+                    style={[styles.calcOptionChip, isActive && styles.calcOptionChipActive]}
+                    onPress={() => {
+                      setCatCalcType(item.type as any);
+                      // Auto-update default unit if appropriate
+                      if (item.type === 'pcs') setCatUnit('Pcs');
+                      else if (item.type === 'size' || item.type === 'area') setCatUnit('Sq Ft');
+                      else if (item.type === 'length') setCatUnit('Meter');
+                      else if (item.type === 'weight') setCatUnit('KG');
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.calcOptionTop}>
+                      <Text style={[styles.calcOptionLabel, isActive && styles.calcOptionLabelActive]}>
+                        {item.label}
+                      </Text>
+                      {isActive && <Ionicons name="checkmark-circle" size={16} color={Colors.accent} />}
+                    </View>
+                    <Text style={styles.calcOptionDesc}>{item.desc}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
 
             <TouchableOpacity
               style={[styles.saveBtn, saving && { opacity: 0.6 }]}
@@ -211,7 +304,7 @@ export const CategoryManagerScreen: React.FC = () => {
                 </Text>
               )}
             </TouchableOpacity>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
     </View>
@@ -248,6 +341,56 @@ const styles = StyleSheet.create({
     width: 42, height: 42, borderRadius: 12,
     backgroundColor: Colors.accent + '15',
     alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  catCardImage: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+  },
+  imageSelectorContainer: {
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  imagePlaceholder: {
+    height: 120,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderStyle: 'dashed',
+    borderRadius: Radius.lg,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.surfaceAlt,
+    gap: 8,
+  },
+  imagePlaceholderText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  imageWrapper: {
+    width: '100%',
+    height: 140,
+    borderRadius: Radius.lg,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  imagePreview: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  removeImageBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: Colors.statusRejected,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Shadow.sm,
   },
   catName: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
   catNameInactive: { color: Colors.textMuted },
@@ -287,4 +430,37 @@ const styles = StyleSheet.create({
     marginTop: 28,
   },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  calcSelectorGrid: {
+    gap: 8,
+    marginTop: 4,
+  },
+  calcOptionChip: {
+    padding: 12,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  calcOptionChipActive: {
+    borderColor: Colors.accent,
+    backgroundColor: Colors.accent + '08',
+  },
+  calcOptionTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  calcOptionLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  calcOptionLabelActive: {
+    color: Colors.accent,
+  },
+  calcOptionDesc: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+  },
 });

@@ -4,7 +4,7 @@ import {
   Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { account, ID } from '../../config/appwrite';
+import { account, ID, tablesDB, DATABASE_ID, COLLECTIONS, Query } from '../../config/appwrite';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Colors, Radius, Shadow, Spacing } from '../../theme';
 
@@ -35,27 +35,77 @@ export const LoginScreen: React.FC = () => {
         await account.create(ID.unique(), email.trim(), password, displayName.trim());
         // Login after register
         await account.createEmailPasswordSession(email.trim(), password);
-        
-        const user = await account.get();
-        setUser({
-          id: user.$id,
-          email: user.email,
-          displayName: user.name || 'User',
-          role: 'boss', // default role for new accounts
-          tenant_id: `tenant_${user.$id}`, // Boss's own tenant
-        });
       } else {
         // Appwrite Login
         await account.createEmailPasswordSession(email.trim(), password);
-        const user = await account.get();
-        setUser({
-          id: user.$id,
-          email: user.email,
-          displayName: user.name || 'User',
-          role: 'boss', // RootNavigator handles employee role mapping
-          tenant_id: `tenant_${user.$id}`,
-        });
       }
+
+      const appwriteUser = await account.get();
+      let resolvedRole: 'boss' | 'employee' = 'boss';
+      let resolvedTenantId = `tenant_${appwriteUser.$id}`;
+
+      // Fetch user profile from `users` collection to get role & tenant_id
+      try {
+        const userDocs = await tablesDB.listRows({
+          databaseId: DATABASE_ID,
+          tableId: COLLECTIONS.USERS,
+          queries: [Query.equal('email', appwriteUser.email)]
+        });
+
+        if (userDocs.rows.length > 0) {
+          const uDoc = userDocs.rows[0];
+          resolvedRole = (uDoc.role as 'boss' | 'employee') || 'boss';
+          resolvedTenantId = uDoc.tenant_id;
+        } else {
+          // If no user doc, check if they are an employee created by a boss
+          const empDocs = await tablesDB.listRows({
+            databaseId: DATABASE_ID,
+            tableId: COLLECTIONS.EMPLOYEES,
+            queries: [Query.equal('email', appwriteUser.email.toLowerCase().trim())]
+          });
+
+          if (empDocs.rows.length > 0) {
+            const emp = empDocs.rows[0];
+            resolvedRole = 'employee';
+            resolvedTenantId = emp.tenant_id;
+            
+            // Link employee record
+            try {
+              await tablesDB.updateRow({
+                databaseId: DATABASE_ID,
+                tableId: COLLECTIONS.EMPLOYEES,
+                rowId: emp.$id,
+                data: { user_id: appwriteUser.$id }
+              });
+            } catch (e) {
+              console.warn('Failed to link employee uid');
+            }
+          }
+
+          // Create the user profile
+          await tablesDB.createRow({
+            databaseId: DATABASE_ID,
+            tableId: COLLECTIONS.USERS,
+            rowId: ID.unique(),
+            data: {
+              tenant_id: resolvedTenantId,
+              email: appwriteUser.email,
+              displayName: appwriteUser.name || displayName.trim() || 'User',
+              role: resolvedRole,
+            }
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching/creating user profile on login:', err);
+      }
+
+      setUser({
+        id: appwriteUser.$id,
+        email: appwriteUser.email,
+        displayName: appwriteUser.name || displayName.trim() || 'User',
+        role: resolvedRole,
+        tenant_id: resolvedTenantId,
+      });
     } catch (err: any) {
       Alert.alert('Authentication Failed', err.message || 'Please check your credentials.');
     } finally {

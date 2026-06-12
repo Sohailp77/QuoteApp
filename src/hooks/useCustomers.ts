@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { databases, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
+import { tablesDB, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
 import { Customer } from '../types';
 import { useAuthStore } from '../store/useAuthStore';
 
@@ -14,16 +14,16 @@ export const useCustomers = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTIONS.CUSTOMERS,
-        [
+      const response = await tablesDB.listRows({
+        databaseId: DATABASE_ID,
+        tableId: COLLECTIONS.CUSTOMERS,
+        queries: [
           Query.equal('tenant_id', user.tenant_id),
           Query.limit(100)
         ]
-      );
+      });
 
-      const mapped: Customer[] = response.documents.map((c) => ({
+      const mapped: Customer[] = response.rows.map((c) => ({
         id: c.$id,
         tenant_id: c.tenant_id,
         name: c.name || '',
@@ -47,18 +47,17 @@ export const useCustomers = () => {
   const search = async (query: string): Promise<Customer[]> => {
     if (!user || !query.trim()) return [];
     try {
-      const response = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTIONS.CUSTOMERS,
-        [
+      const response = await tablesDB.listRows({
+        databaseId: DATABASE_ID,
+        tableId: COLLECTIONS.CUSTOMERS,
+        queries: [
           Query.equal('tenant_id', user.tenant_id),
-          // Search in name attribute
           Query.search('name', query.trim()),
           Query.limit(8)
         ]
-      );
+      });
 
-      return response.documents.map((c) => ({
+      return response.rows.map((c) => ({
         id: c.$id,
         tenant_id: c.tenant_id,
         name: c.name || '',
@@ -77,15 +76,15 @@ export const useCustomers = () => {
   const create = async (customer: Omit<Customer, 'id' | 'tenant_id' | 'created_at'>) => {
     if (!user) return null;
     try {
-      const doc = await databases.createDocument(
-        DATABASE_ID,
-        COLLECTIONS.CUSTOMERS,
-        ID.unique(),
-        {
+      const doc = await tablesDB.createRow({
+        databaseId: DATABASE_ID,
+        tableId: COLLECTIONS.CUSTOMERS,
+        rowId: ID.unique(),
+        data: {
           ...customer,
           tenant_id: user.tenant_id,
         }
-      );
+      });
 
       const newCustomer: Customer = {
         id: doc.$id,
@@ -110,12 +109,12 @@ export const useCustomers = () => {
 
   const update = async (id: string, updates: Partial<Customer>) => {
     try {
-      const doc = await databases.updateDocument(
-        DATABASE_ID,
-        COLLECTIONS.CUSTOMERS,
-        id,
-        updates
-      );
+      await tablesDB.updateRow({
+        databaseId: DATABASE_ID,
+        tableId: COLLECTIONS.CUSTOMERS,
+        rowId: id,
+        data: updates
+      });
 
       let updated: Customer | null = null;
       setCustomers((prev) =>
@@ -135,7 +134,11 @@ export const useCustomers = () => {
 
   const remove = async (id: string) => {
     try {
-      await databases.deleteDocument(DATABASE_ID, COLLECTIONS.CUSTOMERS, id);
+      await tablesDB.deleteRow({
+        databaseId: DATABASE_ID,
+        tableId: COLLECTIONS.CUSTOMERS,
+        rowId: id
+      });
       setCustomers((prev) => prev.filter((c) => c.id !== id));
     } catch (err: any) {
       throw new Error(err.message || 'Failed to delete customer');
