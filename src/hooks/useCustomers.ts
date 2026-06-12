@@ -2,15 +2,22 @@ import { useState, useCallback } from 'react';
 import { tablesDB, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
 import { Customer } from '../types';
 import { useAuthStore } from '../store/useAuthStore';
+import { useAppStore } from '../store/useAppStore';
+import { animateLayout } from '../utils/animation';
 
 export const useCustomers = () => {
   const user = useAuthStore((s) => s.user);
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const customers = useAppStore((s) => s.customers);
+  const setCustomers = useAppStore((s) => s.setCustomers);
+  const customersLoaded = useAppStore((s) => s.customersLoaded);
+  const setCustomersLoaded = useAppStore((s) => s.setCustomersLoaded);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetch = useCallback(async () => {
+  const fetch = useCallback(async (force = false) => {
     if (!user) return;
+    if (customersLoaded && !force) return;
     setLoading(true);
     setError(null);
     try {
@@ -36,16 +43,28 @@ export const useCustomers = () => {
       }));
 
       mapped.sort((a, b) => a.name.localeCompare(b.name));
+      animateLayout();
       setCustomers(mapped);
+      setCustomersLoaded(true);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch customers');
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, customersLoaded, setCustomers, setCustomersLoaded]);
 
   const search = async (query: string): Promise<Customer[]> => {
     if (!user || !query.trim()) return [];
+    
+    // Search within local cache first to prevent database cost!
+    const term = query.trim().toLowerCase();
+    const cachedMatches = customers.filter(c => 
+      c.name.toLowerCase().includes(term) || 
+      c.email.toLowerCase().includes(term) || 
+      c.phone.includes(term)
+    );
+    if (cachedMatches.length > 0) return cachedMatches.slice(0, 8);
+
     try {
       const response = await tablesDB.listRows({
         databaseId: DATABASE_ID,
@@ -98,9 +117,9 @@ export const useCustomers = () => {
         created_at: doc.$createdAt || new Date().toISOString(),
       };
 
-      setCustomers((prev) =>
-        [newCustomer, ...prev].sort((a, b) => a.name.localeCompare(b.name))
-      );
+      const list = [newCustomer, ...customers].sort((a, b) => a.name.localeCompare(b.name));
+      animateLayout();
+      setCustomers(list);
       return newCustomer;
     } catch (err: any) {
       throw new Error(err.message || 'Failed to create customer');
@@ -117,15 +136,15 @@ export const useCustomers = () => {
       });
 
       let updated: Customer | null = null;
-      setCustomers((prev) =>
-        prev.map((c) => {
-          if (c.id === id) {
-            updated = { ...c, ...updates };
-            return updated;
-          }
-          return c;
-        })
-      );
+      const nextCustomers = customers.map((c) => {
+        if (c.id === id) {
+          updated = { ...c, ...updates };
+          return updated;
+        }
+        return c;
+      });
+      animateLayout();
+      setCustomers(nextCustomers);
       return updated;
     } catch (err: any) {
       throw new Error(err.message || 'Failed to update customer');
@@ -139,7 +158,8 @@ export const useCustomers = () => {
         tableId: COLLECTIONS.CUSTOMERS,
         rowId: id
       });
-      setCustomers((prev) => prev.filter((c) => c.id !== id));
+      animateLayout();
+      setCustomers(customers.filter((c) => c.id !== id));
     } catch (err: any) {
       throw new Error(err.message || 'Failed to delete customer');
     }

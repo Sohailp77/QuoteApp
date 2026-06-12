@@ -1,16 +1,22 @@
 import { useState, useCallback } from 'react';
 import { tablesDB, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
 import { useAuthStore } from '../store/useAuthStore';
+import { useAppStore } from '../store/useAppStore';
 import { CompanySettings } from '../types';
 
 export const useCompanySettings = () => {
   const user = useAuthStore((s) => s.user);
-  const [settings, setSettings] = useState<CompanySettings | null>(null);
+  const settings = useAppStore((s) => s.companySettings);
+  const setSettings = useAppStore((s) => s.setCompanySettings);
+  const settingsLoaded = useAppStore((s) => s.companySettingsLoaded);
+  const setSettingsLoaded = useAppStore((s) => s.setCompanySettingsLoaded);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetch = useCallback(async () => {
+  const fetch = useCallback(async (force = false) => {
     if (!user) return;
+    if (settingsLoaded && !force) return;
     setLoading(true);
     setError(null);
     try {
@@ -48,12 +54,13 @@ export const useCompanySettings = () => {
       } else {
         setSettings(null);
       }
+      setSettingsLoaded(true);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch company settings');
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, settingsLoaded, setSettings, setSettingsLoaded]);
 
   const update = async (updates: Partial<CompanySettings>) => {
     if (!user) return null;

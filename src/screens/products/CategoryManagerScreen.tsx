@@ -18,6 +18,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useCategories } from '../../hooks/useCategories';
 import { Category } from '../../types';
 import { Colors, Radius, Shadow } from '../../theme';
+import { animateLayout } from '../../utils/animation';
 
 export const CategoryManagerScreen: React.FC = () => {
   const nav = useNavigation<any>();
@@ -269,6 +270,7 @@ export const CategoryManagerScreen: React.FC = () => {
                     key={item.type}
                     style={[styles.calcOptionChip, isActive && styles.calcOptionChipActive]}
                     onPress={() => {
+                      animateLayout();
                       setCatCalcType(item.type as any);
                       // Auto-update default unit if appropriate
                       if (item.type === 'pcs') setCatUnit('Pcs');

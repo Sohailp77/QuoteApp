@@ -6,12 +6,14 @@ import { useAuthStore } from '../store/useAuthStore';
 import { AuthNavigator } from './AuthNavigator';
 import { MainNavigator } from './MainNavigator';
 import { SplashScreen } from '../screens/auth/SplashScreen';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
 
 const Root = createStackNavigator();
 
 export const RootNavigator: React.FC = () => {
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
+  useRealtimeSync();
   // Internal loading state for checking session
   const [isInitializing, setIsInitializing] = useState(true);
 

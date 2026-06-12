@@ -1,16 +1,23 @@
 import { useState, useCallback } from 'react';
 import { tablesDB, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
 import { useAuthStore } from '../store/useAuthStore';
+import { useAppStore } from '../store/useAppStore';
 import { TaxRate } from '../types';
+import { animateLayout } from '../utils/animation';
 
 export const useTaxRates = () => {
   const user = useAuthStore((s) => s.user);
-  const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
+  const taxRates = useAppStore((s) => s.taxRates);
+  const setTaxRates = useAppStore((s) => s.setTaxRates);
+  const taxRatesLoaded = useAppStore((s) => s.taxRatesLoaded);
+  const setTaxRatesLoaded = useAppStore((s) => s.setTaxRatesLoaded);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetch = useCallback(async () => {
+  const fetch = useCallback(async (force = false) => {
     if (!user) return;
+    if (taxRatesLoaded && !force) return;
     setLoading(true);
     setError(null);
     try {
@@ -23,22 +30,24 @@ export const useTaxRates = () => {
         ]
       });
 
-      setTaxRates(
-        response.rows.map((t) => ({
-          id: t.$id,
-          tenant_id: t.tenant_id,
-          name: t.name || '',
-          percentage: Number(t.percentage) || 0,
-          is_default: t.is_default !== false,
-          is_active: t.is_active !== false,
-        }))
-      );
+      const mappedTaxRates = response.rows.map((t) => ({
+        id: t.$id,
+        tenant_id: t.tenant_id,
+        name: t.name || '',
+        percentage: Number(t.percentage) || 0,
+        is_default: t.is_default !== false,
+        is_active: t.is_active !== false,
+      }));
+
+      animateLayout();
+      setTaxRates(mappedTaxRates);
+      setTaxRatesLoaded(true);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch tax rates');
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, taxRatesLoaded, setTaxRates, setTaxRatesLoaded]);
 
   const create = useCallback(async (taxRate: Omit<TaxRate, 'id' | 'tenant_id'>) => {
     if (!user) return null;
@@ -77,17 +86,16 @@ export const useTaxRates = () => {
         is_active: doc.is_active !== false,
       };
 
-      setTaxRates((prev) => {
-        if (newTax.is_default) {
-          return [...prev.map(t => ({ ...t, is_default: false })), newTax];
-        }
-        return [...prev, newTax];
-      });
+      const list = newTax.is_default 
+        ? [...taxRates.map(t => ({ ...t, is_default: false })), newTax]
+        : [...taxRates, newTax];
+      animateLayout();
+      setTaxRates(list);
       return newTax;
     } catch (err: any) {
       throw new Error(err.message || 'Failed to create tax rate');
     }
-  }, [user, taxRates]);
+  }, [user, taxRates, setTaxRates]);
 
   const update = useCallback(async (id: string, updates: Partial<TaxRate>) => {
     try {
@@ -111,22 +119,21 @@ export const useTaxRates = () => {
       });
 
       let updated: TaxRate | null = null;
-      setTaxRates((prev) => {
-        const next = prev.map((t) => {
-          if (updates.is_default && t.id !== id) return { ...t, is_default: false };
-          if (t.id === id) {
-            updated = { ...t, ...updates };
-            return updated;
-          }
-          return t;
-        });
-        return next;
+      const nextTaxRates = taxRates.map((t) => {
+        if (updates.is_default && t.id !== id) return { ...t, is_default: false };
+        if (t.id === id) {
+          updated = { ...t, ...updates };
+          return updated;
+        }
+        return t;
       });
+      animateLayout();
+      setTaxRates(nextTaxRates);
       return updated;
     } catch (err: any) {
       throw new Error(err.message || 'Failed to update tax rate');
     }
-  }, [taxRates]);
+  }, [taxRates, setTaxRates]);
 
   const remove = useCallback(async (id: string) => {
     try {
@@ -135,11 +142,12 @@ export const useTaxRates = () => {
         tableId: COLLECTIONS.TAX_RATES,
         rowId: id
       });
-      setTaxRates((prev) => prev.filter((t) => t.id !== id));
+      animateLayout();
+      setTaxRates(taxRates.filter((t) => t.id !== id));
     } catch (err: any) {
       throw new Error(err.message || 'Failed to delete tax rate');
     }
-  }, []);
+  }, [taxRates, setTaxRates]);
 
   return { taxRates, loading, error, fetch, create, update, remove };
 };

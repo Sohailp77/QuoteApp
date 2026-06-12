@@ -1,16 +1,23 @@
 import { useState, useCallback } from 'react';
 import { tablesDB, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
 import { useAuthStore } from '../store/useAuthStore';
+import { useAppStore } from '../store/useAppStore';
 import { Product } from '../types';
+import { animateLayout } from '../utils/animation';
 
 export const useProducts = () => {
   const user = useAuthStore((s) => s.user);
-  const [products, setProducts] = useState<Product[]>([]);
+  const products = useAppStore((s) => s.products);
+  const setProducts = useAppStore((s) => s.setProducts);
+  const productsLoaded = useAppStore((s) => s.productsLoaded);
+  const setProductsLoaded = useAppStore((s) => s.setProductsLoaded);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetch = useCallback(async () => {
+  const fetch = useCallback(async (force = false) => {
     if (!user) return;
+    if (productsLoaded && !force) return;
     setLoading(true);
     setError(null);
     try {
@@ -23,32 +30,34 @@ export const useProducts = () => {
         ]
       });
 
-      setProducts(
-        response.rows.map((prod) => ({
-          id: prod.$id,
-          user_id: prod.user_id || '',
-          name: prod.name || '',
-          description: prod.description || '',
-          unit_price: Number(prod.unit_price) || 0,
-          cost_price: prod.cost_price !== null ? Number(prod.cost_price) : undefined,
-          stock_quantity: prod.stock_quantity !== null ? Number(prod.stock_quantity) : undefined,
-          unit: prod.unit || 'Pcs',
-          category: prod.category || '',
-          sku: prod.sku || '',
-          barcode: prod.barcode || '',
-          warehouse_location: prod.warehouse_location || '',
-          reorder_level: prod.reorder_level !== null ? Number(prod.reorder_level) : undefined,
-          created_at: prod.$createdAt || new Date().toISOString(),
-          calc_type: prod.calc_type || 'pcs',
-          image_url: prod.image_url || '',
-        }))
-      );
+      const mappedProducts = response.rows.map((prod) => ({
+        id: prod.$id,
+        user_id: prod.user_id || '',
+        name: prod.name || '',
+        description: prod.description || '',
+        unit_price: Number(prod.unit_price) || 0,
+        cost_price: prod.cost_price !== null ? Number(prod.cost_price) : undefined,
+        stock_quantity: prod.stock_quantity !== null ? Number(prod.stock_quantity) : undefined,
+        unit: prod.unit || 'Pcs',
+        category: prod.category || '',
+        sku: prod.sku || '',
+        barcode: prod.barcode || '',
+        warehouse_location: prod.warehouse_location || '',
+        reorder_level: prod.reorder_level !== null ? Number(prod.reorder_level) : undefined,
+        created_at: prod.$createdAt || new Date().toISOString(),
+        calc_type: prod.calc_type || 'pcs',
+        image_url: prod.image_url || '',
+      }));
+
+      animateLayout();
+      setProducts(mappedProducts);
+      setProductsLoaded(true);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch products');
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, productsLoaded, setProducts, setProductsLoaded]);
 
   const create = async (product: Omit<Product, 'id' | 'user_id' | 'created_at'>) => {
     if (!user) return null;
@@ -84,7 +93,8 @@ export const useProducts = () => {
         image_url: doc.image_url || '',
       };
 
-      setProducts((prev) => [newProduct, ...prev]);
+      animateLayout();
+      setProducts([newProduct, ...products]);
       return newProduct;
     } catch (err: any) {
       throw new Error(err.message || 'Failed to create product');
@@ -101,15 +111,15 @@ export const useProducts = () => {
       });
 
       let updated: Product | null = null;
-      setProducts((prev) =>
-        prev.map((p) => {
-          if (p.id === id) {
-            updated = { ...p, ...updates };
-            return updated;
-          }
-          return p;
-        })
-      );
+      const nextProducts = products.map((p) => {
+        if (p.id === id) {
+          updated = { ...p, ...updates };
+          return updated;
+        }
+        return p;
+      });
+      animateLayout();
+      setProducts(nextProducts);
       return updated;
     } catch (err: any) {
       throw new Error(err.message || 'Failed to update product');
@@ -123,7 +133,8 @@ export const useProducts = () => {
         tableId: COLLECTIONS.PRODUCTS,
         rowId: id
       });
-      setProducts((prev) => prev.filter((p) => p.id !== id));
+      animateLayout();
+      setProducts(products.filter((p) => p.id !== id));
     } catch (err: any) {
       throw new Error(err.message || 'Failed to delete product');
     }
@@ -131,6 +142,11 @@ export const useProducts = () => {
 
   const findByBarcode = async (barcode: string): Promise<Product | null> => {
     if (!user || !barcode.trim()) return null;
+    
+    // First query cache to save database transactions
+    const cached = products.find(p => p.barcode === barcode.trim() || p.sku === barcode.trim());
+    if (cached) return cached;
+
     try {
       const response = await tablesDB.listRows({
         databaseId: DATABASE_ID,

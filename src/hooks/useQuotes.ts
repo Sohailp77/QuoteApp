@@ -2,15 +2,22 @@ import { useState, useCallback } from 'react';
 import { tablesDB, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
 import { Quote, LineItem } from '../types';
 import { useAuthStore } from '../store/useAuthStore';
+import { useAppStore } from '../store/useAppStore';
+import { animateLayout } from '../utils/animation';
 
 export const useQuotes = () => {
   const user = useAuthStore((s) => s.user);
-  const [quotes, setQuotes] = useState<Quote[]>([]);
+  const quotes = useAppStore((s) => s.quotes);
+  const setQuotes = useAppStore((s) => s.setQuotes);
+  const quotesLoaded = useAppStore((s) => s.quotesLoaded);
+  const setQuotesLoaded = useAppStore((s) => s.setQuotesLoaded);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetch = useCallback(async () => {
+  const fetch = useCallback(async (force = false) => {
     if (!user) return;
+    if (quotesLoaded && !force) return;
     setLoading(true);
     setError(null);
     try {
@@ -24,47 +31,49 @@ export const useQuotes = () => {
         ]
       });
 
-      setQuotes(
-        response.rows.map((q) => {
-          let parsedItems: LineItem[] = [];
-          try {
-            parsedItems = JSON.parse(q.items || '[]');
-          } catch {}
+      const parsedQuotes = response.rows.map((q) => {
+        let parsedItems: LineItem[] = [];
+        try {
+          parsedItems = JSON.parse(q.items || '[]');
+        } catch {}
 
-          return {
-            id: q.$id,
-            tenant_id: q.tenant_id,
-            user_id: q.user_id || '',
-            quote_number: q.quote_number || '',
-            client_name: q.client_name || '',
-            client_email: q.client_email || '',
-            client_phone: q.client_phone || '',
-            customer_id: q.customer_id || undefined,
-            status: q.status as any,
-            subtotal: Number(q.subtotal) || 0,
-            discount: Number(q.discount) || 0,
-            tax: Number(q.tax) || 0,
-            total: Number(q.total) || 0,
-            notes: q.notes || '',
-            valid_until: q.valid_until || '',
-            created_at: q.$createdAt || new Date().toISOString(),
-            items: parsedItems,
-            payment_status: q.payment_status as any || 'Pending',
-            payment_method: q.payment_method || undefined,
-            delivery_date: q.delivery_date || undefined,
-            delivery_partner: q.delivery_partner || undefined,
-            tracking_number: q.tracking_number || undefined,
-            delivery_status: q.delivery_status as any || 'Pending',
-            delivery_note: q.delivery_note || undefined,
-          };
-        })
-      );
+        return {
+          id: q.$id,
+          tenant_id: q.tenant_id,
+          user_id: q.user_id || '',
+          quote_number: q.quote_number || '',
+          client_name: q.client_name || '',
+          client_email: q.client_email || '',
+          client_phone: q.client_phone || '',
+          customer_id: q.customer_id || undefined,
+          status: q.status as any,
+          subtotal: Number(q.subtotal) || 0,
+          discount: Number(q.discount) || 0,
+          tax: Number(q.tax) || 0,
+          total: Number(q.total) || 0,
+          notes: q.notes || '',
+          valid_until: q.valid_until || '',
+          created_at: q.$createdAt || new Date().toISOString(),
+          items: parsedItems,
+          payment_status: q.payment_status as any || 'Pending',
+          payment_method: q.payment_method || undefined,
+          delivery_date: q.delivery_date || undefined,
+          delivery_partner: q.delivery_partner || undefined,
+          tracking_number: q.tracking_number || undefined,
+          delivery_status: q.delivery_status as any || 'Pending',
+          delivery_note: q.delivery_note || undefined,
+        };
+      });
+
+      animateLayout();
+      setQuotes(parsedQuotes);
+      setQuotesLoaded(true);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch quotes');
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, quotesLoaded, setQuotes, setQuotesLoaded]);
 
   const create = useCallback(async (
     quoteData: Omit<Quote, 'id' | 'user_id' | 'quote_number' | 'created_at' | 'items' | 'tenant_id'>,
@@ -116,53 +125,99 @@ export const useQuotes = () => {
         delivery_note: doc.delivery_note,
       };
 
-      setQuotes((prev) => [newQuote, ...prev]);
+      animateLayout();
+      setQuotes([newQuote, ...quotes]);
       return newQuote;
     } catch (err: any) {
       throw new Error(err.message || 'Failed to create quote');
     }
-  }, [user]);
+  }, [user, quotes, setQuotes]);
 
   const updateStatus = useCallback(async (id: string, status: Quote['status']) => {
     if (!user) return;
     try {
-      if (status === 'Accepted') {
-        const currentQuote = quotes.find(q => q.id === id);
-        if (currentQuote && currentQuote.items) {
-          for (const item of currentQuote.items) {
-            if (item.product_id) {
-              const prodDoc = await tablesDB.getRow({
+      const currentQuote = quotes.find(q => q.id === id);
+      if (!currentQuote) return;
+
+      const previousStatus = currentQuote.status;
+
+      // Handle stock mutations based on status transitions:
+      // 1. Transitioning to Accepted -> Decrement stock
+      // 2. Transitioning FROM Accepted to something else -> Revert (increment) stock
+      const isTransitioningToAccepted = previousStatus !== 'Accepted' && status === 'Accepted';
+      const isTransitioningFromAccepted = previousStatus === 'Accepted' && status !== 'Accepted';
+
+      if ((isTransitioningToAccepted || isTransitioningFromAccepted) && currentQuote.items) {
+        let localProducts = [...useAppStore.getState().products];
+        let localMovements = [...useAppStore.getState().stockMovements];
+
+        for (const item of currentQuote.items) {
+          if (item.product_id) {
+            // Get latest product data from database to prevent concurrency conflicts
+            const prodDoc = await tablesDB.getRow({
+              databaseId: DATABASE_ID,
+              tableId: COLLECTIONS.PRODUCTS,
+              rowId: item.product_id
+            });
+
+            if (prodDoc.stock_quantity !== null) {
+              const currentStock = Number(prodDoc.stock_quantity) || 0;
+              const stockDiff = isTransitioningToAccepted ? -item.quantity : item.quantity;
+              const newStock = Math.max(0, currentStock + stockDiff);
+
+              // Update product in Appwrite DB
+              await tablesDB.updateRow({
                 databaseId: DATABASE_ID,
                 tableId: COLLECTIONS.PRODUCTS,
-                rowId: item.product_id
+                rowId: item.product_id,
+                data: { stock_quantity: newStock }
               });
-              const currentStock = Number(prodDoc.stock_quantity) || 0;
-              
-              if (prodDoc.stock_quantity !== null) {
-                await tablesDB.updateRow({
-                  databaseId: DATABASE_ID,
-                  tableId: COLLECTIONS.PRODUCTS,
-                  rowId: item.product_id,
-                  data: { stock_quantity: currentStock - item.quantity }
-                });
 
-                await tablesDB.createRow({
-                  databaseId: DATABASE_ID,
-                  tableId: COLLECTIONS.STOCK_MOVEMENTS,
-                  rowId: ID.unique(),
-                  data: {
-                    tenant_id: user.tenant_id,
-                    product_id: item.product_id,
-                    product_name: item.product_name,
-                    movement_type: 'OUT',
-                    quantity: item.quantity,
-                    note: `Quote ${currentQuote.quote_number} accepted`,
-                  }
-                });
-              }
+              // Update product in local state
+              localProducts = localProducts.map(p =>
+                p.id === item.product_id ? { ...p, stock_quantity: newStock } : p
+              );
+
+              // Log stock movement in Appwrite DB
+              const movementType = isTransitioningToAccepted ? 'OUT' : 'IN';
+              const noteText = isTransitioningToAccepted
+                ? `Quote ${currentQuote.quote_number} accepted`
+                : `Quote ${currentQuote.quote_number} returned to ${status} (Stock Reverted)`;
+
+              const movDoc = await tablesDB.createRow({
+                databaseId: DATABASE_ID,
+                tableId: COLLECTIONS.STOCK_MOVEMENTS,
+                rowId: ID.unique(),
+                data: {
+                  tenant_id: user.tenant_id,
+                  product_id: item.product_id,
+                  product_name: item.product_name,
+                  movement_type: movementType,
+                  quantity: item.quantity,
+                  note: noteText,
+                }
+              });
+
+              // Add stock movement to local state
+              const newMov = {
+                id: movDoc.$id,
+                tenant_id: movDoc.tenant_id,
+                product_id: movDoc.product_id,
+                product_name: movDoc.product_name,
+                movement_type: movDoc.movement_type as any,
+                quantity: Number(movDoc.quantity),
+                note: movDoc.note,
+                created_at: movDoc.$createdAt || new Date().toISOString(),
+              };
+              localMovements = [newMov, ...localMovements];
             }
           }
         }
+
+        // Apply visual updates to stores
+        animateLayout();
+        useAppStore.getState().setProducts(localProducts);
+        useAppStore.getState().setStockMovements(localMovements);
       }
 
       await tablesDB.updateRow({
@@ -172,22 +227,28 @@ export const useQuotes = () => {
         data: { status }
       });
 
-      setQuotes((prev) =>
-        prev.map((q) => (q.id === id ? { ...q, status } : q))
+      animateLayout();
+      setQuotes(
+        quotes.map((q) => (q.id === id ? { ...q, status } : q))
       );
     } catch (err: any) {
       throw new Error(err.message || 'Failed to update quote status');
     }
-  }, [user, quotes]);
+  }, [user, quotes, setQuotes]);
 
   const updateDetails = useCallback(async (id: string, updates: Partial<Quote>) => {
     try {
       const updatePayload: any = { ...updates };
       
-      delete updatePayload.items; 
       delete updatePayload.id;
       delete updatePayload.tenant_id;
       delete updatePayload.created_at;
+
+      if (updates.items) {
+        updatePayload.items = JSON.stringify(updates.items);
+      } else {
+        delete updatePayload.items;
+      }
 
       const doc = await tablesDB.updateRow({
         databaseId: DATABASE_ID,
@@ -195,10 +256,6 @@ export const useQuotes = () => {
         rowId: id,
         data: updatePayload
       });
-
-      setQuotes((prev) =>
-        prev.map((q) => (q.id === id ? { ...q, ...updates } : q))
-      );
 
       let parsedItems: LineItem[] = [];
       try { parsedItems = JSON.parse(doc.items || '[]'); } catch {}
@@ -229,11 +286,17 @@ export const useQuotes = () => {
         delivery_status: doc.delivery_status as any || 'Pending',
         delivery_note: doc.delivery_note || undefined,
       };
+
+      animateLayout();
+      setQuotes(
+        quotes.map((q) => (q.id === id ? updated : q))
+      );
+      
       return updated;
     } catch (err: any) {
       throw new Error(err.message || 'Failed to update quote details');
     }
-  }, []);
+  }, [quotes, setQuotes]);
 
   const remove = useCallback(async (id: string) => {
     try {
@@ -242,14 +305,19 @@ export const useQuotes = () => {
         tableId: COLLECTIONS.QUOTES,
         rowId: id
       });
-      setQuotes((prev) => prev.filter((q) => q.id !== id));
+      animateLayout();
+      setQuotes(quotes.filter((q) => q.id !== id));
     } catch (err: any) {
       throw new Error(err.message || 'Failed to delete quote');
     }
-  }, []);
+  }, [quotes, setQuotes]);
 
   const fetchById = useCallback(async (id: string): Promise<Quote | null> => {
     if (!user) return null;
+    // Try to return from cache first to save DB costs
+    const cached = quotes.find(q => q.id === id);
+    if (cached) return cached;
+
     try {
       const doc = await tablesDB.getRow({
         databaseId: DATABASE_ID,
@@ -288,7 +356,7 @@ export const useQuotes = () => {
     } catch {
       return null;
     }
-  }, [user]);
+  }, [user, quotes]);
 
   return { quotes, loading, error, fetch, fetchById, create, updateStatus, updateQuoteDetails: updateDetails, remove };
 };

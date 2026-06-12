@@ -1,16 +1,23 @@
 import { useState, useCallback } from 'react';
 import { tablesDB, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
 import { useAuthStore } from '../store/useAuthStore';
+import { useAppStore } from '../store/useAppStore';
 import { Employee } from '../types';
+import { animateLayout } from '../utils/animation';
 
 export const useEmployees = () => {
   const user = useAuthStore((s) => s.user);
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const employees = useAppStore((s) => s.employees);
+  const setEmployees = useAppStore((s) => s.setEmployees);
+  const employeesLoaded = useAppStore((s) => s.employeesLoaded);
+  const setEmployeesLoaded = useAppStore((s) => s.setEmployeesLoaded);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetch = useCallback(async () => {
+  const fetch = useCallback(async (force = false) => {
     if (!user) return;
+    if (employeesLoaded && !force) return;
     setLoading(true);
     setError(null);
     try {
@@ -35,13 +42,16 @@ export const useEmployees = () => {
         status: e.status || 'Active',
         joined_date: e.joined_date || '',
       }));
+      
+      animateLayout();
       setEmployees(mapped);
+      setEmployeesLoaded(true);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch employees');
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, employeesLoaded, setEmployees, setEmployeesLoaded]);
 
   const create = useCallback(async (employee: Omit<Employee, 'id' | 'tenant_id' | 'user_id' | 'joined_date' | 'status'>) => {
     if (!user) return null;
@@ -69,12 +79,13 @@ export const useEmployees = () => {
         status: doc.status || 'Active',
         joined_date: doc.joined_date || '',
       };
-      setEmployees((prev) => [...prev, newEmp]);
+      animateLayout();
+      setEmployees([...employees, newEmp]);
       return newEmp;
     } catch (err: any) {
       throw new Error(err.message || 'Failed to create employee');
     }
-  }, [user]);
+  }, [user, employees, setEmployees]);
 
   const update = useCallback(async (id: string, updates: Partial<Employee>) => {
     try {
@@ -84,11 +95,12 @@ export const useEmployees = () => {
         rowId: id,
         data: updates
       });
-      setEmployees((prev) => prev.map((e) => (e.id === id ? { ...e, ...updates } : e)));
+      animateLayout();
+      setEmployees(employees.map((e) => (e.id === id ? { ...e, ...updates } : e)));
     } catch (err: any) {
       throw new Error(err.message || 'Failed to update employee');
     }
-  }, []);
+  }, [employees, setEmployees]);
 
   const remove = useCallback(async (id: string) => {
     try {
@@ -97,11 +109,12 @@ export const useEmployees = () => {
         tableId: COLLECTIONS.EMPLOYEES,
         rowId: id
       });
-      setEmployees((prev) => prev.filter((e) => e.id !== id));
+      animateLayout();
+      setEmployees(employees.filter((e) => e.id !== id));
     } catch (err: any) {
       throw new Error(err.message || 'Failed to delete employee');
     }
-  }, []);
+  }, [employees, setEmployees]);
 
   return { employees, loading, error, fetch, create, update, remove };
 };

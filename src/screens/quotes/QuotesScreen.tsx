@@ -14,6 +14,7 @@ import { useQuotes } from '../../hooks/useQuotes';
 import { QuoteCard } from '../../components/QuoteCard';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { Colors, Radius } from '../../theme';
+import { animateLayout } from '../../utils/animation';
 import { QuoteStatus } from '../../types';
 import { BarcodeScannerModal } from '../../components/BarcodeScannerModal';
 
@@ -25,6 +26,11 @@ export const QuotesScreen: React.FC = () => {
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<QuoteStatus | 'All'>('All');
   const [showScanner, setShowScanner] = useState(false);
+
+  const handleSearchChange = (text: string) => {
+    animateLayout();
+    setSearch(text);
+  };
 
   const handleBarcodeScan = (barcodeData: string) => {
     setShowScanner(false);
@@ -78,7 +84,7 @@ export const QuotesScreen: React.FC = () => {
         <View style={{ flex: 1 }}>
           <SearchBar
             value={search}
-            onChangeText={setSearch}
+            onChangeText={handleSearchChange}
             placeholder="Search quotes..."
             style={styles.search}
           />
@@ -98,7 +104,10 @@ export const QuotesScreen: React.FC = () => {
           <TouchableOpacity
             key={f}
             style={[styles.chip, activeFilter === f && styles.chipActive]}
-            onPress={() => setActiveFilter(f)}
+            onPress={() => {
+              animateLayout();
+              setActiveFilter(f);
+            }}
             activeOpacity={0.8}
           >
             <Text style={[styles.chipText, activeFilter === f && styles.chipTextActive]}>

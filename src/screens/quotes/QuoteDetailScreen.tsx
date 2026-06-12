@@ -22,6 +22,7 @@ import * as Sharing from 'expo-sharing';
 import { useCompanySettings } from '../../hooks/useCompanySettings';
 import { useProducts } from '../../hooks/useProducts';
 import { useStockMovements } from '../../hooks/useStockMovements';
+import { tablesDB, DATABASE_ID, COLLECTIONS, Query } from '../../config/appwrite';
 
 const formatCurrency = (amount: number) =>
   `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
@@ -448,26 +449,75 @@ export const QuoteDetailScreen: React.FC = () => {
     for (const item of items) {
       if (item.product_id) {
         try {
-          await addMovement({
-            product_id: item.product_id,
-            product_name: item.product_name,
-            movement_type: 'OUT',
-            quantity: item.quantity,
-            note: `Quote #${targetQuote.quote_number} Accepted`,
-          });
+          const prod = products.find((p) => p.id === item.product_id);
+          const currentStock = prod?.stock_quantity ?? 0;
+          const actualDecremented = Math.min(currentStock, item.quantity);
+
+          if (actualDecremented > 0) {
+            await addMovement({
+              product_id: item.product_id,
+              product_name: item.product_name,
+              movement_type: 'OUT',
+              quantity: actualDecremented,
+              note: `Quote #${targetQuote.quote_number} Accepted`,
+            });
+          }
         } catch (err) {
           console.error(`Failed to register stock movement for product ${item.product_name}:`, err);
         }
       }
     }
+    fetchProducts();
     Alert.alert('Status Updated', 'Quote marked as Accepted and inventory updated.');
+  };
+
+  const executeRevertAcceptedQuote = async (targetQuote: Quote, nextStatus: QuoteStatus) => {
+    // 1. Update quote status to nextStatus
+    await updateStatus(quoteId, nextStatus);
+    setQuote((prev) => (prev ? { ...prev, status: nextStatus } : null));
+
+    // 2. Return stock by querying what was actually taken
+    try {
+      const response = await tablesDB.listRows({
+        databaseId: DATABASE_ID,
+        tableId: COLLECTIONS.STOCK_MOVEMENTS,
+        queries: [
+          Query.equal('note', `Quote #${targetQuote.quote_number} Accepted`)
+        ]
+      });
+
+      const acceptedMovements = response.rows || [];
+      const items = targetQuote.items || [];
+      for (const item of items) {
+        if (item.product_id) {
+          const matchingMov = acceptedMovements.find((m) => m.product_id === item.product_id && m.movement_type === 'OUT');
+          const qtyToReturn = matchingMov ? Number(matchingMov.quantity) : 0;
+
+          if (qtyToReturn > 0) {
+            await addMovement({
+              product_id: item.product_id,
+              product_name: item.product_name,
+              movement_type: 'RETURN',
+              quantity: qtyToReturn,
+              note: `Quote #${targetQuote.quote_number} reverted from Accepted to ${nextStatus}`,
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to revert stock movements:', err);
+    }
+    fetchProducts();
+    Alert.alert('Status Updated', `Quote marked as ${nextStatus} and inventory returned.`);
   };
 
   const handleStatusChange = async (newStatus: QuoteStatus) => {
     if (!quote) return;
     setUpdating(true);
     try {
-      if (newStatus === 'Accepted') {
+      if (quote.status === 'Accepted' && newStatus !== 'Accepted') {
+        await executeRevertAcceptedQuote(quote, newStatus);
+      } else if (newStatus === 'Accepted') {
         const lowStockItems: Array<{ name: string; requested: number; available: number }> = [];
         const items = quote.items || [];
         for (const item of items) {
@@ -490,27 +540,21 @@ export const QuoteDetailScreen: React.FC = () => {
             .join('\n');
           
           Alert.alert(
-            'Low Stock Alert',
-            `The following products have insufficient stock:\n\n${itemListStr}\n\nDo you want to proceed and mark the quote as Accepted anyway?`,
+            'Insufficient Stock',
+            `Cannot accept quote due to insufficient stock for the following items:\n\n${itemListStr}\n\nPlease modify the quote or wait for stock to be replenished.`,
             [
               {
-                text: 'Wait for Stock',
-                style: 'cancel',
+                text: 'Edit Quote',
                 onPress: () => {
                   setUpdating(false);
+                  nav.navigate('CreateQuote', { quoteId });
                 },
               },
               {
-                text: 'Proceed Anyway',
-                style: 'destructive',
-                onPress: async () => {
-                  try {
-                    await executeAcceptQuote(quote);
-                  } catch (e: any) {
-                    Alert.alert('Error', e.message);
-                  } finally {
-                    setUpdating(false);
-                  }
+                text: 'Cancel',
+                style: 'cancel',
+                onPress: () => {
+                  setUpdating(false);
                 },
               },
             ]
@@ -591,6 +635,11 @@ export const QuoteDetailScreen: React.FC = () => {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{quote.quote_number}</Text>
         <View style={{ flexDirection: 'row', gap: 10 }}>
+          {quote.status !== 'Accepted' && (
+            <TouchableOpacity onPress={() => nav.navigate('CreateQuote', { quoteId })} style={styles.editBtn}>
+              <Ionicons name="create-outline" size={20} color={Colors.accent} />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity onPress={handleSharePDF} style={styles.shareBtn} disabled={pdfLoading}>
             {pdfLoading ? (
               <ActivityIndicator size="small" color={Colors.accent} />
@@ -1037,6 +1086,14 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 19,
     backgroundColor: Colors.accent + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: Colors.primary + '15',
     alignItems: 'center',
     justifyContent: 'center',
   },

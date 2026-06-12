@@ -22,6 +22,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch (e) {
       // Ignore errors on logout
     } finally {
+      try {
+        const { useAppStore } = require('./useAppStore');
+        useAppStore.getState().clearAll();
+      } catch {}
       set({ user: null });
     }
   },

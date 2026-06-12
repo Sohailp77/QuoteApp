@@ -1,16 +1,23 @@
 import { useState, useCallback } from 'react';
 import { tablesDB, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
 import { useAuthStore } from '../store/useAuthStore';
+import { useAppStore } from '../store/useAppStore';
 import { Category } from '../types';
+import { animateLayout } from '../utils/animation';
 
 export const useCategories = () => {
   const user = useAuthStore((s) => s.user);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const categories = useAppStore((s) => s.categories);
+  const setCategories = useAppStore((s) => s.setCategories);
+  const categoriesLoaded = useAppStore((s) => s.categoriesLoaded);
+  const setCategoriesLoaded = useAppStore((s) => s.setCategoriesLoaded);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetch = useCallback(async () => {
+  const fetch = useCallback(async (force = false) => {
     if (!user) return;
+    if (categoriesLoaded && !force) return;
     setLoading(true);
     setError(null);
     try {
@@ -23,23 +30,25 @@ export const useCategories = () => {
         ]
       });
 
-      setCategories(
-        response.rows.map((c) => ({
-          id: c.$id,
-          tenant_id: c.tenant_id,
-          name: c.name || '',
-          is_active: c.is_active !== false,
-          unit_name: c.unit_name || null,
-          calc_type: c.calc_type || 'pcs',
-          image_url: c.image_url || '',
-        }))
-      );
+      const mappedCategories = response.rows.map((c) => ({
+        id: c.$id,
+        tenant_id: c.tenant_id,
+        name: c.name || '',
+        is_active: c.is_active !== false,
+        unit_name: c.unit_name || null,
+        calc_type: c.calc_type || 'pcs',
+        image_url: c.image_url || '',
+      }));
+
+      animateLayout();
+      setCategories(mappedCategories);
+      setCategoriesLoaded(true);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch categories');
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, categoriesLoaded, setCategories, setCategoriesLoaded]);
 
   const create = async (category: Omit<Category, 'id' | 'tenant_id' | 'metric_type' | 'description'>) => {
     if (!user) return null;
@@ -68,7 +77,8 @@ export const useCategories = () => {
         image_url: doc.image_url || '',
       };
 
-      setCategories((prev) => [...prev, newCat]);
+      animateLayout();
+      setCategories([...categories, newCat]);
       return newCat;
     } catch (err: any) {
       throw new Error(err.message || 'Failed to create category');
@@ -85,15 +95,15 @@ export const useCategories = () => {
       });
 
       let updated: Category | null = null;
-      setCategories((prev) =>
-        prev.map((c) => {
-          if (c.id === id) {
-            updated = { ...c, ...updates };
-            return updated;
-          }
-          return c;
-        })
-      );
+      const nextCategories = categories.map((c) => {
+        if (c.id === id) {
+          updated = { ...c, ...updates };
+          return updated;
+        }
+        return c;
+      });
+      animateLayout();
+      setCategories(nextCategories);
       return updated;
     } catch (err: any) {
       throw new Error(err.message || 'Failed to update category');
@@ -107,7 +117,8 @@ export const useCategories = () => {
         tableId: COLLECTIONS.CATEGORIES,
         rowId: id
       });
-      setCategories((prev) => prev.filter((c) => c.id !== id));
+      animateLayout();
+      setCategories(categories.filter((c) => c.id !== id));
     } catch (err: any) {
       throw new Error(err.message || 'Failed to delete category');
     }

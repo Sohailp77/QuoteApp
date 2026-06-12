@@ -111,7 +111,7 @@ export interface CompanySettings {
 export type QuoteStatus = 'Draft' | 'Sent' | 'Accepted' | 'Rejected' | 'Expired';
 
 export interface QuoteItem {
-  id: string;
+  id?: string;
   quote_id?: string;
   product_id?: string;
   product_name: string;
@@ -177,7 +177,7 @@ export type MainTabParamList = {
 export type QuoteStackParamList = {
   QuotesList: undefined;
   QuoteDetail: { quoteId: string };
-  CreateQuote: undefined;
+  CreateQuote?: { quoteId?: string };
 };
 
 export type EmployeeStackParamList = {

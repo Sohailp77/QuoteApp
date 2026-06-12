@@ -14,12 +14,18 @@ import { useProducts } from '../../hooks/useProducts';
 import { ProductCard } from '../../components/ProductCard';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { Colors, Radius } from '../../theme';
+import { animateLayout } from '../../utils/animation';
 
 export const ProductsScreen: React.FC = () => {
   const nav = useNavigation<any>();
   const { products, loading, fetch, remove } = useProducts();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
+
+  const handleSearchChange = (text: string) => {
+    animateLayout();
+    setSearch(text);
+  };
 
   useEffect(() => { fetch(); }, []);
 
@@ -73,7 +79,7 @@ export const ProductsScreen: React.FC = () => {
 
       <SearchBar
         value={search}
-        onChangeText={setSearch}
+        onChangeText={handleSearchChange}
         placeholder="Search products..."
         style={styles.search}
       />
@@ -85,7 +91,10 @@ export const ProductsScreen: React.FC = () => {
             <TouchableOpacity
               key={cat}
               style={[styles.chip, activeCategory === cat && styles.chipActive]}
-              onPress={() => setActiveCategory(cat)}
+              onPress={() => {
+                animateLayout();
+                setActiveCategory(cat);
+              }}
               activeOpacity={0.8}
             >
               <Text style={[styles.chipText, activeCategory === cat && styles.chipTextActive]}>

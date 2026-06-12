@@ -20,6 +20,7 @@ import { Button } from '../../components/ui/Button';
 import { BarcodeScannerModal } from '../../components/BarcodeScannerModal';
 import { Colors, Radius, Shadow } from '../../theme';
 import { Product } from '../../types';
+import { animateLayout } from '../../utils/animation';
 
 type RouteParams = { product?: Product };
 
@@ -80,6 +81,7 @@ export const ProductFormScreen: React.FC = () => {
   const [newCategoryName, setNewCategoryName] = useState('');
 
   const handleSelectCategory = (catName: string) => {
+    animateLayout();
     if (category === catName) {
       setCategory('');
     } else {
@@ -414,7 +416,10 @@ export const ProductFormScreen: React.FC = () => {
                 <TouchableOpacity
                   key={c.type}
                   style={[styles.calcChip, calcType === c.type && styles.calcChipActive]}
-                  onPress={() => setCalcType(c.type as any)}
+                  onPress={() => {
+                    animateLayout();
+                    setCalcType(c.type as any);
+                  }}
                   activeOpacity={0.8}
                 >
                   <Text style={[styles.calcText, calcType === c.type && styles.calcTextActive]}>{c.label}</Text>

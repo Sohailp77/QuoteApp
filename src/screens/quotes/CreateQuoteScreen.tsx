@@ -12,7 +12,7 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useQuotes } from '../../hooks/useQuotes';
 import { useProducts } from '../../hooks/useProducts';
 import { useCategories } from '../../hooks/useCategories';
@@ -30,11 +30,14 @@ interface LineItem extends Omit<QuoteItem, 'id' | 'quote_id'> {}
 
 export const CreateQuoteScreen: React.FC = () => {
   const nav = useNavigation<any>();
-  const { create } = useQuotes();
+  const route = useRoute<RouteProp<{ params?: { quoteId?: string } }, 'params'>>();
+  const quoteId = route.params?.quoteId;
+  const { create, fetchById, updateQuoteDetails } = useQuotes();
   const { products, fetch: fetchProducts } = useProducts();
   const { categories, fetch: fetchCategories } = useCategories();
   const { taxRates, fetch: fetchTaxRates } = useTaxRates();
   const { search: searchCustomers, create: createCustomer } = useCustomers();
+  const [isEdit, setIsEdit] = useState(false);
 
   const [clientName, setClientName] = useState('');
   const [clientEmail, setClientEmail] = useState('');
@@ -91,6 +94,39 @@ export const CreateQuoteScreen: React.FC = () => {
     fetchTaxRates();
     fetchCategories();
   }, []);
+
+  useEffect(() => {
+    if (quoteId) {
+      setIsEdit(true);
+      setLoading(true);
+      fetchById(quoteId).then((q) => {
+        if (q) {
+          setClientName(q.client_name || '');
+          setClientEmail(q.client_email || '');
+          setClientPhone(q.client_phone || '');
+          setSelectedCustomerId(q.customer_id);
+          setNotes(q.notes || '');
+          setLineItems(q.items || []);
+          
+          if (q.valid_until && q.created_at) {
+            const diffTime = Math.abs(new Date(q.valid_until).getTime() - new Date(q.created_at).getTime());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            setValidDays(diffDays.toString());
+          }
+          
+          const taxVal = q.tax || 0;
+          const sub = q.subtotal || 0;
+          const pct = sub > 0 ? Math.round((taxVal / sub) * 100) : 18;
+          setTaxPct(pct.toString());
+          setDiscountAmt((q.discount || 0).toString());
+        }
+        setLoading(false);
+      }).catch((err) => {
+        console.error('Failed to load quote details for editing:', err);
+        setLoading(false);
+      });
+    }
+  }, [quoteId, fetchById]);
 
   // Area calculation hook
   useEffect(() => {
@@ -240,12 +276,11 @@ export const CreateQuoteScreen: React.FC = () => {
         } catch {}
       }
 
-      const newQuote = await create(
-        {
+      if (isEdit && quoteId) {
+        const updatedQuote = await updateQuoteDetails(quoteId, {
           client_name: clientName,
           client_email: clientEmail,
           client_phone: clientPhone,
-          status: 'Draft',
           subtotal,
           discount,
           tax,
@@ -253,22 +288,53 @@ export const CreateQuoteScreen: React.FC = () => {
           notes,
           valid_until: validUntil.toISOString(),
           customer_id: customerId,
-        },
-        lineItems
-      );
+          items: lineItems,
+        });
 
-      if (newQuote) {
-        Alert.alert('Success', 'Quote created successfully!', [
-          {
-            text: 'View & Share PDF',
-            onPress: () => nav.replace('QuoteDetail', { quoteId: newQuote.id }),
-          },
-          { text: 'OK', onPress: () => nav.goBack() },
-        ]);
+        if (updatedQuote) {
+          Alert.alert('Success', 'Quote updated successfully!', [
+            {
+              text: 'View & Share PDF',
+              onPress: () => nav.replace('QuoteDetail', { quoteId: updatedQuote.id }),
+            },
+            { text: 'OK', onPress: () => nav.goBack() },
+          ]);
+        } else {
+          Alert.alert('Success', 'Quote updated successfully!', [
+            { text: 'OK', onPress: () => nav.goBack() },
+          ]);
+        }
       } else {
-        Alert.alert('Success', 'Quote created successfully!', [
-          { text: 'OK', onPress: () => nav.goBack() },
-        ]);
+        const newQuote = await create(
+          {
+            client_name: clientName,
+            client_email: clientEmail,
+            client_phone: clientPhone,
+            status: 'Draft',
+            subtotal,
+            discount,
+            tax,
+            total,
+            notes,
+            valid_until: validUntil.toISOString(),
+            customer_id: customerId,
+          },
+          lineItems
+        );
+
+        if (newQuote) {
+          Alert.alert('Success', 'Quote created successfully!', [
+            {
+              text: 'View & Share PDF',
+              onPress: () => nav.replace('QuoteDetail', { quoteId: newQuote.id }),
+            },
+            { text: 'OK', onPress: () => nav.goBack() },
+          ]);
+        } else {
+          Alert.alert('Success', 'Quote created successfully!', [
+            { text: 'OK', onPress: () => nav.goBack() },
+          ]);
+        }
       }
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to create quote');
@@ -284,7 +350,7 @@ export const CreateQuoteScreen: React.FC = () => {
         <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>New Quote</Text>
+        <Text style={styles.headerTitle}>{isEdit ? 'Edit Quote' : 'New Quote'}</Text>
         <View style={{ width: 38 }} />
       </View>
 
@@ -512,7 +578,7 @@ export const CreateQuoteScreen: React.FC = () => {
         </View>
 
         <View style={styles.section}>
-          <Button title="Create Quote" onPress={handleCreate} loading={loading} size="lg" />
+          <Button title={isEdit ? 'Save Changes' : 'Create Quote'} onPress={handleCreate} loading={loading} size="lg" />
         </View>
 
         <View style={{ height: 100 }} />

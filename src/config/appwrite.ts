@@ -21,7 +21,7 @@ export const TABLES = {
 export const COLLECTIONS = TABLES;
 
 // Init Appwrite SDK
-const client = new Client();
+export const client = new Client();
 client
   .setEndpoint(APPWRITE_ENDPOINT)
   .setProject(APPWRITE_PROJECT_ID);
