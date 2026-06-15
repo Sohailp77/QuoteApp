@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Radius, Shadow } from '../../theme';
+import { Radius, Shadow } from '../../theme';
+import { useAppTheme } from '../../context/ThemeContext';
 
 interface StatCardProps {
   label: string;
@@ -12,6 +13,8 @@ interface StatCardProps {
 }
 
 export const StatCard: React.FC<StatCardProps> = ({ label, value, icon, color, style }) => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   return (
     <View style={[styles.container, style]}>
       <View style={[styles.iconWrap, { backgroundColor: color + '18' }]}>
@@ -23,9 +26,9 @@ export const StatCard: React.FC<StatCardProps> = ({ label, value, icon, color, s
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: Radius.lg,
     padding: 16,
     alignItems: 'center',
@@ -43,12 +46,12 @@ const styles = StyleSheet.create({
   value: {
     fontSize: 22,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     marginBottom: 2,
   },
   label: {
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
 });

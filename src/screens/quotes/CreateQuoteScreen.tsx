@@ -19,9 +19,10 @@ import { useCategories } from '../../hooks/useCategories';
 import { useTaxRates } from '../../hooks/useTaxRates';
 import { useCustomers } from '../../hooks/useCustomers';
 import { Button } from '../../components/ui/Button';
-import { Colors, Radius, Shadow } from '../../theme';
+import { Radius, Shadow } from '../../theme';
 import { QuoteItem, Product, Customer } from '../../types';
 import { BarcodeScannerModal } from '../../components/BarcodeScannerModal';
+import { useAppTheme } from '../../context/ThemeContext';
 
 const formatCurrency = (n: number) =>
   `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 0 })}`;
@@ -29,6 +30,9 @@ const formatCurrency = (n: number) =>
 interface LineItem extends Omit<QuoteItem, 'id' | 'quote_id'> {}
 
 export const CreateQuoteScreen: React.FC = () => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
+  const fieldStyles = createFieldStyles(colors);
   const nav = useNavigation<any>();
   const route = useRoute<RouteProp<{ params?: { quoteId?: string } }, 'params'>>();
   const quoteId = route.params?.quoteId;
@@ -348,7 +352,7 @@ export const CreateQuoteScreen: React.FC = () => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
+          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{isEdit ? 'Edit Quote' : 'New Quote'}</Text>
         <View style={{ width: 38 }} />
@@ -379,7 +383,7 @@ export const CreateQuoteScreen: React.FC = () => {
                 }}
                 onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                 placeholder="Type to search or enter new name"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
               />
               {showSuggestions && customerSuggestions.length > 0 && (
                 <View style={styles.suggestionsBox}>
@@ -403,7 +407,7 @@ export const CreateQuoteScreen: React.FC = () => {
                         <Text style={styles.suggestionName}>{c.name}</Text>
                         {c.email ? <Text style={styles.suggestionDetail}>{c.email}</Text> : null}
                       </View>
-                      <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
+                      <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -429,14 +433,14 @@ export const CreateQuoteScreen: React.FC = () => {
                 style={styles.addItemBtn}
                 onPress={() => setShowBarcodeScanner(true)}
               >
-                <Ionicons name="barcode-outline" size={16} color={Colors.accent} />
+                <Ionicons name="barcode-outline" size={16} color={colors.primary} />
                 <Text style={styles.addItemText}>Scan</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.addItemBtn}
                 onPress={() => setShowProductPicker(true)}
               >
-                <Ionicons name="add" size={16} color={Colors.accent} />
+                <Ionicons name="add" size={16} color={colors.primary} />
                 <Text style={styles.addItemText}>Add</Text>
               </TouchableOpacity>
             </View>
@@ -448,7 +452,7 @@ export const CreateQuoteScreen: React.FC = () => {
               onPress={() => setShowProductPicker(true)}
               activeOpacity={0.8}
             >
-              <Ionicons name="cube-outline" size={28} color={Colors.textMuted} />
+              <Ionicons name="cube-outline" size={28} color={colors.textMuted} />
               <Text style={styles.emptyItemsText}>Tap to add products</Text>
             </TouchableOpacity>
           ) : (
@@ -459,7 +463,7 @@ export const CreateQuoteScreen: React.FC = () => {
                     <View style={styles.lineItemTop}>
                       <Text style={styles.lineItemName} numberOfLines={1}>{item.product_name}</Text>
                       <TouchableOpacity onPress={() => removeItem(idx)} style={{ padding: 4 }}>
-                        <Ionicons name="close-circle" size={18} color={Colors.statusRejected} />
+                        <Ionicons name="close-circle" size={18} color={colors.statusRejected} />
                       </TouchableOpacity>
                     </View>
                     <View style={styles.lineItemBottom}>
@@ -555,7 +559,7 @@ export const CreateQuoteScreen: React.FC = () => {
           {/* Total preview */}
           <View style={styles.totalCard}>
             <Row label="Subtotal" value={formatCurrency(subtotal)} />
-            {discount > 0 && <Row label="Discount" value={`-${formatCurrency(discount)}`} valueColor={Colors.statusAccepted} />}
+            {discount > 0 && <Row label="Discount" value={`-${formatCurrency(discount)}`} valueColor={colors.statusAccepted} />}
             {tax > 0 && <Row label={`Tax (${taxPct}%)`} value={formatCurrency(tax)} />}
             <View style={styles.divider} />
             <Row label="Total" value={formatCurrency(total)} bold />
@@ -570,7 +574,7 @@ export const CreateQuoteScreen: React.FC = () => {
             value={notes}
             onChangeText={setNotes}
             placeholder="Any additional notes or terms..."
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             multiline
             numberOfLines={4}
             textAlignVertical="top"
@@ -590,7 +594,7 @@ export const CreateQuoteScreen: React.FC = () => {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Select Product</Text>
             <TouchableOpacity onPress={() => setShowProductPicker(false)}>
-              <Ionicons name="close" size={24} color={Colors.textPrimary} />
+              <Ionicons name="close" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
           <FlatList
@@ -602,7 +606,7 @@ export const CreateQuoteScreen: React.FC = () => {
                   {item.image_url ? (
                     <Image source={{ uri: item.image_url }} style={styles.productRowImage} />
                   ) : (
-                    <Ionicons name="cube-outline" size={20} color={Colors.accent} />
+                    <Ionicons name="cube-outline" size={20} color={colors.primary} />
                   )}
                 </View>
                 <View style={{ flex: 1 }}>
@@ -649,7 +653,7 @@ export const CreateQuoteScreen: React.FC = () => {
                 value={customTaxInput}
                 onChangeText={setCustomTaxInput}
                 placeholder="e.g. 18"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
                 keyboardType="numeric"
                 autoFocus
               />
@@ -862,7 +866,10 @@ export const CreateQuoteScreen: React.FC = () => {
 const Field: React.FC<{
   label: string; value: string; onChangeText: (t: string) => void;
   placeholder?: string; keyboardType?: any;
-}> = ({ label, value, onChangeText, placeholder, keyboardType }) => (
+}> = ({ label, value, onChangeText, placeholder, keyboardType }) => {
+  const { colors } = useAppTheme();
+  const fieldStyles = createFieldStyles(colors);
+  return (
   <View style={fieldStyles.wrap}>
     <Text style={fieldStyles.label}>{label}</Text>
     <TextInput
@@ -870,40 +877,44 @@ const Field: React.FC<{
       value={value}
       onChangeText={onChangeText}
       placeholder={placeholder}
-      placeholderTextColor={Colors.textMuted}
+      placeholderTextColor={colors.textMuted}
       keyboardType={keyboardType}
     />
   </View>
-);
+  );
+};
 
 const Row: React.FC<{ label: string; value: string; valueColor?: string; bold?: boolean }> = ({
   label, value, valueColor, bold,
-}) => (
+}) => {
+  const { colors } = useAppTheme();
+  return (
   <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-    <Text style={{ fontSize: bold ? 16 : 14, fontWeight: bold ? '800' : '400', color: Colors.textSecondary }}>
+    <Text style={{ fontSize: bold ? 16 : 14, fontWeight: bold ? '800' : '400', color: colors.textSecondary }}>
       {label}
     </Text>
-    <Text style={{ fontSize: bold ? 18 : 14, fontWeight: bold ? '800' : '600', color: valueColor || Colors.textPrimary }}>
+    <Text style={{ fontSize: bold ? 18 : 14, fontWeight: bold ? '800' : '600', color: valueColor || colors.textPrimary }}>
       {value}
     </Text>
   </View>
-);
+  );
+};
 
-const fieldStyles = StyleSheet.create({
+const createFieldStyles = (colors: any) => StyleSheet.create({
   wrap: { marginBottom: 14 },
-  label: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  label: { fontSize: 12, fontWeight: '700', color: colors.textSecondary, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
   input: {
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     borderRadius: Radius.md,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
 });
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.background },
+const createStyles = (colors: any) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -914,79 +925,79 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     width: 38, height: 38, borderRadius: 19,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     alignItems: 'center', justifyContent: 'center',
   },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: colors.textPrimary },
   section: { paddingHorizontal: 20, marginBottom: 20 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary, marginBottom: 10 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, marginBottom: 10 },
   card: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: Radius.lg,
     padding: 16,
     ...Shadow.sm,
   },
   addItemBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: Colors.accent + '15',
+    backgroundColor: colors.primary + '15',
     borderRadius: Radius.full,
     paddingHorizontal: 12, paddingVertical: 6,
   },
-  addItemText: { fontSize: 13, fontWeight: '700', color: Colors.accent },
+  addItemText: { fontSize: 13, fontWeight: '700', color: colors.primary },
   emptyItems: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: Radius.lg,
     borderWidth: 2,
     borderStyle: 'dashed',
-    borderColor: Colors.border,
+    borderColor: colors.border,
     alignItems: 'center',
     paddingVertical: 30,
     gap: 8,
   },
-  emptyItemsText: { fontSize: 14, color: Colors.textMuted },
+  emptyItemsText: { fontSize: 14, color: colors.textMuted },
   lineItem: { paddingVertical: 12 },
-  lineItemBorder: { borderTopWidth: 1, borderTopColor: Colors.divider },
+  lineItemBorder: { borderTopWidth: 1, borderTopColor: colors.divider },
   lineItemTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  lineItemName: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, flex: 1, marginRight: 8 },
+  lineItemName: { fontSize: 15, fontWeight: '700', color: colors.textPrimary, flex: 1, marginRight: 8 },
   lineItemBottom: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  lineItemPrice: { flex: 1, fontSize: 13, color: Colors.textSecondary },
-  qtyControls: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.surfaceAlt, borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 4 },
+  lineItemPrice: { flex: 1, fontSize: 13, color: colors.textSecondary },
+  qtyControls: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surfaceAlt, borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 4 },
   qtyBtn: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
-  qtyText: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, minWidth: 20, textAlign: 'center' },
-  lineTotal: { fontSize: 15, fontWeight: '700', color: Colors.primary },
+  qtyText: { fontSize: 15, fontWeight: '700', color: colors.textPrimary, minWidth: 20, textAlign: 'center' },
+  lineTotal: { fontSize: 15, fontWeight: '700', color: colors.primary },
   totalCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: Radius.lg,
     padding: 16,
     marginTop: 12,
     ...Shadow.sm,
   },
-  divider: { height: 1, backgroundColor: Colors.divider, marginBottom: 8 },
+  divider: { height: 1, backgroundColor: colors.divider, marginBottom: 8 },
   notesInput: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: Radius.lg,
     padding: 14,
     fontSize: 15,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     minHeight: 100,
     ...Shadow.sm,
   },
-  modal: { flex: 1, backgroundColor: Colors.background },
+  modal: { flex: 1, backgroundColor: colors.background },
   modalHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 20, paddingTop: 24, paddingBottom: 16,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  modalTitle: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
+  modalTitle: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
   productRow: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
     paddingHorizontal: 20, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: Colors.divider,
+    borderBottomWidth: 1, borderBottomColor: colors.divider,
   },
   productIcon: {
     width: 40, height: 40, borderRadius: 10,
-    backgroundColor: Colors.accent + '15',
+    backgroundColor: colors.primary + '15',
     alignItems: 'center', justifyContent: 'center',
     overflow: 'hidden',
   },
@@ -995,11 +1006,11 @@ const styles = StyleSheet.create({
     height: 40,
     resizeMode: 'cover',
   },
-  productName: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
-  productCategory: { fontSize: 12, color: Colors.textSecondary },
-  productPrice: { fontSize: 16, fontWeight: '700', color: Colors.primary },
+  productName: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
+  productCategory: { fontSize: 12, color: colors.textSecondary },
+  productPrice: { fontSize: 16, fontWeight: '700', color: colors.primary },
   modalEmpty: { padding: 40, alignItems: 'center' },
-  modalEmptyText: { fontSize: 15, color: Colors.textMuted, textAlign: 'center' },
+  modalEmptyText: { fontSize: 15, color: colors.textMuted, textAlign: 'center' },
   
   // Tax Slab styles
   taxSelectorContainer: {
@@ -1011,7 +1022,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   chip: {
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     borderRadius: Radius.full,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -1019,23 +1030,23 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   chipSelected: {
-    backgroundColor: Colors.accent + '12',
-    borderColor: Colors.accent,
+    backgroundColor: colors.primary + '12',
+    borderColor: colors.primary,
   },
   chipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   chipTextSelected: {
-    color: Colors.accent,
+    color: colors.primary,
     fontWeight: '700',
   },
   // Autocomplete
   suggestionsBox: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: Radius.md,
-    borderWidth: 1, borderColor: Colors.border,
+    borderWidth: 1, borderColor: colors.border,
     marginTop: 4,
     overflow: 'hidden',
     ...Shadow.md,
@@ -1043,16 +1054,16 @@ const styles = StyleSheet.create({
   suggestionRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 14, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: Colors.divider,
+    borderBottomWidth: 1, borderBottomColor: colors.divider,
   },
   suggestionAvatar: {
     width: 34, height: 34, borderRadius: 17,
-    backgroundColor: Colors.accent + '20',
+    backgroundColor: colors.primary + '20',
     alignItems: 'center', justifyContent: 'center',
   },
-  suggestionAvatarText: { fontSize: 14, fontWeight: '700', color: Colors.accent },
-  suggestionName: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
-  suggestionDetail: { fontSize: 12, color: Colors.textSecondary },
+  suggestionAvatarText: { fontSize: 14, fontWeight: '700', color: colors.primary },
+  suggestionName: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
+  suggestionDetail: { fontSize: 12, color: colors.textSecondary },
   crmLinkedBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     marginTop: 6,
@@ -1067,13 +1078,13 @@ const styles = StyleSheet.create({
   modalProductName: {
     fontSize: 15,
     fontWeight: '600',
-    color: Colors.accent,
+    color: colors.primary,
     marginBottom: 16,
   },
   calcModeLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 8,
     textTransform: 'uppercase',
   },
@@ -1087,70 +1098,70 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: Radius.md,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   calcModeTabChipActive: {
-    backgroundColor: Colors.accent + '15',
-    borderColor: Colors.accent,
+    backgroundColor: colors.primary + '15',
+    borderColor: colors.primary,
   },
   calcModeTabChipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   calcModeTabChipTextActive: {
-    color: Colors.accent,
+    color: colors.primary,
     fontWeight: '700',
   },
   calcPreviewRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     padding: 10,
     borderRadius: Radius.md,
     marginBottom: 14,
   },
   calcPreviewLabel: {
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontWeight: '500',
   },
   calcPreviewVal: {
     fontSize: 13,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     fontWeight: '700',
   },
   calcTotalBox: {
-    backgroundColor: Colors.accent + '08',
+    backgroundColor: colors.primary + '08',
     padding: 14,
     borderRadius: Radius.md,
     alignItems: 'center',
     marginVertical: 10,
     borderWidth: 1,
-    borderColor: Colors.accent + '15',
+    borderColor: colors.primary + '15',
   },
   calcTotalLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textTransform: 'uppercase',
     marginBottom: 4,
   },
   calcTotalVal: {
     fontSize: 20,
     fontWeight: '800',
-    color: Colors.accent,
+    color: colors.primary,
   },
   lineItemDimensions: {
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   lineItemDiscount: {
     fontSize: 11,
-    color: Colors.statusAccepted,
+    color: colors.statusAccepted,
     fontWeight: '600',
     marginTop: 2,
   },
@@ -1167,7 +1178,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: Radius.lg,
     padding: 20,
     width: '100%',
@@ -1180,17 +1191,17 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 6,
     textTransform: 'uppercase',
   },
   modalInput: {
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     borderRadius: Radius.md,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   modalActions: {
     flexDirection: 'row',
@@ -1207,15 +1218,15 @@ const styles = StyleSheet.create({
     minWidth: 90,
   },
   modalCancelBtn: {
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
   },
   modalCancelBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   modalCreateBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
   },
   modalCreateBtnText: {
     fontSize: 14,

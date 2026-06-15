@@ -5,9 +5,9 @@ import { Platform, UIManager } from 'react-native';
 if (Platform.OS !== 'web') {
   (global as any).localStorage = {
     getItem: () => null,
-    setItem: () => {},
-    removeItem: () => {},
-    clear: () => {},
+    setItem: () => { },
+    removeItem: () => { },
+    clear: () => { },
     key: () => null,
     length: 0,
   };
@@ -26,12 +26,16 @@ if (
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
+import { ThemeProvider } from './src/context/ThemeContext';
+
 export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <StatusBar style="auto" />
-        <RootNavigator />
+        <ThemeProvider>
+          <StatusBar style="auto" />
+          <RootNavigator />
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

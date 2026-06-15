@@ -7,11 +7,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useCustomers } from '../../hooks/useCustomers';
 import { Customer } from '../../types';
-import { Colors, Radius, Shadow } from '../../theme';
+import { Radius, Shadow } from '../../theme';
+import { useAppTheme } from '../../context/ThemeContext';
 
 type RouteParams = { customer?: Customer };
 
 export const CustomerFormScreen: React.FC = () => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
+  const fieldStyles = createFieldStyles(colors);
   const nav = useNavigation<any>();
   const route = useRoute<RouteProp<{ params: RouteParams }, 'params'>>();
   const existing = route.params?.customer;
@@ -68,13 +72,13 @@ export const CustomerFormScreen: React.FC = () => {
     <View style={fieldStyles.wrap}>
       <Text style={fieldStyles.label}>{label}</Text>
       <View style={[fieldStyles.inputWrap, multiline && { height: 90 }]}>
-        {icon ? <Ionicons name={icon as any} size={16} color={Colors.textMuted} style={{ marginRight: 8 }} /> : null}
+        {icon ? <Ionicons name={icon as any} size={16} color={colors.textMuted} style={{ marginRight: 8 }} /> : null}
         <TextInput
           style={[fieldStyles.input, multiline && { flex: 1, textAlignVertical: 'top' }]}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={Colors.textMuted}
+          placeholderTextColor={colors.textMuted}
           keyboardType={keyboardType}
           multiline={multiline}
         />
@@ -86,7 +90,7 @@ export const CustomerFormScreen: React.FC = () => {
     <View style={styles.screen}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
+          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{isEdit ? 'Edit Customer' : 'New Customer'}</Text>
         <View style={{ width: 38 }} />
@@ -127,7 +131,7 @@ export const CustomerFormScreen: React.FC = () => {
             value={notes}
             onChangeText={setNotes}
             placeholder="Payment terms, preferences, etc."
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             multiline
             numberOfLines={3}
             textAlignVertical="top"
@@ -157,55 +161,55 @@ export const CustomerFormScreen: React.FC = () => {
   );
 };
 
-const fieldStyles = StyleSheet.create({
+const createFieldStyles = (colors: any) => StyleSheet.create({
   wrap: { marginBottom: 14 },
   label: {
-    fontSize: 11, fontWeight: '700', color: Colors.textSecondary,
+    fontSize: 11, fontWeight: '700', color: colors.textSecondary,
     textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6,
   },
   inputWrap: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     borderRadius: Radius.md,
     paddingHorizontal: 12, paddingVertical: 12,
-    borderWidth: 1, borderColor: Colors.border,
+    borderWidth: 1, borderColor: colors.border,
   },
   input: {
-    flex: 1, fontSize: 15, color: Colors.textPrimary,
+    flex: 1, fontSize: 15, color: colors.textPrimary,
   },
 });
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.background },
+const createStyles = (colors: any) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingTop: 56, paddingBottom: 12, paddingHorizontal: 20,
   },
   backBtn: {
     width: 38, height: 38, borderRadius: 19,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     alignItems: 'center', justifyContent: 'center',
   },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: colors.textPrimary },
   avatarSection: { alignItems: 'center', paddingVertical: 24, gap: 10 },
   avatarCircle: {
     width: 80, height: 80, borderRadius: 40,
-    backgroundColor: Colors.accent + '20',
+    backgroundColor: colors.accent + '20',
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarText: { fontSize: 32, fontWeight: '700', color: Colors.accent },
-  namePreview: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
+  avatarText: { fontSize: 32, fontWeight: '700', color: colors.accent },
+  namePreview: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
   section: { paddingHorizontal: 20, marginBottom: 20 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, marginBottom: 10 },
-  card: { backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: 16, ...Shadow.sm },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.textPrimary, marginBottom: 10 },
+  card: { backgroundColor: colors.surface, borderRadius: Radius.lg, padding: 16, ...Shadow.sm },
   notesInput: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: Radius.lg, padding: 14,
-    fontSize: 15, color: Colors.textPrimary,
+    fontSize: 15, color: colors.textPrimary,
     minHeight: 90, ...Shadow.sm,
   },
   saveBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: Radius.full,
     paddingVertical: 16,
     alignItems: 'center',

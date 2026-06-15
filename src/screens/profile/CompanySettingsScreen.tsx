@@ -16,10 +16,14 @@ import { useNavigation } from '@react-navigation/native';
 import { useCompanySettings } from '../../hooks/useCompanySettings';
 import { CompanySettings } from '../../types';
 import { useAuthStore } from '../../store/useAuthStore';
-import { Colors, Radius, Shadow, Spacing } from '../../theme';
+import { Radius, Shadow, Spacing } from '../../theme';
 import { Button } from '../../components/ui/Button';
+import { useAppTheme } from '../../context/ThemeContext';
 
 export const CompanySettingsScreen: React.FC = () => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
+  const fieldStyles = createFieldStyles(colors);
   const nav = useNavigation();
   const user = useAuthStore((s) => s.user);
   const { settings, loading, fetch, update } = useCompanySettings();
@@ -93,7 +97,7 @@ export const CompanySettingsScreen: React.FC = () => {
       <View style={styles.screen}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
-            <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
+            <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Company Profile</Text>
           <View style={{ width: 38 }} />
@@ -101,13 +105,13 @@ export const CompanySettingsScreen: React.FC = () => {
 
         {loading ? (
           <View style={styles.loader}>
-            <ActivityIndicator size="large" color={Colors.accent} />
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
         ) : (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             {!isBoss && (
               <View style={styles.employeeBanner}>
-                <Ionicons name="information-circle" size={20} color={Colors.accent} />
+                <Ionicons name="information-circle" size={20} color={colors.primary} />
                 <Text style={styles.employeeBannerText}>
                   Read-only view. Only the owner (Boss) can change these settings.
                 </Text>
@@ -156,7 +160,7 @@ export const CompanySettingsScreen: React.FC = () => {
                   value={address}
                   onChangeText={setAddress}
                   placeholder="Street, City, Pin Code..."
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={colors.textMuted}
                   multiline
                   editable={isBoss}
                 />
@@ -218,7 +222,10 @@ const Field: React.FC<{
   keyboardType?: any;
   editable?: boolean;
   autoCapitalize?: any;
-}> = ({ label, value, onChangeText, placeholder, keyboardType, editable = true, autoCapitalize }) => (
+}> = ({ label, value, onChangeText, placeholder, keyboardType, editable = true, autoCapitalize }) => {
+  const { colors } = useAppTheme();
+  const fieldStyles = createFieldStyles(colors);
+  return (
   <View style={fieldStyles.wrap}>
     <Text style={fieldStyles.label}>{label}</Text>
     <TextInput
@@ -226,40 +233,41 @@ const Field: React.FC<{
       value={value}
       onChangeText={onChangeText}
       placeholder={placeholder}
-      placeholderTextColor={Colors.textMuted}
+      placeholderTextColor={colors.textMuted}
       keyboardType={keyboardType}
       editable={editable}
       autoCapitalize={autoCapitalize}
     />
   </View>
-);
+  );
+};
 
-const fieldStyles = StyleSheet.create({
+const createFieldStyles = (colors: any) => StyleSheet.create({
   wrap: { marginBottom: 14 },
   label: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 6,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     borderRadius: Radius.md,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   inputDisabled: {
     opacity: 0.6,
-    backgroundColor: Colors.border,
+    backgroundColor: colors.border,
   },
 });
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.background },
+const createStyles = (colors: any) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -272,26 +280,26 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: colors.textPrimary },
   scrollContent: { paddingHorizontal: 20 },
   loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary, marginTop: 16, marginBottom: 10 },
-  card: { backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: 16, marginBottom: 8, ...Shadow.sm },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, marginTop: 16, marginBottom: 10 },
+  card: { backgroundColor: colors.surface, borderRadius: Radius.lg, padding: 16, marginBottom: 8, ...Shadow.sm },
   employeeBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: Colors.accent + '15',
+    backgroundColor: colors.primary + '15',
     padding: 12,
     borderRadius: Radius.md,
     marginTop: 10,
     borderWidth: 1,
-    borderColor: Colors.accent + '30',
+    borderColor: colors.primary + '30',
   },
-  employeeBannerText: { flex: 1, fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
+  employeeBannerText: { flex: 1, fontSize: 12, fontWeight: '600', color: colors.textSecondary },
   btnContainer: { marginTop: 20 },
 });

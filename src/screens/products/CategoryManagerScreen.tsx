@@ -17,10 +17,13 @@ import { selectAndUploadImage } from '../../utils/upload';
 import { useNavigation } from '@react-navigation/native';
 import { useCategories } from '../../hooks/useCategories';
 import { Category } from '../../types';
-import { Colors, Radius, Shadow } from '../../theme';
+import { Radius, Shadow } from '../../theme';
 import { animateLayout } from '../../utils/animation';
+import { useAppTheme } from '../../context/ThemeContext';
 
 export const CategoryManagerScreen: React.FC = () => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   const nav = useNavigation<any>();
   const { categories, loading, fetch, create, update, remove } = useCategories();
 
@@ -122,7 +125,7 @@ export const CategoryManagerScreen: React.FC = () => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
+          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.title}>Manage Categories</Text>
         <TouchableOpacity style={styles.addBtn} onPress={openCreate} activeOpacity={0.8}>
@@ -138,7 +141,7 @@ export const CategoryManagerScreen: React.FC = () => {
         contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Ionicons name="grid-outline" size={52} color={Colors.textMuted} />
+            <Ionicons name="grid-outline" size={52} color={colors.textMuted} />
             <Text style={styles.emptyTitle}>No categories yet</Text>
             <Text style={styles.emptySub}>Tap + to create your first category</Text>
           </View>
@@ -149,7 +152,7 @@ export const CategoryManagerScreen: React.FC = () => {
               {item.image_url ? (
                 <Image source={{ uri: item.image_url }} style={styles.catCardImage} />
               ) : (
-                <Ionicons name="grid-outline" size={22} color={item.is_active ? Colors.accent : Colors.textMuted} />
+                <Ionicons name="grid-outline" size={22} color={item.is_active ? colors.primary : colors.textMuted} />
               )}
             </View>
             <View style={{ flex: 1 }}>
@@ -169,7 +172,7 @@ export const CategoryManagerScreen: React.FC = () => {
                 <Ionicons
                   name={item.is_active ? 'eye-outline' : 'eye-off-outline'}
                   size={18}
-                  color={item.is_active ? Colors.accent : Colors.textMuted}
+                  color={item.is_active ? colors.primary : colors.textMuted}
                 />
               </TouchableOpacity>
               <TouchableOpacity
@@ -177,14 +180,14 @@ export const CategoryManagerScreen: React.FC = () => {
                 onPress={() => openEdit(item)}
                 activeOpacity={0.7}
               >
-                <Ionicons name="create-outline" size={18} color={Colors.textSecondary} />
+                <Ionicons name="create-outline" size={18} color={colors.textSecondary} />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.actionIcon}
                 onPress={() => handleDelete(item)}
                 activeOpacity={0.7}
               >
-                <Ionicons name="trash-outline" size={18} color={Colors.statusRejected} />
+                <Ionicons name="trash-outline" size={18} color={colors.statusRejected} />
               </TouchableOpacity>
             </View>
           </View>
@@ -199,7 +202,7 @@ export const CategoryManagerScreen: React.FC = () => {
               {editTarget ? 'Edit Category' : 'New Category'}
             </Text>
             <TouchableOpacity onPress={() => setShowForm(false)}>
-              <Ionicons name="close" size={24} color={Colors.textPrimary} />
+              <Ionicons name="close" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
 
@@ -229,7 +232,7 @@ export const CategoryManagerScreen: React.FC = () => {
                   disabled={uploadingImage}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="camera-outline" size={24} color={Colors.textSecondary} />
+                  <Ionicons name="camera-outline" size={24} color={colors.textSecondary} />
                   <Text style={styles.imagePlaceholderText}>
                     {uploadingImage ? 'Uploading...' : 'Select Category Image'}
                   </Text>
@@ -243,7 +246,7 @@ export const CategoryManagerScreen: React.FC = () => {
               value={catName}
               onChangeText={setCatName}
               placeholder="e.g. Plywood, Tiles..."
-              placeholderTextColor={Colors.textMuted}
+              placeholderTextColor={colors.textMuted}
             />
 
             <Text style={[styles.label, { marginTop: 16 }]}>Default Unit</Text>
@@ -252,7 +255,7 @@ export const CategoryManagerScreen: React.FC = () => {
               value={catUnit}
               onChangeText={setCatUnit}
               placeholder="e.g. Sq Ft, Pcs, Kg..."
-              placeholderTextColor={Colors.textMuted}
+              placeholderTextColor={colors.textMuted}
             />
 
             <Text style={[styles.label, { marginTop: 16 }]}>Calculation Method</Text>
@@ -284,7 +287,7 @@ export const CategoryManagerScreen: React.FC = () => {
                       <Text style={[styles.calcOptionLabel, isActive && styles.calcOptionLabelActive]}>
                         {item.label}
                       </Text>
-                      {isActive && <Ionicons name="checkmark-circle" size={16} color={Colors.accent} />}
+                      {isActive && <Ionicons name="checkmark-circle" size={16} color={colors.primary} />}
                     </View>
                     <Text style={styles.calcOptionDesc}>{item.desc}</Text>
                   </TouchableOpacity>
@@ -313,26 +316,26 @@ export const CategoryManagerScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.background },
+const createStyles = (colors: any) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingTop: 56, paddingBottom: 16, paddingHorizontal: 20,
   },
   backBtn: {
     width: 38, height: 38, borderRadius: 19,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     alignItems: 'center', justifyContent: 'center',
   },
-  title: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
+  title: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
   addBtn: {
     width: 38, height: 38, borderRadius: 19,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
   },
   catCard: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: Radius.lg,
     padding: 16,
     marginBottom: 10,
@@ -341,7 +344,7 @@ const styles = StyleSheet.create({
   catCardInactive: { opacity: 0.5 },
   catIconWrap: {
     width: 42, height: 42, borderRadius: 12,
-    backgroundColor: Colors.accent + '15',
+    backgroundColor: colors.primary + '15',
     alignItems: 'center', justifyContent: 'center',
     overflow: 'hidden',
   },
@@ -357,17 +360,17 @@ const styles = StyleSheet.create({
   imagePlaceholder: {
     height: 120,
     borderWidth: 1.5,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderStyle: 'dashed',
     borderRadius: Radius.lg,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     gap: 8,
   },
   imagePlaceholderText: {
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontWeight: '500',
   },
   imageWrapper: {
@@ -386,7 +389,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: Colors.statusRejected,
+    backgroundColor: colors.statusRejected,
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -394,38 +397,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...Shadow.sm,
   },
-  catName: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
-  catNameInactive: { color: Colors.textMuted },
-  catMeta: { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
+  catName: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
+  catNameInactive: { color: colors.textMuted },
+  catMeta: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   catActions: { flexDirection: 'row', gap: 4 },
   actionIcon: {
     width: 34, height: 34, borderRadius: 8,
     alignItems: 'center', justifyContent: 'center',
   },
   empty: { alignItems: 'center', paddingTop: 80, gap: 10 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
-  emptySub: { fontSize: 14, color: Colors.textSecondary },
-  modal: { flex: 1, backgroundColor: Colors.background },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
+  emptySub: { fontSize: 14, color: colors.textSecondary },
+  modal: { flex: 1, backgroundColor: colors.background },
   modalHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 20, paddingTop: 24, paddingBottom: 16,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  modalTitle: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
+  modalTitle: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
   modalBody: { padding: 20 },
   label: {
-    fontSize: 12, fontWeight: '700', color: Colors.textSecondary,
+    fontSize: 12, fontWeight: '700', color: colors.textSecondary,
     textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8,
   },
   input: {
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     borderRadius: Radius.md,
     paddingHorizontal: 14, paddingVertical: 14,
-    fontSize: 15, color: Colors.textPrimary,
-    borderWidth: 1, borderColor: Colors.border,
+    fontSize: 15, color: colors.textPrimary,
+    borderWidth: 1, borderColor: colors.border,
   },
   saveBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: Radius.full,
     paddingVertical: 16,
     alignItems: 'center',
@@ -439,13 +442,13 @@ const styles = StyleSheet.create({
   calcOptionChip: {
     padding: 12,
     borderRadius: Radius.md,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   calcOptionChipActive: {
-    borderColor: Colors.accent,
-    backgroundColor: Colors.accent + '08',
+    borderColor: colors.primary,
+    backgroundColor: colors.primary + '08',
   },
   calcOptionTop: {
     flexDirection: 'row',
@@ -456,13 +459,13 @@ const styles = StyleSheet.create({
   calcOptionLabel: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   calcOptionLabelActive: {
-    color: Colors.accent,
+    color: colors.primary,
   },
   calcOptionDesc: {
     fontSize: 11,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
 });

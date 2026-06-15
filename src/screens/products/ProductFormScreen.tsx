@@ -18,15 +18,18 @@ import { useProducts } from '../../hooks/useProducts';
 import { useCategories } from '../../hooks/useCategories';
 import { Button } from '../../components/ui/Button';
 import { BarcodeScannerModal } from '../../components/BarcodeScannerModal';
-import { Colors, Radius, Shadow } from '../../theme';
+import { Radius, Shadow } from '../../theme';
 import { Product } from '../../types';
 import { animateLayout } from '../../utils/animation';
+import { useAppTheme } from '../../context/ThemeContext';
 
 type RouteParams = { product?: Product };
 
 const UNITS = ['piece', 'kg', 'litre', 'meter', 'box', 'hour', 'day', 'month'];
 
 const BarcodeGraphic: React.FC<{ value: string }> = ({ value }) => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   if (!value) return null;
   // Generate pseudo-widths based on characters in value
   const barWidths = Array.from(value).map((char) => {
@@ -42,7 +45,7 @@ const BarcodeGraphic: React.FC<{ value: string }> = ({ value }) => {
             key={index}
             style={[
               styles.barcodeBar,
-              { width: w, backgroundColor: Colors.textPrimary, marginRight: index % 2 === 0 ? 2 : 1 },
+              { width: w, backgroundColor: colors.textPrimary, marginRight: index % 2 === 0 ? 2 : 1 },
             ]}
           />
         ))}
@@ -53,6 +56,9 @@ const BarcodeGraphic: React.FC<{ value: string }> = ({ value }) => {
 };
 
 export const ProductFormScreen: React.FC = () => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
+  const fieldStyles = createFieldStyles(colors);
   const nav = useNavigation<any>();
   const route = useRoute<RouteProp<{ params: RouteParams }, 'params'>>();
   const existing = route.params?.product;
@@ -210,7 +216,7 @@ export const ProductFormScreen: React.FC = () => {
     <View style={styles.screen}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
+          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{isEdit ? 'Edit Product' : 'Add Product'}</Text>
         <View style={{ width: 38 }} />
@@ -243,7 +249,7 @@ export const ProductFormScreen: React.FC = () => {
                 disabled={uploadingImage}
                 activeOpacity={0.8}
               >
-                <Ionicons name="camera-outline" size={24} color={Colors.textSecondary} />
+                <Ionicons name="camera-outline" size={24} color={colors.textSecondary} />
                 <Text style={styles.imagePlaceholderText}>
                   {uploadingImage ? 'Uploading...' : 'Add Product Image'}
                 </Text>
@@ -273,7 +279,7 @@ export const ProductFormScreen: React.FC = () => {
                     onPress={() => setShowBarcodeScanner(true)}
                     style={styles.genLink}
                   >
-                    <Ionicons name="barcode-outline" size={14} color={Colors.accent} />
+                    <Ionicons name="barcode-outline" size={14} color={colors.primary} />
                     <Text style={styles.genLinkText}>Scan</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -283,7 +289,7 @@ export const ProductFormScreen: React.FC = () => {
                     }}
                     style={styles.genLink}
                   >
-                    <Ionicons name="git-branch-outline" size={14} color={Colors.accent} />
+                    <Ionicons name="git-branch-outline" size={14} color={colors.primary} />
                     <Text style={styles.genLinkText}>Auto-Generate</Text>
                   </TouchableOpacity>
                 </View>
@@ -293,7 +299,7 @@ export const ProductFormScreen: React.FC = () => {
                 value={barcode}
                 onChangeText={setBarcode}
                 placeholder="e.g. 8901030752834"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
                 keyboardType="number-pad"
               />
             </View>
@@ -312,7 +318,7 @@ export const ProductFormScreen: React.FC = () => {
               <View style={styles.categoryHeader}>
                 <Text style={fieldStyles.label}>Category</Text>
                 <TouchableOpacity onPress={handleAddNewCategory} style={styles.addCategoryLink}>
-                  <Ionicons name="add" size={14} color={Colors.accent} />
+                  <Ionicons name="add" size={14} color={colors.primary} />
                   <Text style={styles.addCategoryLinkText}>New Category</Text>
                 </TouchableOpacity>
               </View>
@@ -349,7 +355,7 @@ export const ProductFormScreen: React.FC = () => {
                 value={description}
                 onChangeText={setDescription}
                 placeholder="Brief description..."
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
                 multiline
               />
             </View>
@@ -466,7 +472,7 @@ export const ProductFormScreen: React.FC = () => {
                 value={newCategoryName}
                 onChangeText={setNewCategoryName}
                 placeholder="e.g. Hardware"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
                 autoFocus
               />
             </View>
@@ -500,7 +506,10 @@ export const ProductFormScreen: React.FC = () => {
 const Field: React.FC<{
   label: string; value: string; onChangeText: (t: string) => void;
   placeholder?: string; keyboardType?: any;
-}> = ({ label, value, onChangeText, placeholder, keyboardType }) => (
+}> = ({ label, value, onChangeText, placeholder, keyboardType }) => {
+  const { colors } = useAppTheme();
+  const fieldStyles = createFieldStyles(colors);
+  return (
   <View style={fieldStyles.wrap}>
     <Text style={fieldStyles.label}>{label}</Text>
     <TextInput
@@ -508,40 +517,41 @@ const Field: React.FC<{
       value={value}
       onChangeText={onChangeText}
       placeholder={placeholder}
-      placeholderTextColor={Colors.textMuted}
+      placeholderTextColor={colors.textMuted}
       keyboardType={keyboardType}
     />
   </View>
-);
+  );
+};
 
-const fieldStyles = StyleSheet.create({
+const createFieldStyles = (colors: any) => StyleSheet.create({
   wrap: { marginBottom: 14 },
   label: {
-    fontSize: 12, fontWeight: '700', color: Colors.textSecondary,
+    fontSize: 12, fontWeight: '700', color: colors.textSecondary,
     marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     borderRadius: Radius.md,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
 });
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.background },
+const createStyles = (colors: any) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingTop: 56, paddingBottom: 12, paddingHorizontal: 20,
   },
   backBtn: {
     width: 38, height: 38, borderRadius: 19,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     alignItems: 'center', justifyContent: 'center',
   },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: colors.textPrimary },
   iconSection: { alignItems: 'center', paddingVertical: 24, gap: 8 },
   imageSectionContainer: {
     width: '100%',
@@ -552,17 +562,17 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderWidth: 1.5,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderStyle: 'dashed',
     borderRadius: Radius.lg,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     gap: 8,
   },
   imagePlaceholderText: {
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontWeight: '500',
     textAlign: 'center',
     paddingHorizontal: 4,
@@ -584,7 +594,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 4,
     right: 4,
-    backgroundColor: Colors.statusRejected,
+    backgroundColor: colors.statusRejected,
     width: 26,
     height: 26,
     borderRadius: 13,
@@ -592,11 +602,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...Shadow.sm,
   },
-  productNamePreview: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
-  pricePreview: { fontSize: 16, color: Colors.accent, fontWeight: '600' },
+  productNamePreview: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
+  pricePreview: { fontSize: 16, color: colors.primary, fontWeight: '600' },
   section: { paddingHorizontal: 20, marginBottom: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary, marginBottom: 10 },
-  card: { backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: 16, ...Shadow.sm },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, marginBottom: 10 },
+  card: { backgroundColor: colors.surface, borderRadius: Radius.lg, padding: 16, ...Shadow.sm },
   row: { flexDirection: 'row', justifyContent: 'space-between' },
   
   // Units
@@ -604,34 +614,34 @@ const styles = StyleSheet.create({
   unitChip: {
     paddingHorizontal: 14, paddingVertical: 8,
     borderRadius: Radius.full,
-    backgroundColor: Colors.surfaceAlt,
-    borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1, borderColor: colors.border,
   },
-  unitChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  unitText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  unitChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  unitText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
   unitTextActive: { color: '#fff' },
 
   // Categories
   categoryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   addCategoryLink: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  addCategoryLinkText: { fontSize: 12, fontWeight: '700', color: Colors.accent },
+  addCategoryLinkText: { fontSize: 12, fontWeight: '700', color: colors.primary },
   categoryContainer: { marginTop: 4 },
   categoryChipsScroll: { gap: 8 },
   categoryChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: Radius.md,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   categoryChipActive: {
-    backgroundColor: Colors.accent + '18',
-    borderColor: Colors.accent,
+    backgroundColor: colors.primary + '18',
+    borderColor: colors.primary,
   },
-  categoryChipText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
-  categoryChipTextActive: { color: Colors.accent },
-  noCategoriesText: { fontSize: 12, color: Colors.textMuted, fontStyle: 'italic' },
+  categoryChipText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+  categoryChipTextActive: { color: colors.primary },
+  noCategoriesText: { fontSize: 12, color: colors.textMuted, fontStyle: 'italic' },
 
   // Barcode visualization styles
   fieldHeader: {
@@ -648,16 +658,16 @@ const styles = StyleSheet.create({
   genLinkText: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.accent,
+    color: colors.primary,
   },
   barcodeGraphicWrap: {
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     padding: 12,
     borderRadius: Radius.md,
     alignItems: 'center',
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderStyle: 'dashed',
   },
   barcodeLines: {
@@ -672,7 +682,7 @@ const styles = StyleSheet.create({
   barcodeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     letterSpacing: 3,
   },
   
@@ -685,7 +695,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: Radius.lg,
     padding: 20,
     width: '100%',
@@ -695,7 +705,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     marginBottom: 16,
   },
   fieldWrap: {
@@ -704,17 +714,17 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 6,
     textTransform: 'uppercase',
   },
   modalInput: {
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     borderRadius: Radius.md,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   modalActions: {
     flexDirection: 'row',
@@ -731,15 +741,15 @@ const styles = StyleSheet.create({
     minWidth: 90,
   },
   modalCancelBtn: {
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
   },
   modalCancelBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   modalCreateBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
   },
   modalCreateBtnText: {
     fontSize: 14,
@@ -750,10 +760,10 @@ const styles = StyleSheet.create({
   calcChip: {
     paddingHorizontal: 14, paddingVertical: 8,
     borderRadius: Radius.full,
-    backgroundColor: Colors.surfaceAlt,
-    borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1, borderColor: colors.border,
   },
-  calcChipActive: { backgroundColor: Colors.accent, borderColor: Colors.accent },
-  calcText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  calcChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  calcText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
   calcTextActive: { color: '#fff' },
 });

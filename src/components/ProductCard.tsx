@@ -2,7 +2,8 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Product } from '../types';
-import { Colors, Radius, Shadow } from '../theme';
+import { Radius, Shadow } from '../theme';
+import { useAppTheme } from '../context/ThemeContext';
 
 interface ProductCardProps {
   product: Product;
@@ -14,6 +15,8 @@ const formatCurrency = (amount: number) =>
   `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 0 })}`;
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onDelete }) => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   const isOutOfStock = product.stock_quantity !== undefined && product.stock_quantity === 0;
   const isLowStock = product.stock_quantity !== undefined && product.stock_quantity > 0 && product.stock_quantity <= 5;
 
@@ -21,7 +24,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onDe
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
       <View style={styles.row}>
         <View style={styles.iconBox}>
-          <Ionicons name="cube-outline" size={24} color={Colors.accent} />
+          <Ionicons name="cube-outline" size={24} color={colors.primary} />
         </View>
 
         <View style={styles.info}>
@@ -45,7 +48,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onDe
               <Ionicons 
                 name={isOutOfStock ? "alert-circle-outline" : "ellipse"} 
                 size={isOutOfStock ? 14 : 8} 
-                color={isOutOfStock ? Colors.statusRejected : isLowStock ? Colors.statusExpired : Colors.textMuted} 
+                color={isOutOfStock ? colors.statusRejected : isLowStock ? colors.statusExpired : colors.textMuted} 
               />
               <Text style={[
                 styles.stockText, 
@@ -69,7 +72,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onDe
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={styles.deleteBtn}
           >
-            <Ionicons name="trash-outline" size={16} color={Colors.statusRejected} />
+            <Ionicons name="trash-outline" size={16} color={colors.statusRejected} />
           </TouchableOpacity>
         </View>
       </View>
@@ -80,13 +83,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onDe
         ) : null}
         {product.barcode ? (
           <View style={styles.footerField}>
-            <Ionicons name="barcode-outline" size={12} color={Colors.textMuted} />
+            <Ionicons name="barcode-outline" size={12} color={colors.textMuted} />
             <Text style={styles.sku}>{product.barcode}</Text>
           </View>
         ) : null}
         {product.warehouse_location ? (
           <View style={styles.footerField}>
-            <Ionicons name="location-outline" size={12} color={Colors.textMuted} />
+            <Ionicons name="location-outline" size={12} color={colors.textMuted} />
             <Text style={styles.sku}>{product.warehouse_location}</Text>
           </View>
         ) : null}
@@ -95,9 +98,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onDe
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   card: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: Radius.lg,
     padding: 16,
     marginBottom: 12,
@@ -112,41 +115,41 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: Radius.md,
-    backgroundColor: Colors.accent + '18',
+    backgroundColor: colors.primary + '18',
     alignItems: 'center',
     justifyContent: 'center',
   },
   info: { flex: 1, gap: 4 },
-  name: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
-  desc: { fontSize: 12, color: Colors.textSecondary },
+  name: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
+  desc: { fontSize: 12, color: colors.textSecondary },
   meta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   catBadge: {
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     borderRadius: Radius.full,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
-  catText: { fontSize: 11, fontWeight: '600', color: Colors.textSecondary },
-  unit: { fontSize: 11, color: Colors.textMuted },
+  catText: { fontSize: 11, fontWeight: '600', color: colors.textSecondary },
+  unit: { fontSize: 11, color: colors.textMuted },
   
   // Stock styles
   stockRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
-  stockText: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
-  stockOut: { color: Colors.statusRejected },
-  stockLow: { color: Colors.statusExpired },
+  stockText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
+  stockOut: { color: colors.statusRejected },
+  stockLow: { color: colors.statusExpired },
 
   rightSide: { alignItems: 'flex-end', gap: 6 },
-  price: { fontSize: 17, fontWeight: '700', color: Colors.primary },
-  costPrice: { fontSize: 12, color: Colors.textSecondary, fontWeight: '500' },
+  price: { fontSize: 17, fontWeight: '700', color: colors.primary },
+  costPrice: { fontSize: 12, color: colors.textSecondary, fontWeight: '500' },
   deleteBtn: { marginTop: 4 },
-  sku: { fontSize: 11, color: Colors.textMuted },
+  sku: { fontSize: 11, color: colors.textMuted },
   cardFooter: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
     marginTop: 10,
     borderTopWidth: 1,
-    borderTopColor: Colors.divider,
+    borderTopColor: colors.divider,
     paddingTop: 8,
   },
   footerField: {

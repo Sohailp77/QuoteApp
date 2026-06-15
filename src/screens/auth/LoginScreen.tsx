@@ -6,11 +6,14 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { account, ID, tablesDB, DATABASE_ID, COLLECTIONS, Query } from '../../config/appwrite';
 import { useAuthStore } from '../../store/useAuthStore';
-import { Colors, Radius, Shadow, Spacing } from '../../theme';
+import { Radius, Shadow, Spacing } from '../../theme';
+import { useAppTheme } from '../../context/ThemeContext';
 
 export const LoginScreen: React.FC = () => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   const setUser = useAuthStore((s) => s.setUser);
-  
+
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -68,7 +71,7 @@ export const LoginScreen: React.FC = () => {
             const emp = empDocs.rows[0];
             resolvedRole = 'employee';
             resolvedTenantId = emp.tenant_id;
-            
+
             // Link employee record
             try {
               await tablesDB.updateRow({
@@ -114,8 +117,8 @@ export const LoginScreen: React.FC = () => {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.screen} 
+    <KeyboardAvoidingView
+      style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
@@ -135,11 +138,11 @@ export const LoginScreen: React.FC = () => {
 
           {isRegister && (
             <View style={styles.inputWrap}>
-              <Ionicons name="person-outline" size={20} color={Colors.textMuted} style={styles.inputIcon} />
+              <Ionicons name="person-outline" size={20} color={colors.textPrimary} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Full Name"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textPrimary}
                 value={displayName}
                 onChangeText={setDisplayName}
                 autoCapitalize="words"
@@ -148,11 +151,11 @@ export const LoginScreen: React.FC = () => {
           )}
 
           <View style={styles.inputWrap}>
-            <Ionicons name="mail-outline" size={20} color={Colors.textMuted} style={styles.inputIcon} />
+            <Ionicons name="mail-outline" size={20} color={colors.textPrimary} style={styles.inputIcon} />
             <TextInput
               style={styles.input}
               placeholder="Email Address"
-              placeholderTextColor={Colors.textMuted}
+              placeholderTextColor={colors.textPrimary}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -162,19 +165,19 @@ export const LoginScreen: React.FC = () => {
           </View>
 
           <View style={styles.inputWrap}>
-            <Ionicons name="lock-closed-outline" size={20} color={Colors.textMuted} style={styles.inputIcon} />
+            <Ionicons name="lock-closed-outline" size={20} color={colors.textPrimary} style={styles.inputIcon} />
             <TextInput
               style={styles.input}
               placeholder="Password"
-              placeholderTextColor={Colors.textMuted}
+              placeholderTextColor={colors.textPrimary}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
             />
           </View>
 
-          <TouchableOpacity 
-            style={[styles.primaryBtn, loading && styles.btnDisabled]} 
+          <TouchableOpacity
+            style={[styles.primaryBtn, loading && styles.btnDisabled]}
             onPress={handleEmailAuth}
             disabled={loading}
             activeOpacity={0.8}
@@ -200,33 +203,33 @@ export const LoginScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.background },
+const createStyles = (colors: any) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   scrollContent: { flexGrow: 1, padding: 24, justifyContent: 'center' },
   header: { alignItems: 'center', marginBottom: 40, marginTop: 40 },
   logoWrap: {
     width: 64, height: 64, borderRadius: 20,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 16,
     ...Shadow.md,
   },
-  title: { fontSize: 28, fontWeight: '800', color: Colors.textPrimary, letterSpacing: -0.5 },
-  subtitle: { fontSize: 15, color: Colors.textSecondary, marginTop: 4, textAlign: 'center' },
-  card: { backgroundColor: Colors.surface, borderRadius: Radius.xl, padding: 24, ...Shadow.lg },
-  cardTitle: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 },
-  cardSubtitle: { fontSize: 14, color: Colors.textSecondary, marginBottom: 24 },
+  title: { fontSize: 28, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 },
+  subtitle: { fontSize: 15, color: colors.textSecondary, marginTop: 4, textAlign: 'center' },
+  card: { backgroundColor: colors.surface, borderRadius: Radius.xl, padding: 24, ...Shadow.lg },
+  cardTitle: { fontSize: 22, fontWeight: '700', color: colors.textPrimary, marginBottom: 4 },
+  cardSubtitle: { fontSize: 14, color: colors.textSecondary, marginBottom: 24 },
   inputWrap: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.surfaceAlt,
-    borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1, borderColor: colors.border,
     borderRadius: Radius.lg,
     marginBottom: 16, paddingHorizontal: 14,
   },
   inputIcon: { marginRight: 10 },
-  input: { flex: 1, height: 50, fontSize: 15, color: Colors.textPrimary },
+  input: { flex: 1, height: 50, fontSize: 15, color: colors.textPrimary },
   primaryBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: Radius.full,
     height: 52, alignItems: 'center', justifyContent: 'center',
     marginTop: 8, ...Shadow.sm,
@@ -234,6 +237,6 @@ const styles = StyleSheet.create({
   btnDisabled: { opacity: 0.7 },
   primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   footerRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 24, gap: 6 },
-  footerText: { fontSize: 14, color: Colors.textSecondary },
-  footerLink: { fontSize: 14, fontWeight: '700', color: Colors.accent },
+  footerText: { fontSize: 14, color: colors.textSecondary },
+  footerLink: { fontSize: 14, fontWeight: '700', color: colors.primary },
 });

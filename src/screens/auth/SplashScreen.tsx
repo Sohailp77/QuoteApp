@@ -1,8 +1,11 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
-import { Colors } from '../../theme';
+import { useAppTheme } from '../../context/ThemeContext';
+
 
 export const SplashScreen: React.FC = () => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   const opacity = new Animated.Value(0);
   const scale = new Animated.Value(0.8);
 
@@ -26,10 +29,10 @@ export const SplashScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },

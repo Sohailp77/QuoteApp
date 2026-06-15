@@ -13,14 +13,17 @@ import { useNavigation } from '@react-navigation/native';
 import { useQuotes } from '../../hooks/useQuotes';
 import { QuoteCard } from '../../components/QuoteCard';
 import { SearchBar } from '../../components/ui/SearchBar';
-import { Colors, Radius } from '../../theme';
+import { Radius } from '../../theme';
 import { animateLayout } from '../../utils/animation';
 import { QuoteStatus } from '../../types';
 import { BarcodeScannerModal } from '../../components/BarcodeScannerModal';
+import { useAppTheme } from '../../context/ThemeContext';
 
 const STATUS_FILTERS: (QuoteStatus | 'All')[] = ['All', 'Draft', 'Sent', 'Accepted', 'Rejected'];
 
 export const QuotesScreen: React.FC = () => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   const nav = useNavigation<any>();
   const { quotes, loading, fetch, remove } = useQuotes();
   const [search, setSearch] = useState('');
@@ -127,11 +130,11 @@ export const QuotesScreen: React.FC = () => {
           />
         )}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={fetch} tintColor={Colors.primary} />
+          <RefreshControl refreshing={loading} onRefresh={fetch} tintColor={colors.primary} />
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Ionicons name="document-text-outline" size={52} color={Colors.textMuted} />
+            <Ionicons name="document-text-outline" size={52} color={colors.textMuted} />
             <Text style={styles.emptyTitle}>No quotes found</Text>
             <Text style={styles.emptySub}>
               {search ? 'Try a different search term' : 'Tap + to create your first quote'}
@@ -152,8 +155,8 @@ export const QuotesScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.background, paddingHorizontal: 20 },
+const createStyles = (colors: any) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 20 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -161,12 +164,12 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 16,
   },
-  title: { fontSize: 28, fontWeight: '800', color: Colors.textPrimary, letterSpacing: -0.5 },
+  title: { fontSize: 28, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 },
   addBtn: {
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -180,7 +183,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: Radius.md,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 14,
@@ -195,17 +198,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: Radius.full,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   chipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
-  chipText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  chipText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
   chipTextActive: { color: '#fff' },
   empty: { alignItems: 'center', paddingTop: 80, gap: 10 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
-  emptySub: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center' },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
+  emptySub: { fontSize: 14, color: colors.textSecondary, textAlign: 'center' },
 });

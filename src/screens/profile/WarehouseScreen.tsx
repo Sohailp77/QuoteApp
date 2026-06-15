@@ -12,14 +12,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useProducts } from '../../hooks/useProducts';
 import { BarcodeScannerModal } from '../../components/BarcodeScannerModal';
-import { Colors, Radius, Shadow } from '../../theme';
+import { Radius, Shadow } from '../../theme';
 import { Button } from '../../components/ui/Button';
 import { Product } from '../../types';
+import { useAppTheme } from '../../context/ThemeContext';
 
 const formatCurrency = (amount: number) =>
   `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 
 export const WarehouseScreen: React.FC = () => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   const nav = useNavigation();
   const { products, update: updateProduct } = useProducts();
   const [showScanner, setShowScanner] = useState(false);
@@ -120,7 +123,7 @@ export const WarehouseScreen: React.FC = () => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
+          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Warehouse Control</Text>
         <TouchableOpacity onPress={() => setShowScanner(true)} style={styles.scanBtn}>
@@ -132,7 +135,7 @@ export const WarehouseScreen: React.FC = () => {
         {!scannedProduct ? (
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIconCircle}>
-              <Ionicons name="cube-outline" size={60} color={Colors.accent} />
+              <Ionicons name="cube-outline" size={60} color={colors.primary} />
             </View>
             <Text style={styles.emptyTitle}>Warehouse Scan Desk</Text>
             <Text style={styles.emptySub}>
@@ -158,7 +161,7 @@ export const WarehouseScreen: React.FC = () => {
                   style={styles.reScanBtn}
                   onPress={() => setShowScanner(true)}
                 >
-                  <Ionicons name="scan-outline" size={16} color={Colors.accent} />
+                  <Ionicons name="scan-outline" size={16} color={colors.primary} />
                   <Text style={styles.reScanText}>Scan Another</Text>
                 </TouchableOpacity>
               </View>
@@ -180,7 +183,7 @@ export const WarehouseScreen: React.FC = () => {
                 <View style={styles.metaCol}>
                   <Text style={styles.metaLabel}>Warehouse Location</Text>
                   <View style={styles.locBadge}>
-                    <Ionicons name="location-outline" size={14} color={Colors.accent} />
+                    <Ionicons name="location-outline" size={14} color={colors.primary} />
                     <Text style={styles.locBadgeText}>
                       {scannedProduct.warehouse_location || 'Not Specified'}
                     </Text>
@@ -222,7 +225,7 @@ export const WarehouseScreen: React.FC = () => {
 
               {scannedProduct.cost_price && (
                 <View style={styles.marginAlert}>
-                  <Ionicons name="trending-up-outline" size={16} color={Colors.statusAccepted} />
+                  <Ionicons name="trending-up-outline" size={16} color={colors.statusAccepted} />
                   <Text style={styles.marginText}>
                     Gross Margin: {formatCurrency(scannedProduct.unit_price - scannedProduct.cost_price)} ({Math.round(((scannedProduct.unit_price - scannedProduct.cost_price) / scannedProduct.unit_price) * 100)}%)
                   </Text>
@@ -246,7 +249,7 @@ export const WarehouseScreen: React.FC = () => {
                   <Ionicons
                     name="add-circle-outline"
                     size={20}
-                    color={adjustMode === 'add' ? '#fff' : Colors.textSecondary}
+                    color={adjustMode === 'add' ? '#fff' : colors.textSecondary}
                   />
                   <Text style={[styles.modeText, adjustMode === 'add' && styles.modeTextActive]}>
                     Add stock
@@ -263,7 +266,7 @@ export const WarehouseScreen: React.FC = () => {
                   <Ionicons
                     name="remove-circle-outline"
                     size={20}
-                    color={adjustMode === 'deduct' ? '#fff' : Colors.textSecondary}
+                    color={adjustMode === 'deduct' ? '#fff' : colors.textSecondary}
                   />
                   <Text style={[styles.modeText, adjustMode === 'deduct' && styles.modeTextActive]}>
                     Deduct stock
@@ -279,7 +282,7 @@ export const WarehouseScreen: React.FC = () => {
                   value={adjustQty}
                   onChangeText={setAdjustQty}
                   placeholder="e.g. 10"
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={colors.textMuted}
                   keyboardType="number-pad"
                 />
               </View>
@@ -319,7 +322,7 @@ export const WarehouseScreen: React.FC = () => {
                     value={customReason}
                     onChangeText={setCustomReason}
                     placeholder="Enter audit correction reason..."
-                    placeholderTextColor={Colors.textMuted}
+                    placeholderTextColor={colors.textMuted}
                   />
                 </View>
               )}
@@ -348,8 +351,8 @@ export const WarehouseScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.background },
+const createStyles = (colors: any) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -362,16 +365,16 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: colors.textPrimary },
   scanBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -389,7 +392,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 30,
-    backgroundColor: Colors.accent + '15',
+    backgroundColor: colors.primary + '15',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
@@ -397,11 +400,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   emptySub: {
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
     paddingHorizontal: 16,
@@ -414,7 +417,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   card: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: Radius.lg,
     padding: 16,
     gap: 12,
@@ -432,11 +435,11 @@ const styles = StyleSheet.create({
   prodName: {
     fontSize: 18,
     fontWeight: '800',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   prodCategory: {
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginTop: 4,
     fontWeight: '600',
   },
@@ -447,16 +450,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: Radius.full,
-    backgroundColor: Colors.accent + '15',
+    backgroundColor: colors.primary + '15',
   },
   reScanText: {
     fontSize: 11,
     fontWeight: '700',
-    color: Colors.accent,
+    color: colors.primary,
   },
   divider: {
     height: 1,
-    backgroundColor: Colors.divider,
+    backgroundColor: colors.divider,
   },
   metaRow: {
     flexDirection: 'row',
@@ -467,7 +470,7 @@ const styles = StyleSheet.create({
   },
   metaLabel: {
     fontSize: 11,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -476,7 +479,7 @@ const styles = StyleSheet.create({
   metaValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   locBadge: {
     flexDirection: 'row',
@@ -486,33 +489,33 @@ const styles = StyleSheet.create({
   locBadgeText: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.accent,
+    color: colors.primary,
   },
   stockCount: {
     fontSize: 16,
     fontWeight: '800',
   },
-  stockOut: { color: Colors.statusRejected },
-  stockLow: { color: Colors.statusExpired },
-  stockOk: { color: Colors.statusAccepted },
+  stockOut: { color: colors.statusRejected },
+  stockLow: { color: colors.statusExpired },
+  stockOk: { color: colors.statusAccepted },
 
   // Margins Section
   sectionTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     marginBottom: 4,
   },
   priceValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   marginAlert: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: Colors.statusAccepted + '15',
+    backgroundColor: colors.statusAccepted + '15',
     padding: 10,
     borderRadius: Radius.md,
     marginTop: 4,
@@ -520,7 +523,7 @@ const styles = StyleSheet.create({
   marginText: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.statusAccepted,
+    color: colors.statusAccepted,
   },
 
   // Stock Adjuster Panel styles
@@ -536,23 +539,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     paddingVertical: 12,
     borderRadius: Radius.md,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
   },
   modeBtnAdd: {
-    backgroundColor: Colors.statusAccepted,
-    borderColor: Colors.statusAccepted,
+    backgroundColor: colors.statusAccepted,
+    borderColor: colors.statusAccepted,
   },
   modeBtnDeduct: {
-    backgroundColor: Colors.statusRejected,
-    borderColor: Colors.statusRejected,
+    backgroundColor: colors.statusRejected,
+    borderColor: colors.statusRejected,
   },
   modeText: {
     fontSize: 13,
     fontWeight: '700',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   modeTextActive: {
     color: '#fff',
@@ -563,19 +566,19 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     fontSize: 11,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   qtyInput: {
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     borderRadius: Radius.md,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   reasonsContainer: {
     flexDirection: 'row',
@@ -587,29 +590,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: Radius.full,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   reasonChipActive: {
-    backgroundColor: Colors.accent + '15',
-    borderColor: Colors.accent,
+    backgroundColor: colors.primary + '15',
+    borderColor: colors.primary,
   },
   reasonChipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   reasonChipTextActive: {
-    color: Colors.accent,
+    color: colors.primary,
     fontWeight: '700',
   },
   reasonInput: {
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     borderRadius: Radius.md,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
 });

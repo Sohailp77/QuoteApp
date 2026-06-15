@@ -3,7 +3,8 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Quote } from '../types';
 import { Badge } from './ui/Badge';
-import { Colors, Radius, Shadow, StatusColors } from '../theme';
+import { Radius, Shadow } from '../theme';
+import { useAppTheme } from '../context/ThemeContext';
 
 interface QuoteCardProps {
   quote: Quote;
@@ -14,6 +15,8 @@ const formatCurrency = (amount: number) =>
   `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 0 })}`;
 
 export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, onPress }) => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
       <View style={styles.header}>
@@ -37,7 +40,7 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, onPress }) => {
           </View>
         </View>
         <View style={styles.dateRow}>
-          <Ionicons name="calendar-outline" size={12} color={Colors.textMuted} />
+          <Ionicons name="calendar-outline" size={12} color={colors.textMuted} />
           <Text style={styles.date}>
             {new Date(quote.created_at).toLocaleDateString('en-IN', {
               day: 'numeric',
@@ -51,9 +54,9 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, onPress }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   card: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: Radius.lg,
     padding: 16,
     marginBottom: 12,
@@ -66,9 +69,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   headerLeft: { gap: 6 },
-  quoteNumber: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
-  amount: { fontSize: 18, fontWeight: '700', color: Colors.primary },
-  divider: { height: 1, backgroundColor: Colors.divider, marginBottom: 12 },
+  quoteNumber: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
+  amount: { fontSize: 18, fontWeight: '700', color: colors.primary },
+  divider: { height: 1, backgroundColor: colors.divider, marginBottom: 12 },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -79,13 +82,13 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  clientName: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
-  clientEmail: { fontSize: 12, color: Colors.textSecondary },
+  clientName: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+  clientEmail: { fontSize: 12, color: colors.textSecondary },
   dateRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  date: { fontSize: 12, color: Colors.textMuted },
+  date: { fontSize: 12, color: colors.textMuted },
 });

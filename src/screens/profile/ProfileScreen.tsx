@@ -11,9 +11,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../store/useAuthStore';
-import { Colors, Radius, Shadow } from '../../theme';
+import { Radius, Shadow } from '../../theme';
+import { useAppTheme } from '../../context/ThemeContext';
 
 export const ProfileScreen: React.FC = () => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   const nav = useNavigation<any>();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
@@ -37,7 +40,8 @@ export const ProfileScreen: React.FC = () => {
     { icon: 'receipt-outline', label: 'Tax Slabs', action: () => nav.navigate('TaxRates') },
     { icon: 'grid-outline', label: 'Product Categories', action: () => nav.navigate('ProductCategories') },
     { icon: 'barcode-outline', label: 'Warehouse & Barcodes', action: () => nav.navigate('Warehouse') },
-    { icon: 'information-circle-outline', label: 'About QuoteApp', action: () => {} },
+    ...(user?.role === 'boss' ? [{ icon: 'person-outline', label: 'View & manage employees', action: () => nav.navigate('People', { screen: 'EmployeesList' }) }] : []),
+    { icon: 'information-circle-outline', label: 'About QuoteApp', action: () => { } },
   ];
 
   return (
@@ -55,7 +59,7 @@ export const ProfileScreen: React.FC = () => {
         <Text style={styles.name}>{user?.displayName || 'User'}</Text>
         <Text style={styles.email}>{user?.email}</Text>
         <View style={styles.googleBadge}>
-          <Ionicons name={user?.role === 'boss' ? 'shield-checkmark-outline' : 'person-circle-outline'} size={16} color={Colors.accent} />
+          <Ionicons name={user?.role === 'boss' ? 'shield-checkmark-outline' : 'person-circle-outline'} size={16} color={colors.primary} />
           <Text style={styles.googleBadgeText}>{user?.role === 'boss' ? 'Boss / Owner' : 'Employee'}</Text>
         </View>
       </View>
@@ -72,10 +76,10 @@ export const ProfileScreen: React.FC = () => {
               activeOpacity={0.7}
             >
               <View style={styles.menuIcon}>
-                <Ionicons name={item.icon as any} size={20} color={Colors.accent} />
+                <Ionicons name={item.icon as any} size={20} color={colors.primary} />
               </View>
               <Text style={styles.menuItemText}>{item.label}</Text>
-              <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           ))}
         </View>
@@ -84,7 +88,7 @@ export const ProfileScreen: React.FC = () => {
       {/* Sign out */}
       <View style={styles.signOutSection}>
         <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
-          <Ionicons name="log-out-outline" size={20} color={Colors.statusRejected} />
+          <Ionicons name="log-out-outline" size={20} color={colors.statusRejected} />
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
       </View>
@@ -95,14 +99,14 @@ export const ProfileScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.background },
+const createStyles = (colors: any) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   hero: { alignItems: 'center', paddingTop: 80, paddingBottom: 32, position: 'relative' },
   heroBg: {
     position: 'absolute',
     top: 0, left: 0, right: 0,
     height: 180,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
     opacity: 0.05,
@@ -110,27 +114,27 @@ const styles = StyleSheet.create({
   avatar: { width: 90, height: 90, borderRadius: 45, borderWidth: 3, borderColor: '#fff' },
   avatarFallback: {
     width: 90, height: 90, borderRadius: 45,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 3, borderColor: '#fff',
   },
   avatarText: { color: '#fff', fontSize: 36, fontWeight: '800' },
-  name: { fontSize: 22, fontWeight: '800', color: Colors.textPrimary, marginTop: 12 },
-  email: { fontSize: 14, color: Colors.textSecondary, marginTop: 4 },
+  name: { fontSize: 22, fontWeight: '800', color: colors.textPrimary, marginTop: 12 },
+  email: { fontSize: 14, color: colors.textSecondary, marginTop: 4 },
   googleBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    marginTop: 12, backgroundColor: Colors.surface,
+    marginTop: 12, backgroundColor: colors.surface,
     borderRadius: Radius.full, paddingHorizontal: 14, paddingVertical: 6,
     ...Shadow.sm,
   },
-  googleBadgeText: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
+  googleBadgeText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
   menuSection: { paddingHorizontal: 20, marginTop: 8, marginBottom: 16 },
   menuLabel: {
-    fontSize: 12, fontWeight: '700', color: Colors.textMuted,
+    fontSize: 12, fontWeight: '700', color: colors.textMuted,
     textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10,
   },
   menuCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: Radius.lg,
     overflow: 'hidden',
     ...Shadow.sm,
@@ -139,20 +143,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 14,
     paddingHorizontal: 16, paddingVertical: 15,
   },
-  menuItemBorder: { borderBottomWidth: 1, borderBottomColor: Colors.divider },
+  menuItemBorder: { borderBottomWidth: 1, borderBottomColor: colors.divider },
   menuIcon: {
     width: 36, height: 36, borderRadius: 10,
-    backgroundColor: Colors.accent + '12',
+    backgroundColor: colors.primary + '12',
     alignItems: 'center', justifyContent: 'center',
   },
-  menuItemText: { flex: 1, fontSize: 15, fontWeight: '500', color: Colors.textPrimary },
+  menuItemText: { flex: 1, fontSize: 15, fontWeight: '500', color: colors.textPrimary },
   signOutSection: { paddingHorizontal: 20, marginBottom: 12 },
   signOutBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 10, backgroundColor: Colors.statusRejected + '12',
+    gap: 10, backgroundColor: colors.statusRejected + '12',
     borderRadius: Radius.full, paddingVertical: 16,
-    borderWidth: 1.5, borderColor: Colors.statusRejected + '30',
+    borderWidth: 1.5, borderColor: colors.statusRejected + '30',
   },
-  signOutText: { fontSize: 16, fontWeight: '700', color: Colors.statusRejected },
-  version: { textAlign: 'center', fontSize: 12, color: Colors.textMuted },
+  signOutText: { fontSize: 16, fontWeight: '700', color: colors.statusRejected },
+  version: { textAlign: 'center', fontSize: 12, color: colors.textMuted },
 });

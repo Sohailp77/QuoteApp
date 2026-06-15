@@ -11,8 +11,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useProducts } from '../hooks/useProducts';
-import { Colors, Radius, Shadow } from '../theme';
+import { Radius, Shadow } from '../theme';
 import { Button } from './ui/Button';
+import { useAppTheme } from '../context/ThemeContext';
 
 interface BarcodeScannerModalProps {
   visible: boolean;
@@ -27,6 +28,8 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   onScan,
   title = 'Scan Barcode',
 }) => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   const [permission, requestPermission] = useCameraPermissions();
   const { products, fetch } = useProducts();
   const [showSimulator, setShowSimulator] = useState(false);
@@ -62,13 +65,13 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
         <View style={styles.header}>
           <Text style={styles.headerTitle}>{title}</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-            <Ionicons name="close" size={24} color={Colors.textPrimary} />
+            <Ionicons name="close" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
 
         {!permission.granted ? (
           <View style={styles.permissionContainer}>
-            <Ionicons name="camera-outline" size={64} color={Colors.textMuted} />
+            <Ionicons name="camera-outline" size={64} color={colors.textMuted} />
             <Text style={styles.permissionText}>
               We need your permission to show the camera for barcode scanning.
             </Text>
@@ -151,7 +154,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                       Code: {item.barcode || item.sku} ({item.sku})
                     </Text>
                   </View>
-                  <Ionicons name="arrow-forward" size={16} color={Colors.accent} />
+                  <Ionicons name="arrow-forward" size={16} color={colors.accent} />
                 </TouchableOpacity>
               )}
               ListEmptyComponent={
@@ -169,8 +172,8 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+const createStyles = (colors: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -179,9 +182,9 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
   closeBtn: { padding: 4 },
   permissionContainer: {
     flex: 1,
@@ -192,7 +195,7 @@ const styles = StyleSheet.create({
   },
   permissionText: {
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 8,
@@ -203,7 +206,7 @@ const styles = StyleSheet.create({
   },
   simulatorLinkText: {
     fontSize: 14,
-    color: Colors.accent,
+    color: colors.accent,
     fontWeight: '600',
   },
   scannerWrapper: { flex: 1 },
@@ -230,7 +233,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 24,
     height: 24,
-    borderColor: Colors.accent,
+    borderColor: colors.accent,
   },
   topLeft: {
     top: 0,
@@ -286,7 +289,7 @@ const styles = StyleSheet.create({
   // Simulator UI
   simulatorContainer: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
     padding: 20,
   },
   simHeader: {
@@ -298,22 +301,22 @@ const styles = StyleSheet.create({
   simTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   simClose: {
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: Radius.sm,
-    backgroundColor: Colors.accent + '15',
+    backgroundColor: colors.accent + '15',
   },
   simCloseText: {
     fontSize: 12,
-    color: Colors.accent,
+    color: colors.accent,
     fontWeight: '700',
   },
   simSubtitle: {
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     lineHeight: 18,
     marginBottom: 16,
   },
@@ -324,7 +327,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     padding: 12,
     borderRadius: Radius.md,
     ...Shadow.sm,
@@ -332,11 +335,11 @@ const styles = StyleSheet.create({
   simProdName: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   simProdBarcode: {
     fontSize: 11,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginTop: 2,
   },
   emptySim: {
@@ -345,7 +348,7 @@ const styles = StyleSheet.create({
   },
   emptySimText: {
     fontSize: 13,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     textAlign: 'center',
   },
 });

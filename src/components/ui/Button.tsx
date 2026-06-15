@@ -7,7 +7,8 @@ import {
   TextStyle,
   ActivityIndicator,
 } from 'react-native';
-import { Colors, Radius } from '../../theme';
+import { Radius } from '../../theme';
+import { useAppTheme } from '../../context/ThemeContext';
 
 interface ButtonProps {
   title: string;
@@ -32,6 +33,8 @@ export const Button: React.FC<ButtonProps> = ({
   textStyle,
   icon,
 }) => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   return (
     <TouchableOpacity
       style={[
@@ -46,7 +49,7 @@ export const Button: React.FC<ButtonProps> = ({
       activeOpacity={0.8}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'primary' ? '#fff' : Colors.primary} size="small" />
+        <ActivityIndicator color={variant === 'primary' ? '#fff' : colors.primary} size="small" />
       ) : (
         <>
           {icon && <>{icon}</>}
@@ -59,7 +62,7 @@ export const Button: React.FC<ButtonProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   base: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -67,10 +70,10 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
     gap: 8,
   },
-  primary: { backgroundColor: Colors.primary },
-  secondary: { backgroundColor: Colors.surfaceAlt, borderWidth: 1.5, borderColor: Colors.border },
+  primary: { backgroundColor: colors.primary },
+  secondary: { backgroundColor: colors.surfaceAlt, borderWidth: 1.5, borderColor: colors.border },
   ghost: { backgroundColor: 'transparent' },
-  danger: { backgroundColor: Colors.statusRejected },
+  danger: { backgroundColor: colors.statusRejected },
   disabled: { opacity: 0.5 },
 
   size_sm: { paddingHorizontal: 16, paddingVertical: 10 },
@@ -79,8 +82,8 @@ const styles = StyleSheet.create({
 
   text: { fontWeight: '600' },
   text_primary: { color: '#fff' },
-  text_secondary: { color: Colors.textPrimary },
-  text_ghost: { color: Colors.primary },
+  text_secondary: { color: colors.textPrimary },
+  text_ghost: { color: colors.primary },
   text_danger: { color: '#fff' },
 
   textSize_sm: { fontSize: 13 },

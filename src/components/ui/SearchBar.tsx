@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, TextInput, StyleSheet, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Radius, Shadow } from '../../theme';
+import { Radius, Shadow } from '../../theme';
+import { useAppTheme } from '../../context/ThemeContext';
 
 interface SearchBarProps {
   value: string;
@@ -16,21 +17,23 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   placeholder = 'Search...',
   style,
 }) => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   return (
     <View style={[styles.container, style]}>
-      <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
+      <Ionicons name="search-outline" size={18} color={colors.textMuted} />
       <TextInput
         style={styles.input}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={Colors.textMuted}
+        placeholderTextColor={colors.textMuted}
       />
       {value.length > 0 && (
         <Ionicons
           name="close-circle"
           size={18}
-          color={Colors.textMuted}
+          color={colors.textMuted}
           onPress={() => onChangeText('')}
         />
       )}
@@ -38,11 +41,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: Radius.full,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -52,6 +55,6 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
 });

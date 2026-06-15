@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { useColorScheme } from 'react-native';
+import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { account, tablesDB, DATABASE_ID, COLLECTIONS, Query, ID } from '../config/appwrite';
 import { useAuthStore } from '../store/useAuthStore';
@@ -7,6 +8,22 @@ import { AuthNavigator } from './AuthNavigator';
 import { MainNavigator } from './MainNavigator';
 import { SplashScreen } from '../screens/auth/SplashScreen';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
+
+import { useAppTheme } from '../context/ThemeContext';
+
+export const getNavigationTheme = (colors: any, isDark: boolean) => {
+  const baseTheme = isDark ? DarkTheme : DefaultTheme;
+  return {
+    ...baseTheme,
+    colors: {
+      ...baseTheme.colors,
+      background: colors.background,
+      card: colors.surfaceRaised,
+      text: colors.textPrimary,
+      border: colors.border,
+    },
+  };
+};
 
 const Root = createStackNavigator();
 
@@ -112,10 +129,13 @@ export const RootNavigator: React.FC = () => {
     }
   };
 
+  const { colors, isDark } = useAppTheme();
+  const theme = getNavigationTheme(colors, isDark);
+
   if (isInitializing) return <SplashScreen />;
 
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={theme}>
       <Root.Navigator screenOptions={{ headerShown: false, animationEnabled: true }}>
         {user ? (
           <Root.Screen name="Main" component={MainNavigator} />

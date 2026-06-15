@@ -1,39 +1,6 @@
-// Design tokens — inspired by the reference app's clean, modern aesthetic
-export const Colors = {
-  // Primary palette
-  primary: '#0F0F1A',       // Near-black (dark nav, CTA buttons)
-  primaryLight: '#1C1C2E',  // Slightly lighter dark
-  accent: '#6C63FF',        // Purple accent
-  accentWarm: '#FF6B6B',    // Warm accent for status indicators
+export { ThemeColors, lightColors, darkColors } from './colors';
 
-  // Backgrounds
-  background: '#FAFAFA',    // Page background
-  surface: '#FFFFFF',       // Card background
-  surfaceAlt: '#F4F4F8',    // Slightly off-white surfaces
-
-  // Text
-  textPrimary: '#0F0F1A',
-  textSecondary: '#6B7280',
-  textMuted: '#9CA3AF',
-  textInverse: '#FFFFFF',
-
-  // Status colors
-  statusDraft: '#6B7280',
-  statusSent: '#3B82F6',
-  statusAccepted: '#10B981',
-  statusRejected: '#EF4444',
-  statusExpired: '#F59E0B',
-
-  // UI colors
-  border: '#E5E7EB',
-  divider: '#F3F4F6',
-  overlay: 'rgba(0,0,0,0.4)',
-
-  // Gradient stops
-  gradientStart: '#667eea',
-  gradientEnd: '#764ba2',
-};
-
+// ─── Spacing ──────────────────────────────────────────────────────────────────
 export const Spacing = {
   xs: 4,
   sm: 8,
@@ -43,54 +10,78 @@ export const Spacing = {
   xxl: 48,
 };
 
+// ─── Border Radius ────────────────────────────────────────────────────────────
 export const Radius = {
+  xs: 6,
   sm: 8,
   md: 12,
   lg: 16,
   xl: 20,
   xxl: 28,
+  tile: 18,   // rounded square tiles (like reference)
   full: 999,
 };
 
+// ─── Typography ───────────────────────────────────────────────────────────────
 export const Typography = {
-  h1: { fontSize: 28, fontWeight: '700' as const, letterSpacing: -0.5 },
-  h2: { fontSize: 22, fontWeight: '700' as const, letterSpacing: -0.3 },
-  h3: { fontSize: 18, fontWeight: '600' as const },
-  h4: { fontSize: 16, fontWeight: '600' as const },
-  body: { fontSize: 15, fontWeight: '400' as const },
-  bodySmall: { fontSize: 13, fontWeight: '400' as const },
-  caption: { fontSize: 12, fontWeight: '400' as const },
-  label: { fontSize: 11, fontWeight: '600' as const, letterSpacing: 0.5 },
+  // Screen-level headings
+  displayLg: { fontSize: 32, fontWeight: '800' as const, letterSpacing: -0.8 },
+  displayMd: { fontSize: 28, fontWeight: '800' as const, letterSpacing: -0.5 },
+  displaySm: { fontSize: 24, fontWeight: '800' as const, letterSpacing: -0.3 },
+
+  // Section titles
+  h1: { fontSize: 22, fontWeight: '700' as const, letterSpacing: -0.3 },
+  h2: { fontSize: 18, fontWeight: '700' as const, letterSpacing: -0.2 },
+  h3: { fontSize: 16, fontWeight: '600' as const },
+  h4: { fontSize: 15, fontWeight: '600' as const },
+
+  // Body
+  bodyLg: { fontSize: 16, fontWeight: '400' as const, lineHeight: 24 },
+  body: { fontSize: 15, fontWeight: '400' as const, lineHeight: 22 },
+  bodySm: { fontSize: 13, fontWeight: '400' as const, lineHeight: 20 },
+
+  // Labels & captions
+  label: { fontSize: 12, fontWeight: '600' as const, letterSpacing: 0.3 },
+  caption: { fontSize: 11, fontWeight: '500' as const },
 };
 
+// ─── Shadows ──────────────────────────────────────────────────────────────────
+// Matches the reference image: very subtle, clean cards
 export const Shadow = {
-  sm: {
+  xs: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  sm: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
-    shadowRadius: 4,
+    shadowRadius: 8,
     elevation: 2,
   },
   md: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    elevation: 4,
   },
   lg: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.10,
     shadowRadius: 20,
-    elevation: 10,
+    elevation: 6,
+  },
+  green: {
+    shadowColor: '#2BAE78',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 5,
   },
 };
 
-export const StatusColors: Record<string, string> = {
-  Draft: Colors.statusDraft,
-  Sent: Colors.statusSent,
-  Accepted: Colors.statusAccepted,
-  Rejected: Colors.statusRejected,
-  Expired: Colors.statusExpired,
-};

@@ -11,7 +11,8 @@ import { StockMovement } from '../../types';
 
 type MovementType = StockMovement['movement_type'];
 import { Product } from '../../types';
-import { Colors, Radius, Shadow } from '../../theme';
+import { Radius, Shadow } from '../../theme';
+import { useAppTheme } from '../../context/ThemeContext';
 
 const MOVEMENT_TYPES: { type: MovementType; label: string; icon: string; color: string; sign: number }[] = [
   { type: 'IN', label: 'Stock In', icon: 'add-circle', color: '#10B981', sign: 1 },
@@ -22,6 +23,8 @@ const MOVEMENT_TYPES: { type: MovementType; label: string; icon: string; color: 
 ];
 
 export const StockManagementScreen: React.FC = () => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   const nav = useNavigation<any>();
   const { products, loading: prodLoading, fetch: fetchProducts, update: updateProduct } = useProducts();
   const { movements, loading: movLoading, fetch: fetchMovements, addMovement } = useStockMovements();
@@ -42,7 +45,7 @@ export const StockManagementScreen: React.FC = () => {
   }, []);
 
   const stockColor = (p: Product) => {
-    if (p.stock_quantity === undefined || p.stock_quantity === null) return Colors.textMuted;
+    if (p.stock_quantity === undefined || p.stock_quantity === null) return colors.textMuted;
     const threshold = p.reorder_level ?? 5;
     if (p.stock_quantity === 0) return '#EF4444';
     if (p.stock_quantity <= threshold) return '#F59E0B';
@@ -111,7 +114,7 @@ export const StockManagementScreen: React.FC = () => {
     <View style={styles.screen}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
+          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.title}>Stock Management</Text>
         <View style={{ width: 38 }} />
@@ -141,7 +144,7 @@ export const StockManagementScreen: React.FC = () => {
           contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="cube-outline" size={52} color={Colors.textMuted} />
+              <Ionicons name="cube-outline" size={52} color={colors.textMuted} />
               <Text style={styles.emptyTitle}>No products found</Text>
             </View>
           }
@@ -177,7 +180,7 @@ export const StockManagementScreen: React.FC = () => {
                         <Ionicons name="checkmark-circle" size={22} color="#10B981" />
                       </TouchableOpacity>
                       <TouchableOpacity onPress={() => setReorderEdit(null)}>
-                        <Ionicons name="close-circle" size={22} color={Colors.textMuted} />
+                        <Ionicons name="close-circle" size={22} color={colors.textMuted} />
                       </TouchableOpacity>
                     </View>
                   ) : (
@@ -186,7 +189,7 @@ export const StockManagementScreen: React.FC = () => {
                       onPress={() => setReorderEdit({ id: item.id, val: String(item.reorder_level ?? 5) })}
                     >
                       <Text style={styles.reorderVal}>{item.reorder_level ?? 5}</Text>
-                      <Ionicons name="pencil-outline" size={12} color={Colors.textMuted} />
+                      <Ionicons name="pencil-outline" size={12} color={colors.textMuted} />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -218,7 +221,7 @@ export const StockManagementScreen: React.FC = () => {
           contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="analytics-outline" size={52} color={Colors.textMuted} />
+              <Ionicons name="analytics-outline" size={52} color={colors.textMuted} />
               <Text style={styles.emptyTitle}>No movements yet</Text>
             </View>
           }
@@ -239,7 +242,7 @@ export const StockManagementScreen: React.FC = () => {
                     {new Date(item.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </Text>
                 </View>
-                <Text style={[styles.movQty, { color: movDef?.color || Colors.textMuted }]}>
+                <Text style={[styles.movQty, { color: movDef?.color || colors.textMuted }]}>
                   {movDef && movDef.sign > 0 ? '+' : '-'}{item.quantity}
                 </Text>
               </View>
@@ -254,7 +257,7 @@ export const StockManagementScreen: React.FC = () => {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{selectedMovType?.label}</Text>
             <TouchableOpacity onPress={() => setShowAdjustModal(false)}>
-              <Ionicons name="close" size={24} color={Colors.textPrimary} />
+              <Ionicons name="close" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
 
@@ -286,7 +289,7 @@ export const StockManagementScreen: React.FC = () => {
               value={qtyInput}
               onChangeText={setQtyInput}
               placeholder={movType === 'ADJUSTMENT' ? 'Enter absolute new stock' : 'Enter quantity'}
-              placeholderTextColor={Colors.textMuted}
+              placeholderTextColor={colors.textMuted}
               keyboardType="number-pad"
               autoFocus
             />
@@ -299,7 +302,7 @@ export const StockManagementScreen: React.FC = () => {
                   value={supplierInput}
                   onChangeText={setSupplierInput}
                   placeholder="Supplier name"
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={colors.textMuted}
                 />
               </>
             )}
@@ -310,7 +313,7 @@ export const StockManagementScreen: React.FC = () => {
               value={noteInput}
               onChangeText={setNoteInput}
               placeholder="Reason, reference number..."
-              placeholderTextColor={Colors.textMuted}
+              placeholderTextColor={colors.textMuted}
               multiline
             />
 
@@ -333,49 +336,49 @@ export const StockManagementScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.background },
+const createStyles = (colors: any) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingTop: 56, paddingBottom: 12, paddingHorizontal: 20,
   },
   backBtn: {
     width: 38, height: 38, borderRadius: 19,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     alignItems: 'center', justifyContent: 'center',
   },
-  title: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
+  title: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
   tabRow: {
     flexDirection: 'row', marginHorizontal: 16, marginBottom: 4,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     borderRadius: Radius.full, padding: 4,
   },
   tabBtn: {
     flex: 1, paddingVertical: 10, alignItems: 'center',
     borderRadius: Radius.full,
   },
-  tabBtnActive: { backgroundColor: Colors.surface, ...Shadow.sm },
-  tabText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
-  tabTextActive: { color: Colors.textPrimary },
+  tabBtnActive: { backgroundColor: colors.surface, ...Shadow.sm },
+  tabText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+  tabTextActive: { color: colors.textPrimary },
   stockCard: {
-    backgroundColor: Colors.surface, borderRadius: Radius.lg,
+    backgroundColor: colors.surface, borderRadius: Radius.lg,
     padding: 16, marginBottom: 12, ...Shadow.sm,
   },
   stockTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  productName: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
-  productSku: { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
+  productName: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
+  productSku: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   stockBadge: { borderRadius: Radius.full, paddingHorizontal: 12, paddingVertical: 6 },
   stockCount: { fontSize: 14, fontWeight: '700' },
   reorderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
-  reorderLabel: { fontSize: 12, color: Colors.textSecondary, fontWeight: '600' },
+  reorderLabel: { fontSize: 12, color: colors.textSecondary, fontWeight: '600' },
   reorderInputRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   reorderInput: {
-    borderWidth: 1, borderColor: Colors.border,
+    borderWidth: 1, borderColor: colors.border,
     borderRadius: Radius.sm, paddingHorizontal: 8, paddingVertical: 4,
-    fontSize: 13, color: Colors.textPrimary, minWidth: 50, textAlign: 'center',
+    fontSize: 13, color: colors.textPrimary, minWidth: 50, textAlign: 'center',
   },
   reorderValBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  reorderVal: { fontSize: 13, fontWeight: '700', color: Colors.accent },
+  reorderVal: { fontSize: 13, fontWeight: '700', color: colors.primary },
   actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   movBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
@@ -385,50 +388,50 @@ const styles = StyleSheet.create({
   movBtnText: { fontSize: 11, fontWeight: '700' },
   movCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: Colors.surface, borderRadius: Radius.lg,
+    backgroundColor: colors.surface, borderRadius: Radius.lg,
     padding: 14, marginBottom: 8, ...Shadow.sm,
   },
   movIconWrap: {
     width: 40, height: 40, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center',
   },
-  movProduct: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
-  movMeta: { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
-  movDate: { fontSize: 11, color: Colors.textMuted, marginTop: 2 },
+  movProduct: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
+  movMeta: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  movDate: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
   movQty: { fontSize: 16, fontWeight: '800' },
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
   // Modal
-  modal: { flex: 1, backgroundColor: Colors.background },
+  modal: { flex: 1, backgroundColor: colors.background },
   modalHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 20, paddingTop: 24, paddingBottom: 16,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  modalTitle: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
+  modalTitle: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
   modalBody: { padding: 20 },
-  productLabel: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
-  currentStock: { fontSize: 14, color: Colors.textSecondary, marginTop: 4, marginBottom: 20 },
+  productLabel: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
+  currentStock: { fontSize: 14, color: colors.textSecondary, marginTop: 4, marginBottom: 20 },
   movTypeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
   movTypeBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 12, paddingVertical: 8,
-    borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.border,
-    backgroundColor: Colors.surfaceAlt,
+    borderRadius: Radius.full, borderWidth: 1.5, borderColor: colors.border,
+    backgroundColor: colors.surfaceAlt,
   },
   movTypeBtnText: { fontSize: 12, fontWeight: '700' },
   fieldLabel: {
-    fontSize: 11, fontWeight: '700', color: Colors.textSecondary,
+    fontSize: 11, fontWeight: '700', color: colors.textSecondary,
     textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8,
   },
   fieldInput: {
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     borderRadius: Radius.md, paddingHorizontal: 14, paddingVertical: 12,
-    fontSize: 15, color: Colors.textPrimary, marginBottom: 16,
-    borderWidth: 1, borderColor: Colors.border,
+    fontSize: 15, color: colors.textPrimary, marginBottom: 16,
+    borderWidth: 1, borderColor: colors.border,
   },
   saveBtn: {
-    backgroundColor: Colors.primary, borderRadius: Radius.full,
+    backgroundColor: colors.primary, borderRadius: Radius.full,
     paddingVertical: 16, alignItems: 'center', marginTop: 8,
   },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },

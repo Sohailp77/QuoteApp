@@ -14,9 +14,12 @@ import { useEmployees } from '../../hooks/useEmployees';
 import { useAuthStore } from '../../store/useAuthStore';
 import { EmployeeCard } from '../../components/EmployeeCard';
 import { SearchBar } from '../../components/ui/SearchBar';
-import { Colors } from '../../theme';
+import { useAppTheme } from '../../context/ThemeContext';
+
 
 export const EmployeesScreen: React.FC = () => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   const nav = useNavigation<any>();
   const user = useAuthStore((s) => s.user);
   const { employees, loading, fetch, remove } = useEmployees();
@@ -53,7 +56,7 @@ export const EmployeesScreen: React.FC = () => {
             onPress={() => nav.navigate('CustomersList')}
             activeOpacity={0.8}
           >
-            <Ionicons name="people-circle-outline" size={16} color={Colors.accent} />
+            <Ionicons name="people-circle-outline" size={16} color={colors.accent} />
             <Text style={styles.crmBtnText}>Customers</Text>
           </TouchableOpacity>
           {isBoss && (
@@ -87,11 +90,11 @@ export const EmployeesScreen: React.FC = () => {
           />
         )}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={fetch} tintColor={Colors.primary} />
+          <RefreshControl refreshing={loading} onRefresh={fetch} tintColor={colors.primary} />
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Ionicons name="people-outline" size={52} color={Colors.textMuted} />
+            <Ionicons name="people-outline" size={52} color={colors.textMuted} />
             <Text style={styles.emptyTitle}>No employees yet</Text>
             {isBoss ? (
               <Text style={styles.emptySub}>Tap + to add your first employee</Text>
@@ -107,8 +110,8 @@ export const EmployeesScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.background, paddingHorizontal: 20 },
+const createStyles = (colors: any) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 20 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -116,22 +119,22 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 16,
   },
-  title: { fontSize: 26, fontWeight: '800', color: Colors.textPrimary, letterSpacing: -0.5 },
-  subtitle: { fontSize: 13, color: Colors.textSecondary, marginTop: 1 },
+  title: { fontSize: 26, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 },
+  subtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 1 },
   addBtn: {
     width: 42, height: 42, borderRadius: 21,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
   },
   crmBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: Colors.accent + '15',
+    backgroundColor: colors.accent + '15',
     borderRadius: 999,
     paddingHorizontal: 10, paddingVertical: 7,
   },
-  crmBtnText: { fontSize: 12, fontWeight: '700', color: Colors.accent },
+  crmBtnText: { fontSize: 12, fontWeight: '700', color: colors.accent },
   search: { marginBottom: 14 },
   empty: { alignItems: 'center', paddingTop: 80, gap: 10 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
-  emptySub: { fontSize: 14, color: Colors.textSecondary },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
+  emptySub: { fontSize: 14, color: colors.textSecondary },
 });

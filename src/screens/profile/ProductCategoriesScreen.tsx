@@ -14,10 +14,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useCategories } from '../../hooks/useCategories';
-import { Colors, Radius, Shadow } from '../../theme';
+import { Radius, Shadow } from '../../theme';
 import { Button } from '../../components/ui/Button';
+import { useAppTheme } from '../../context/ThemeContext';
 
 export const ProductCategoriesScreen: React.FC = () => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   const nav = useNavigation();
   const { categories, loading, fetch, create, update, remove } = useCategories();
 
@@ -104,17 +107,17 @@ export const ProductCategoriesScreen: React.FC = () => {
     <View style={styles.screen}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
+          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Product Categories</Text>
         <TouchableOpacity onPress={openAddModal} style={styles.addBtn}>
-          <Ionicons name="add" size={22} color={Colors.textInverse} />
+          <Ionicons name="add" size={22} color={colors.textInverse} />
         </TouchableOpacity>
       </View>
 
       {loading ? (
         <View style={styles.loader}>
-          <ActivityIndicator size="large" color={Colors.accent} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <FlatList
@@ -137,7 +140,7 @@ export const ProductCategoriesScreen: React.FC = () => {
                   style={styles.actionBtn}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="create-outline" size={18} color={Colors.accent} />
+                  <Ionicons name="create-outline" size={18} color={colors.primary} />
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -145,14 +148,14 @@ export const ProductCategoriesScreen: React.FC = () => {
                   style={styles.actionBtn}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="trash-outline" size={18} color={Colors.statusRejected} />
+                  <Ionicons name="trash-outline" size={18} color={colors.statusRejected} />
                 </TouchableOpacity>
               </View>
             </View>
           )}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="grid-outline" size={52} color={Colors.textMuted} />
+              <Ionicons name="grid-outline" size={52} color={colors.textMuted} />
               <Text style={styles.emptyTitle}>No categories yet</Text>
               <Text style={styles.emptySub}>Tap the + icon to create your first product category</Text>
             </View>
@@ -168,7 +171,7 @@ export const ProductCategoriesScreen: React.FC = () => {
               {editingId ? 'Edit Category' : 'New Category'}
             </Text>
             <TouchableOpacity onPress={() => setShowAddModal(false)}>
-              <Ionicons name="close" size={24} color={Colors.textPrimary} />
+              <Ionicons name="close" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
 
@@ -180,7 +183,7 @@ export const ProductCategoriesScreen: React.FC = () => {
                 value={catName}
                 onChangeText={setCatName}
                 placeholder="e.g. Electrical, Plumbing"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
               />
             </View>
 
@@ -191,7 +194,7 @@ export const ProductCategoriesScreen: React.FC = () => {
                 value={catDesc}
                 onChangeText={setCatDesc}
                 placeholder="Optional details about this category..."
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
                 multiline
               />
             </View>
@@ -203,7 +206,7 @@ export const ProductCategoriesScreen: React.FC = () => {
                 value={catUnit}
                 onChangeText={setCatUnit}
                 placeholder="e.g. Pcs"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
               />
             </View>
 
@@ -222,8 +225,8 @@ export const ProductCategoriesScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.background },
+const createStyles = (colors: any) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -236,7 +239,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -244,35 +247,35 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: colors.textPrimary },
   loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   listContainer: { padding: 20, paddingBottom: 100 },
   itemCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     padding: 16,
     borderRadius: Radius.lg,
     marginBottom: 12,
     ...Shadow.sm,
   },
   itemInfo: { flex: 1, gap: 4, paddingRight: 12 },
-  itemName: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
-  itemDesc: { fontSize: 13, color: Colors.textSecondary },
-  itemUnit: { fontSize: 11, color: Colors.textMuted, fontWeight: '600', marginTop: 2 },
+  itemName: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
+  itemDesc: { fontSize: 13, color: colors.textSecondary },
+  itemUnit: { fontSize: 11, color: colors.textMuted, fontWeight: '600', marginTop: 2 },
   itemActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   actionBtn: { padding: 6 },
   empty: { alignItems: 'center', paddingTop: 100, gap: 10 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
-  emptySub: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', paddingHorizontal: 40 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
+  emptySub: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', paddingHorizontal: 40 },
   
   // Modal styles
-  modal: { flex: 1, backgroundColor: Colors.background },
+  modal: { flex: 1, backgroundColor: colors.background },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -281,24 +284,24 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
-  modalTitle: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
+  modalTitle: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
   modalContent: { padding: 20, gap: 16 },
   fieldWrap: { gap: 6 },
   fieldLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     borderRadius: Radius.md,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
 });

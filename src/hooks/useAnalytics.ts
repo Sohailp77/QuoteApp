@@ -6,6 +6,12 @@ export interface RevenuePoint {
   value: number;
 }
 
+export interface EmployeeRevenue {
+  userId: string;
+  revenue: number;
+  quotesCount: number;
+}
+
 export interface Analytics {
   totalRevenue: number;
   todayRevenue: number;
@@ -19,19 +25,27 @@ export interface Analytics {
   topProducts: { name: string; count: number; revenue: number }[];
   monthlyRevenue: RevenuePoint[];
   weeklyRevenue: RevenuePoint[];
+  employeeRevenue: EmployeeRevenue[];
 }
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
-export const useAnalytics = (quotes: Quote[]): Analytics => {
+export const useAnalytics = (quotes: Quote[], dateRange?: { start: Date; end: Date }): Analytics => {
   return useMemo(() => {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const yearStart = new Date(now.getFullYear(), 0, 1);
 
-    const accepted = quotes.filter((q) => q.status === 'Accepted');
+    const filteredQuotes = dateRange
+      ? quotes.filter((q) => {
+          const dt = new Date(q.created_at);
+          return dt >= dateRange.start && dt <= dateRange.end;
+        })
+      : quotes;
+
+    const accepted = filteredQuotes.filter((q) => q.status === 'Accepted');
 
     const totalRevenue = accepted.reduce((s, q) => s + q.total, 0);
 
@@ -64,6 +78,18 @@ export const useAnalytics = (quotes: Quote[]): Analytics => {
     const topProducts = Object.values(productMap)
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 5);
+
+    // Employee revenue
+    const empMap: Record<string, EmployeeRevenue> = {};
+    accepted.forEach((q) => {
+      if (!empMap[q.user_id]) {
+        empMap[q.user_id] = { userId: q.user_id, revenue: 0, quotesCount: 0 };
+      }
+      empMap[q.user_id].revenue += q.total;
+      empMap[q.user_id].quotesCount += 1;
+    });
+    const employeeRevenue = Object.values(empMap)
+      .sort((a, b) => b.revenue - a.revenue);
 
     // Monthly revenue (last 6 months)
     const monthlyRevenue: RevenuePoint[] = [];
@@ -101,11 +127,12 @@ export const useAnalytics = (quotes: Quote[]): Analytics => {
       pendingPaymentsTotal,
       pendingPaymentsCount: pendingPayments.length,
       acceptedCount: accepted.length,
-      draftCount: quotes.filter((q) => q.status === 'Draft').length,
-      rejectedCount: quotes.filter((q) => q.status === 'Rejected').length,
+      draftCount: filteredQuotes.filter((q) => q.status === 'Draft').length,
+      rejectedCount: filteredQuotes.filter((q) => q.status === 'Rejected').length,
       topProducts,
       monthlyRevenue,
       weeklyRevenue,
+      employeeRevenue,
     };
-  }, [quotes]);
+  }, [quotes, dateRange]);
 };

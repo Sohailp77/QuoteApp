@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
-import { Colors, Radius, StatusColors } from '../../theme';
+import { Radius } from '../../theme';
+import { useAppTheme } from '../../context/ThemeContext';
 
 interface BadgeProps {
   label: string;
@@ -11,7 +12,9 @@ interface BadgeProps {
 }
 
 export const Badge: React.FC<BadgeProps> = ({ label, status, color, style, textStyle }) => {
-  const bgColor = color || (status ? StatusColors[status] : Colors.accent);
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
+  const bgColor = color || (status ? (colors as any)[`status${status}`] : colors.accent);
   return (
     <Text style={[styles.badge, { backgroundColor: bgColor + '20', color: bgColor }, style, textStyle]}>
       {label}
@@ -19,7 +22,7 @@ export const Badge: React.FC<BadgeProps> = ({ label, status, color, style, textS
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   badge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 10,

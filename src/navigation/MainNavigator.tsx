@@ -22,8 +22,9 @@ import { CompanySettingsScreen } from '../screens/profile/CompanySettingsScreen'
 import { TaxRatesScreen } from '../screens/profile/TaxRatesScreen';
 import { ProductCategoriesScreen } from '../screens/profile/ProductCategoriesScreen';
 import { WarehouseScreen } from '../screens/profile/WarehouseScreen';
+import { useAppTheme } from '../context/ThemeContext';
 
-import { Colors } from '../theme';
+
 
 const Tab = createBottomTabNavigator();
 const HomeStack = createStackNavigator();
@@ -66,6 +67,7 @@ const ProductsStack = () => (
   </ProductStack.Navigator>
 );
 
+
 const ProfilesStack = () => (
   <ProfileStack.Navigator screenOptions={{ headerShown: false }}>
     <ProfileStack.Screen name="ProfileMain" component={ProfileScreen} />
@@ -76,45 +78,50 @@ const ProfilesStack = () => (
   </ProfileStack.Navigator>
 );
 
-export const MainNavigator: React.FC = () => (
-  <Tab.Navigator
-    screenOptions={({ route }) => ({
-      headerShown: false,
-      tabBarShowLabel: true,
-      tabBarActiveTintColor: Colors.surface,
-      tabBarInactiveTintColor: 'rgba(255,255,255,0.45)',
-      tabBarStyle: styles.tabBar,
-      tabBarLabelStyle: styles.tabLabel,
-      tabBarIcon: ({ focused, color, size }) => {
-        const icons: Record<string, [string, string]> = {
-          Home: ['home', 'home-outline'],
-          Quotes: ['document-text', 'document-text-outline'],
-          People: ['people', 'people-outline'],
-          Products: ['cube', 'cube-outline'],
-          Profile: ['person', 'person-outline'],
-        };
-        const [filledIcon, outlineIcon] = icons[route.name] || ['ellipse', 'ellipse-outline'];
-        return (
-          <Ionicons
-            name={(focused ? filledIcon : outlineIcon) as any}
-            size={22}
-            color={color}
-          />
-        );
-      },
-    })}
-  >
-    <Tab.Screen name="Home" component={HomeStackNav} />
-    <Tab.Screen name="Quotes" component={QuotesStack} />
-    <Tab.Screen name="People" component={PeopleStackNav} />
-    <Tab.Screen name="Products" component={ProductsStack} />
-    <Tab.Screen name="Profile" component={ProfilesStack} />
-  </Tab.Navigator>
-);
+export const MainNavigator: React.FC = () => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
 
-const styles = StyleSheet.create({
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarShowLabel: true,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarStyle: styles.tabBar,
+        tabBarLabelStyle: styles.tabLabel,
+        tabBarIcon: ({ focused, color, size }) => {
+          const icons: Record<string, [string, string]> = {
+            Home: ['home', 'home-outline'],
+            Quotes: ['document-text', 'document-text-outline'],
+            People: ['people', 'people-outline'],
+            Products: ['cube', 'cube-outline'],
+            Profile: ['person', 'person-outline'],
+          };
+          const [filledIcon, outlineIcon] = icons[route.name] || ['ellipse', 'ellipse-outline'];
+          return (
+            <Ionicons
+              name={(focused ? filledIcon : outlineIcon) as any}
+              size={22}
+              color={color}
+            />
+          );
+        },
+      })}
+    >
+      <Tab.Screen name="Home" component={HomeStackNav} />
+      <Tab.Screen name="Quotes" component={QuotesStack} />
+      <Tab.Screen name="People" component={PeopleStackNav} />
+      <Tab.Screen name="Products" component={ProductsStack} />
+      <Tab.Screen name="Profile" component={ProfilesStack} />
+    </Tab.Navigator>
+  );
+};
+
+const createStyles = (colors: any) => StyleSheet.create({
   tabBar: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.surfaceRaised,
     borderTopWidth: 0,
     height: Platform.OS === 'ios' ? 88 : 68,
     paddingBottom: Platform.OS === 'ios' ? 24 : 10,

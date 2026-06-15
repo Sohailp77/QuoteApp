@@ -13,12 +13,16 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useEmployees } from '../../hooks/useEmployees';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Button } from '../../components/ui/Button';
-import { Colors, Radius, Shadow } from '../../theme';
+import { Radius, Shadow } from '../../theme';
 import { Employee } from '../../types';
+import { useAppTheme } from '../../context/ThemeContext';
 
 type RouteParams = { employee?: Employee };
 
 export const EmployeeFormScreen: React.FC = () => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
+  const fieldStyles = createFieldStyles(colors);
   const nav = useNavigation<any>();
   const route = useRoute<RouteProp<{ params: RouteParams }, 'params'>>();
   const existing = route.params?.employee;
@@ -77,7 +81,7 @@ export const EmployeeFormScreen: React.FC = () => {
     <View style={styles.screen}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
+          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{isEdit ? 'Edit Employee' : 'Add Employee'}</Text>
         <View style={{ width: 38 }} />
@@ -86,7 +90,7 @@ export const EmployeeFormScreen: React.FC = () => {
       <ScrollView showsVerticalScrollIndicator={false}>
         {!isBoss && (
           <View style={styles.employeeBanner}>
-            <Ionicons name="information-circle" size={20} color={Colors.accent} />
+            <Ionicons name="information-circle" size={20} color={colors.accent} />
             <Text style={styles.employeeBannerText}>
               Read-only view. Only the owner (Boss) can modify or add employees.
             </Text>
@@ -140,7 +144,10 @@ export const EmployeeFormScreen: React.FC = () => {
 const Field: React.FC<{
   label: string; value: string; onChangeText: (t: string) => void;
   placeholder?: string; keyboardType?: any; editable?: boolean;
-}> = ({ label, value, onChangeText, placeholder, keyboardType, editable = true }) => (
+}> = ({ label, value, onChangeText, placeholder, keyboardType, editable = true }) => {
+  const { colors } = useAppTheme();
+  const fieldStyles = createFieldStyles(colors);
+  return (
   <View style={fieldStyles.wrap}>
     <Text style={fieldStyles.label}>{label}</Text>
     <TextInput
@@ -148,57 +155,58 @@ const Field: React.FC<{
       value={value}
       onChangeText={onChangeText}
       placeholder={placeholder}
-      placeholderTextColor={Colors.textMuted}
+      placeholderTextColor={colors.textMuted}
       keyboardType={keyboardType}
       editable={editable}
     />
   </View>
-);
+  );
+};
 
-const fieldStyles = StyleSheet.create({
+const createFieldStyles = (colors: any) => StyleSheet.create({
   wrap: { marginBottom: 14 },
   label: {
-    fontSize: 12, fontWeight: '700', color: Colors.textSecondary,
+    fontSize: 12, fontWeight: '700', color: colors.textSecondary,
     marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     borderRadius: Radius.md,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   inputDisabled: {
     opacity: 0.6,
-    backgroundColor: Colors.border,
+    backgroundColor: colors.border,
   },
 });
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.background },
+const createStyles = (colors: any) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingTop: 56, paddingBottom: 12, paddingHorizontal: 20,
   },
   backBtn: {
     width: 38, height: 38, borderRadius: 19,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     alignItems: 'center', justifyContent: 'center',
   },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: colors.textPrimary },
   avatarSection: { alignItems: 'center', paddingVertical: 24, gap: 10 },
   avatarCircle: {
     width: 80, height: 80, borderRadius: 40,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
   },
   avatarLetter: { color: '#fff', fontSize: 32, fontWeight: '800' },
-  avatarName: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
+  avatarName: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
   section: { paddingHorizontal: 20, marginBottom: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary, marginBottom: 10 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, marginBottom: 10 },
   card: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: Radius.lg,
     padding: 16,
     ...Shadow.sm,
@@ -207,13 +215,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: Colors.accent + '15',
+    backgroundColor: colors.accent + '15',
     padding: 12,
     borderRadius: Radius.md,
     marginHorizontal: 20,
     marginTop: 10,
     borderWidth: 1,
-    borderColor: Colors.accent + '30',
+    borderColor: colors.accent + '30',
   },
-  employeeBannerText: { flex: 1, fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
+  employeeBannerText: { flex: 1, fontSize: 12, fontWeight: '600', color: colors.textSecondary },
 });

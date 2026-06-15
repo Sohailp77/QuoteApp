@@ -2,7 +2,8 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Employee } from '../types';
-import { Colors, Radius, Shadow } from '../theme';
+import { Radius, Shadow } from '../theme';
+import { useAppTheme } from '../context/ThemeContext';
 
 interface EmployeeCardProps {
   employee: Employee;
@@ -17,6 +18,8 @@ export const EmployeeCard: React.FC<EmployeeCardProps> = ({
   onDelete, 
   showDelete = true 
 }) => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   const initials = employee.name
     .split(' ')
     .map((n) => n[0])
@@ -24,13 +27,13 @@ export const EmployeeCard: React.FC<EmployeeCardProps> = ({
     .toUpperCase()
     .slice(0, 2);
 
-  const colors = ['#6C63FF', '#FF6B6B', '#10B981', '#F59E0B', '#3B82F6', '#EC4899'];
-  const colorIndex = employee.name.charCodeAt(0) % colors.length;
+  const avatarColors = ['#6C63FF', '#FF6B6B', '#10B981', '#F59E0B', '#3B82F6', '#EC4899'];
+  const colorIndex = employee.name.charCodeAt(0) % avatarColors.length;
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
       <View style={styles.row}>
-        <View style={[styles.avatar, { backgroundColor: colors[colorIndex] }]}>
+        <View style={[styles.avatar, { backgroundColor: avatarColors[colorIndex] }]}>
           <Text style={styles.initials}>{initials}</Text>
         </View>
 
@@ -38,12 +41,12 @@ export const EmployeeCard: React.FC<EmployeeCardProps> = ({
           <Text style={styles.name}>{employee.name}</Text>
           <Text style={styles.role}>{employee.role}</Text>
           <View style={styles.contactRow}>
-            <Ionicons name="mail-outline" size={12} color={Colors.textMuted} />
+            <Ionicons name="mail-outline" size={12} color={colors.textMuted} />
             <Text style={styles.contact}>{employee.email}</Text>
           </View>
           {employee.phone ? (
             <View style={styles.contactRow}>
-              <Ionicons name="call-outline" size={12} color={Colors.textMuted} />
+              <Ionicons name="call-outline" size={12} color={colors.textMuted} />
               <Text style={styles.contact}>{employee.phone}</Text>
             </View>
           ) : null}
@@ -51,7 +54,7 @@ export const EmployeeCard: React.FC<EmployeeCardProps> = ({
 
         {showDelete && (
           <TouchableOpacity onPress={onDelete} style={styles.deleteBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Ionicons name="trash-outline" size={18} color={Colors.statusRejected} />
+            <Ionicons name="trash-outline" size={18} color={colors.statusRejected} />
           </TouchableOpacity>
         )}
       </View>
@@ -65,9 +68,9 @@ export const EmployeeCard: React.FC<EmployeeCardProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   card: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: Radius.lg,
     padding: 16,
     marginBottom: 12,
@@ -87,18 +90,18 @@ const styles = StyleSheet.create({
   },
   initials: { color: '#fff', fontSize: 18, fontWeight: '700' },
   info: { flex: 1, gap: 3 },
-  name: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
-  role: { fontSize: 13, color: Colors.accent, fontWeight: '600' },
+  name: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
+  role: { fontSize: 13, color: colors.accent, fontWeight: '600' },
   contactRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  contact: { fontSize: 12, color: Colors.textSecondary },
+  contact: { fontSize: 12, color: colors.textSecondary },
   deleteBtn: { padding: 4 },
   deptBadge: {
     marginTop: 10,
     alignSelf: 'flex-start',
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     borderRadius: Radius.full,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  deptText: { fontSize: 11, fontWeight: '600', color: Colors.textSecondary },
+  deptText: { fontSize: 11, fontWeight: '600', color: colors.textSecondary },
 });

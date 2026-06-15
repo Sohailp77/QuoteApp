@@ -7,10 +7,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useCustomers } from '../../hooks/useCustomers';
 import { Customer } from '../../types';
-import { Colors, Radius, Shadow } from '../../theme';
+import { Radius, Shadow } from '../../theme';
 import { SearchBar } from '../../components/ui/SearchBar';
+import { useAppTheme } from '../../context/ThemeContext';
 
 export const CustomersScreen: React.FC = () => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   const nav = useNavigation<any>();
   const { customers, loading, fetch, remove } = useCustomers();
   const [search, setSearch] = useState('');
@@ -61,11 +64,11 @@ export const CustomersScreen: React.FC = () => {
       <FlatList
         data={filtered}
         keyExtractor={(c) => c.id}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={fetch} tintColor={Colors.primary} />}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={fetch} tintColor={colors.primary} />}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Ionicons name="people-circle-outline" size={52} color={Colors.textMuted} />
+            <Ionicons name="people-circle-outline" size={52} color={colors.textMuted} />
             <Text style={styles.emptyTitle}>{search ? 'No results' : 'No customers yet'}</Text>
             <Text style={styles.emptySub}>
               {search ? 'Try a different search' : 'Tap + to add your first customer'}
@@ -92,7 +95,7 @@ export const CustomersScreen: React.FC = () => {
               ) : null}
             </View>
             <TouchableOpacity onPress={() => handleDelete(item)} style={styles.deleteBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Ionicons name="trash-outline" size={18} color={Colors.statusRejected} />
+              <Ionicons name="trash-outline" size={18} color={colors.statusRejected} />
             </TouchableOpacity>
           </TouchableOpacity>
         )}
@@ -101,39 +104,39 @@ export const CustomersScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.background },
+const createStyles = (colors: any) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingTop: 60, paddingBottom: 16, paddingHorizontal: 20,
   },
-  title: { fontSize: 28, fontWeight: '800', color: Colors.textPrimary, letterSpacing: -0.5 },
+  title: { fontSize: 28, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 },
   addBtn: {
     width: 42, height: 42, borderRadius: 21,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
   },
   card: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: Radius.lg, padding: 16, marginBottom: 10,
     ...Shadow.sm,
   },
   avatarCircle: {
     width: 48, height: 48, borderRadius: 24,
-    backgroundColor: Colors.accent + '20',
+    backgroundColor: colors.accent + '20',
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarText: { fontSize: 20, fontWeight: '700', color: Colors.accent },
-  customerName: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
-  customerDetail: { fontSize: 13, color: Colors.textSecondary, marginTop: 2 },
+  avatarText: { fontSize: 20, fontWeight: '700', color: colors.accent },
+  customerName: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
+  customerDetail: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
   gstBadge: {
-    alignSelf: 'flex-start', backgroundColor: Colors.primary + '10',
+    alignSelf: 'flex-start', backgroundColor: colors.primary + '10',
     borderRadius: Radius.sm, paddingHorizontal: 8, paddingVertical: 2, marginTop: 4,
   },
-  gstText: { fontSize: 11, fontWeight: '600', color: Colors.primary },
+  gstText: { fontSize: 11, fontWeight: '600', color: colors.primary },
   deleteBtn: { padding: 6 },
   empty: { alignItems: 'center', paddingTop: 80, gap: 10 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
-  emptySub: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center' },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
+  emptySub: { fontSize: 14, color: colors.textSecondary, textAlign: 'center' },
 });

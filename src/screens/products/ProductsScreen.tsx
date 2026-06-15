@@ -13,10 +13,13 @@ import { useNavigation } from '@react-navigation/native';
 import { useProducts } from '../../hooks/useProducts';
 import { ProductCard } from '../../components/ProductCard';
 import { SearchBar } from '../../components/ui/SearchBar';
-import { Colors, Radius } from '../../theme';
+import { Radius } from '../../theme';
 import { animateLayout } from '../../utils/animation';
+import { useAppTheme } from '../../context/ThemeContext';
 
 export const ProductsScreen: React.FC = () => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   const nav = useNavigation<any>();
   const { products, loading, fetch, remove } = useProducts();
   const [search, setSearch] = useState('');
@@ -56,7 +59,7 @@ export const ProductsScreen: React.FC = () => {
             onPress={() => nav.navigate('StockManagement')}
             activeOpacity={0.8}
           >
-            <Ionicons name="analytics-outline" size={18} color={Colors.accent} />
+            <Ionicons name="analytics-outline" size={18} color={colors.primary} />
             <Text style={styles.headerActionText}>Stock</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -64,7 +67,7 @@ export const ProductsScreen: React.FC = () => {
             onPress={() => nav.navigate('CategoryManager')}
             activeOpacity={0.8}
           >
-            <Ionicons name="grid-outline" size={18} color={Colors.accent} />
+            <Ionicons name="grid-outline" size={18} color={colors.primary} />
             <Text style={styles.headerActionText}>Categories</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -116,11 +119,11 @@ export const ProductsScreen: React.FC = () => {
           />
         )}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={fetch} tintColor={Colors.primary} />
+          <RefreshControl refreshing={loading} onRefresh={fetch} tintColor={colors.primary} />
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Ionicons name="cube-outline" size={52} color={Colors.textMuted} />
+            <Ionicons name="cube-outline" size={52} color={colors.textMuted} />
             <Text style={styles.emptyTitle}>No products yet</Text>
             <Text style={styles.emptySub}>Tap + to add your first product</Text>
           </View>
@@ -132,24 +135,24 @@ export const ProductsScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.background, paddingHorizontal: 20 },
+const createStyles = (colors: any) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 20 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingTop: 60, paddingBottom: 16,
   },
-  title: { fontSize: 28, fontWeight: '800', color: Colors.textPrimary, letterSpacing: -0.5 },
+  title: { fontSize: 28, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerActionBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: Colors.accent + '15',
+    backgroundColor: colors.primary + '15',
     borderRadius: Radius.full,
     paddingHorizontal: 10, paddingVertical: 7,
   },
-  headerActionText: { fontSize: 12, fontWeight: '700', color: Colors.accent },
+  headerActionText: { fontSize: 12, fontWeight: '700', color: colors.primary },
   addBtn: {
     width: 42, height: 42, borderRadius: 21,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
   },
   search: { marginBottom: 14 },
@@ -157,13 +160,13 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: 14, paddingVertical: 7,
     borderRadius: Radius.full,
-    backgroundColor: Colors.surface,
-    borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderWidth: 1, borderColor: colors.border,
   },
-  chipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  chipText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
   chipTextActive: { color: '#fff' },
   empty: { alignItems: 'center', paddingTop: 80, gap: 10 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
-  emptySub: { fontSize: 14, color: Colors.textSecondary },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
+  emptySub: { fontSize: 14, color: colors.textSecondary },
 });
