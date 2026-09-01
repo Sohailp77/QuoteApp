@@ -85,7 +85,7 @@ export const StockManagementScreen: React.FC = () => {
         note: noteInput.trim(),
       });
       setShowAdjustModal(false);
-      fetchProducts();
+      fetchProducts(true);
       Alert.alert('Done', 'Stock movement recorded.');
     } catch (err: any) {
       Alert.alert('Error', err.message);
@@ -117,7 +117,14 @@ export const StockManagementScreen: React.FC = () => {
           <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.title}>Stock Management</Text>
-        <View style={{ width: 38 }} />
+        <TouchableOpacity
+          style={styles.reorderBtn}
+          onPress={() => nav.navigate('ReorderStock')}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="cart-outline" size={16} color="#fff" />
+          <Text style={styles.reorderBtnText}>Reorder</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Tab switcher */}
@@ -347,6 +354,12 @@ const createStyles = (colors: any) => StyleSheet.create({
     backgroundColor: colors.surfaceAlt,
     alignItems: 'center', justifyContent: 'center',
   },
+  reorderBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: colors.primary, borderRadius: Radius.full,
+    paddingHorizontal: 12, paddingVertical: 8,
+  },
+  reorderBtnText: { fontSize: 12, fontWeight: '700', color: '#fff' },
   title: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
   tabRow: {
     flexDirection: 'row', marginHorizontal: 16, marginBottom: 4,

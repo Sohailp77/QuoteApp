@@ -18,7 +18,10 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0F0F1A"
       },
-      "package": "com.yourcompany.bizflow"
+      "package": "com.yourcompany.bizflow",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -29,6 +32,11 @@
       "expo-web-browser",
       "@react-native-community/datetimepicker"
     ],
-    "scheme": "bizFlow"
+    "scheme": "bizFlow",
+    "extra": {
+      "eas": {
+        "projectId": "3b6d4f7f-ec13-4260-9eaf-633ec1618107"
+      }
+    }
   }
 }

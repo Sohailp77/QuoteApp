@@ -62,9 +62,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onDe
         </View>
 
         <View style={styles.rightSide}>
-          <Text style={styles.price}>{formatCurrency(product.unit_price)}</Text>
+          <View style={styles.priceRow}>
+            <Text style={styles.priceLabel}>Sale</Text>
+            <Text style={styles.price}>{formatCurrency(product.unit_price)}</Text>
+          </View>
           {product.cost_price !== undefined ? (
-            <Text style={styles.costPrice}>Cost: {formatCurrency(product.cost_price)}</Text>
+            <View style={styles.priceRow}>
+              <Text style={styles.costLabel}>Cost</Text>
+              <Text style={styles.costPrice}>{formatCurrency(product.cost_price)}</Text>
+            </View>
           ) : null}
           
           <TouchableOpacity 
@@ -138,9 +144,12 @@ const createStyles = (colors: any) => StyleSheet.create({
   stockOut: { color: colors.statusRejected },
   stockLow: { color: colors.statusExpired },
 
-  rightSide: { alignItems: 'flex-end', gap: 6 },
-  price: { fontSize: 17, fontWeight: '700', color: colors.primary },
-  costPrice: { fontSize: 12, color: colors.textSecondary, fontWeight: '500' },
+  rightSide: { alignItems: 'flex-end', gap: 4 },
+  priceRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  priceLabel: { fontSize: 10, fontWeight: '700', color: colors.primary + 'AA', textTransform: 'uppercase', letterSpacing: 0.3 },
+  costLabel: { fontSize: 10, fontWeight: '700', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.3 },
+  price: { fontSize: 16, fontWeight: '800', color: colors.primary },
+  costPrice: { fontSize: 12, color: colors.textSecondary, fontWeight: '600' },
   deleteBtn: { marginTop: 4 },
   sku: { fontSize: 11, color: colors.textMuted },
   cardFooter: {

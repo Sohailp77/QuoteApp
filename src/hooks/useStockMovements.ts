@@ -82,8 +82,10 @@ export const useStockMovements = () => {
 
       if (['IN', 'RETURN'].includes(movement.movement_type)) {
         newStock += movement.quantity;
-      } else if (['OUT', 'DAMAGE', 'ADJUSTMENT'].includes(movement.movement_type)) {
+      } else if (['OUT', 'DAMAGE'].includes(movement.movement_type)) {
         newStock = Math.max(0, currentStock - movement.quantity);
+      } else if (movement.movement_type === 'ADJUSTMENT') {
+        newStock = Math.max(0, movement.quantity);
       }
 
       // 2. Insert movement record
@@ -109,6 +111,13 @@ export const useStockMovements = () => {
         rowId: movement.product_id,
         data: { stock_quantity: newStock }
       });
+
+      // 4. Update product stock in global Zustand store
+      const currentProducts = useAppStore.getState().products;
+      const updatedProducts = currentProducts.map((p) =>
+        p.id === movement.product_id ? { ...p, stock_quantity: newStock } : p
+      );
+      useAppStore.getState().setProducts(updatedProducts);
 
       const newMov: StockMovement = {
         id: doc.$id,

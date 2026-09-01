@@ -191,6 +191,26 @@ const COLLECTIONS = [
       { key: 'delivery_note', type: 'string', size: 1000, required: false },
     ],
     indexes: [{ key: 'tenant_id', type: 'key', attributes: ['tenant_id'] }]
+  },
+  {
+    id: 'reorders',
+    name: 'Reorders',
+    attributes: [
+      { key: 'tenant_id', type: 'string', size: 255, required: true },
+      { key: 'order_number', type: 'string', size: 255, required: true },
+      { key: 'vendor_name', type: 'string', size: 255, required: true },
+      { key: 'status', type: 'string', size: 50, required: true },
+      { key: 'items', type: 'string', size: 5000, required: false },
+      { key: 'total_estimated_cost', type: 'double', required: false },
+      { key: 'total_paid', type: 'double', required: false },
+      { key: 'invoice_number', type: 'string', size: 255, required: false },
+      { key: 'purchase_date', type: 'string', size: 50, required: false },
+      { key: 'notes', type: 'string', size: 2000, required: false },
+    ],
+    indexes: [
+      { key: 'tenant_id', type: 'key', attributes: ['tenant_id'] },
+      { key: 'status', type: 'key', attributes: ['status'] },
+    ]
   }
 ];
 

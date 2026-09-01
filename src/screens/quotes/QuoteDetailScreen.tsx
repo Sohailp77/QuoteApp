@@ -470,7 +470,7 @@ export const QuoteDetailScreen: React.FC = () => {
         }
       }
     }
-    fetchProducts();
+    fetchProducts(true);
     Alert.alert('Status Updated', 'Quote marked as Accepted and inventory updated.');
   };
 
@@ -510,7 +510,7 @@ export const QuoteDetailScreen: React.FC = () => {
     } catch (err) {
       console.error('Failed to revert stock movements:', err);
     }
-    fetchProducts();
+    fetchProducts(true);
     Alert.alert('Status Updated', `Quote marked as ${nextStatus} and inventory returned.`);
   };
 

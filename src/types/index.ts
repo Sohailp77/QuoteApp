@@ -87,6 +87,32 @@ export interface StockMovement {
   created_at: string;
 }
 
+export type ReorderStatus = 'Draft' | 'Ordered' | 'Partially Received' | 'Received';
+
+export interface ReorderItem {
+  product_id: string;
+  product_name: string;
+  sku: string;
+  unit: string;
+  vendor: string;
+  reorder_quantity: number;
+  received_quantity: number;
+}
+
+export interface Reorder {
+  id: string;
+  tenant_id: string;
+  order_number: string;
+  vendor_name: string;
+  status: ReorderStatus;
+  items: ReorderItem[];
+  total_paid: number;
+  invoice_number?: string;
+  purchase_date?: string;
+  notes?: string;
+  created_at: string;
+}
+
 export interface CompanySettings {
   id: string;
   tenant_id: string;
@@ -188,4 +214,6 @@ export type EmployeeStackParamList = {
 export type ProductStackParamList = {
   ProductsList: undefined;
   ProductForm: { product?: Product };
+  StockManagement: undefined;
+  ReorderStock: undefined;
 };

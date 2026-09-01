@@ -17,6 +17,7 @@ import { ProductsScreen } from '../screens/products/ProductsScreen';
 import { ProductFormScreen } from '../screens/products/ProductFormScreen';
 import { CategoryManagerScreen } from '../screens/products/CategoryManagerScreen';
 import { StockManagementScreen } from '../screens/products/StockManagementScreen';
+import { ReorderStockScreen } from '../screens/products/ReorderStockScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { CompanySettingsScreen } from '../screens/profile/CompanySettingsScreen';
 import { TaxRatesScreen } from '../screens/profile/TaxRatesScreen';
@@ -64,6 +65,7 @@ const ProductsStack = () => (
     <ProductStack.Screen name="ProductForm" component={ProductFormScreen} />
     <ProductStack.Screen name="CategoryManager" component={CategoryManagerScreen} />
     <ProductStack.Screen name="StockManagement" component={StockManagementScreen} />
+    <ProductStack.Screen name="ReorderStock" component={ReorderStockScreen} />
   </ProductStack.Navigator>
 );
 

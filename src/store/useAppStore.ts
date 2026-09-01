@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Quote, Product, Category, TaxRate, Customer, Employee, StockMovement, CompanySettings } from '../types';
+import { Quote, Product, Category, TaxRate, Customer, Employee, StockMovement, CompanySettings, Reorder } from '../types';
 
 interface AppState {
   quotes: Quote[];
@@ -10,6 +10,7 @@ interface AppState {
   customers: Customer[];
   employees: Employee[];
   stockMovements: StockMovement[];
+  reorders: Reorder[];
   companySettings: CompanySettings | null;
 
   quotesLoaded: boolean;
@@ -19,6 +20,7 @@ interface AppState {
   customersLoaded: boolean;
   employeesLoaded: boolean;
   stockMovementsLoaded: boolean;
+  reordersLoaded: boolean;
   companySettingsLoaded: boolean;
 
   setQuotes: (quotes: Quote[]) => void;
@@ -28,6 +30,7 @@ interface AppState {
   setCustomers: (customers: Customer[]) => void;
   setEmployees: (employees: Employee[]) => void;
   setStockMovements: (stockMovements: StockMovement[]) => void;
+  setReorders: (reorders: Reorder[]) => void;
   setCompanySettings: (companySettings: CompanySettings | null) => void;
 
   setQuotesLoaded: (loaded: boolean) => void;
@@ -37,6 +40,7 @@ interface AppState {
   setCustomersLoaded: (loaded: boolean) => void;
   setEmployeesLoaded: (loaded: boolean) => void;
   setStockMovementsLoaded: (loaded: boolean) => void;
+  setReordersLoaded: (loaded: boolean) => void;
   setCompanySettingsLoaded: (loaded: boolean) => void;
 
   clearAll: () => void;
@@ -80,6 +84,7 @@ export const useAppStore = create<AppState>()(
       customers: [],
       employees: [],
       stockMovements: [],
+      reorders: [],
       companySettings: null,
 
       quotesLoaded: false,
@@ -89,6 +94,7 @@ export const useAppStore = create<AppState>()(
       customersLoaded: false,
       employeesLoaded: false,
       stockMovementsLoaded: false,
+      reordersLoaded: false,
       companySettingsLoaded: false,
 
       setQuotes: (quotes) => set({ quotes }),
@@ -98,6 +104,7 @@ export const useAppStore = create<AppState>()(
       setCustomers: (customers) => set({ customers }),
       setEmployees: (employees) => set({ employees }),
       setStockMovements: (stockMovements) => set({ stockMovements }),
+      setReorders: (reorders) => set({ reorders }),
       setCompanySettings: (companySettings) => set({ companySettings }),
 
       setQuotesLoaded: (quotesLoaded) => set({ quotesLoaded }),
@@ -107,6 +114,7 @@ export const useAppStore = create<AppState>()(
       setCustomersLoaded: (customersLoaded) => set({ customersLoaded }),
       setEmployeesLoaded: (employeesLoaded) => set({ employeesLoaded }),
       setStockMovementsLoaded: (stockMovementsLoaded) => set({ stockMovementsLoaded }),
+      setReordersLoaded: (reordersLoaded) => set({ reordersLoaded }),
       setCompanySettingsLoaded: (companySettingsLoaded) => set({ companySettingsLoaded }),
 
       clearAll: () => set({
@@ -117,6 +125,7 @@ export const useAppStore = create<AppState>()(
         customers: [],
         employees: [],
         stockMovements: [],
+        reorders: [],
         companySettings: null,
         quotesLoaded: false,
         productsLoaded: false,
@@ -125,6 +134,7 @@ export const useAppStore = create<AppState>()(
         customersLoaded: false,
         employeesLoaded: false,
         stockMovementsLoaded: false,
+        reordersLoaded: false,
         companySettingsLoaded: false,
       }),
     }),
@@ -141,6 +151,7 @@ export const useAppStore = create<AppState>()(
         customers: state.customers,
         employees: state.employees,
         stockMovements: state.stockMovements,
+        reorders: state.reorders,
         companySettings: state.companySettings,
       }),
     }
