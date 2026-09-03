@@ -212,7 +212,7 @@ export const WarehouseScreen: React.FC = () => {
               <Text style={styles.sectionTitle}>Pricing & Margin</Text>
               <View style={styles.metaRow}>
                 <View style={styles.metaCol}>
-                  <Text style={styles.metaLabel}>Selling Price</Text>
+                  <Text style={styles.metaLabel}>MRP / Selling Price</Text>
                   <Text style={styles.priceValue}>{formatCurrency(scannedProduct.unit_price)}</Text>
                 </View>
                 <View style={styles.metaCol}>

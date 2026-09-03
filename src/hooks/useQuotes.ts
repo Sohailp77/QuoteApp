@@ -5,6 +5,8 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useAppStore } from '../store/useAppStore';
 import { animateLayout } from '../utils/animation';
 
+const activeStatusLocks = new Set<string>();
+
 export const useQuotes = () => {
   const user = useAuthStore((s) => s.user);
   const quotes = useAppStore((s) => s.quotes);
@@ -135,55 +137,81 @@ export const useQuotes = () => {
 
   const updateStatus = useCallback(async (id: string, status: Quote['status']) => {
     if (!user) return;
+    if (activeStatusLocks.has(id)) {
+      console.warn(`[updateStatus] Operation already in progress for quote ${id}`);
+      return;
+    }
+    activeStatusLocks.add(id);
+
     try {
-      const currentQuote = quotes.find(q => q.id === id);
-      if (!currentQuote) return;
+      // 1. Fetch fresh quote doc from DB to ensure source-of-truth status
+      const quoteDoc = await tablesDB.getRow({
+        databaseId: DATABASE_ID,
+        tableId: COLLECTIONS.QUOTES,
+        rowId: id,
+      });
 
-      const previousStatus = currentQuote.status;
+      const dbStatus = quoteDoc.status as Quote['status'];
+      if (dbStatus === status) {
+        // Idempotent exit: Already in desired status
+        return;
+      }
 
-      // Handle stock mutations based on status transitions:
-      // 1. Transitioning to Accepted -> Decrement stock
-      // 2. Transitioning FROM Accepted to something else -> Revert (increment) stock
-      const isTransitioningToAccepted = previousStatus !== 'Accepted' && status === 'Accepted';
-      const isTransitioningFromAccepted = previousStatus === 'Accepted' && status !== 'Accepted';
+      let items: LineItem[] = [];
+      try {
+        items = typeof quoteDoc.items === 'string' ? JSON.parse(quoteDoc.items) : (quoteDoc.items || []);
+      } catch (e) {
+        items = [];
+      }
+      const quoteNumber = quoteDoc.quote_number || id;
 
-      if ((isTransitioningToAccepted || isTransitioningFromAccepted) && currentQuote.items) {
+      const isTransitioningToAccepted = dbStatus !== 'Accepted' && status === 'Accepted';
+      const isTransitioningFromAccepted = dbStatus === 'Accepted' && status !== 'Accepted';
+
+      if ((isTransitioningToAccepted || isTransitioningFromAccepted) && items.length > 0) {
+        const ledgerQueryNote = isTransitioningToAccepted
+          ? `Quote ${quoteNumber} accepted`
+          : `Quote ${quoteNumber} returned to ${status} (Stock Reverted)`;
+
+        const rollbackActions: Array<{ product_id: string; stockToRestore: number; movementIdToDelete?: string }> = [];
         let localProducts = [...useAppStore.getState().products];
         let localMovements = [...useAppStore.getState().stockMovements];
 
-        for (const item of currentQuote.items) {
-          if (item.product_id) {
-            // Get latest product data from database to prevent concurrency conflicts
+        try {
+          for (const item of items) {
+            if (!item.product_id || item.quantity <= 0) continue;
+
             const prodDoc = await tablesDB.getRow({
               databaseId: DATABASE_ID,
               tableId: COLLECTIONS.PRODUCTS,
-              rowId: item.product_id
+              rowId: item.product_id,
             });
 
-            if (prodDoc.stock_quantity !== null) {
+            if (prodDoc.stock_quantity !== null && prodDoc.stock_quantity !== undefined) {
               const currentStock = Number(prodDoc.stock_quantity) || 0;
+
+              if (isTransitioningToAccepted && currentStock < item.quantity) {
+                throw new Error(
+                  `Insufficient stock for "${item.product_name}". Requested: ${item.quantity}, Available: ${currentStock}`
+                );
+              }
+
               const stockDiff = isTransitioningToAccepted ? -item.quantity : item.quantity;
               const newStock = Math.max(0, currentStock + stockDiff);
 
-              // Update product in Appwrite DB
               await tablesDB.updateRow({
                 databaseId: DATABASE_ID,
                 tableId: COLLECTIONS.PRODUCTS,
                 rowId: item.product_id,
-                data: { stock_quantity: newStock }
+                data: { stock_quantity: newStock },
               });
 
-              // Update product in local state
-              localProducts = localProducts.map(p =>
-                p.id === item.product_id ? { ...p, stock_quantity: newStock } : p
-              );
+              rollbackActions.push({
+                product_id: item.product_id,
+                stockToRestore: currentStock,
+              });
 
-              // Log stock movement in Appwrite DB
-              const movementType = isTransitioningToAccepted ? 'OUT' : 'IN';
-              const noteText = isTransitioningToAccepted
-                ? `Quote ${currentQuote.quote_number} accepted`
-                : `Quote ${currentQuote.quote_number} returned to ${status} (Stock Reverted)`;
-
+              const movementType = isTransitioningToAccepted ? 'OUT' : 'RETURN';
               const movDoc = await tablesDB.createRow({
                 databaseId: DATABASE_ID,
                 tableId: COLLECTIONS.STOCK_MOVEMENTS,
@@ -194,11 +222,16 @@ export const useQuotes = () => {
                   product_name: item.product_name,
                   movement_type: movementType,
                   quantity: item.quantity,
-                  note: noteText,
-                }
+                  note: ledgerQueryNote,
+                },
               });
 
-              // Add stock movement to local state
+              rollbackActions[rollbackActions.length - 1].movementIdToDelete = movDoc.$id;
+
+              localProducts = localProducts.map((p) =>
+                p.id === item.product_id ? { ...p, stock_quantity: newStock } : p
+              );
+
               const newMov = {
                 id: movDoc.$id,
                 tenant_id: movDoc.tenant_id,
@@ -212,27 +245,48 @@ export const useQuotes = () => {
               localMovements = [newMov, ...localMovements];
             }
           }
-        }
 
-        // Apply visual updates to stores
-        animateLayout();
-        useAppStore.getState().setProducts(localProducts);
-        useAppStore.getState().setStockMovements(localMovements);
+          animateLayout();
+          useAppStore.getState().setProducts(localProducts);
+          useAppStore.getState().setStockMovements(localMovements);
+        } catch (itemErr: any) {
+          console.error('[updateStatus] Error during stock transition. Rolling back...', itemErr);
+          for (const rb of rollbackActions) {
+            try {
+              await tablesDB.updateRow({
+                databaseId: DATABASE_ID,
+                tableId: COLLECTIONS.PRODUCTS,
+                rowId: rb.product_id,
+                data: { stock_quantity: rb.stockToRestore },
+              });
+              if (rb.movementIdToDelete) {
+                await tablesDB.deleteRow({
+                  databaseId: DATABASE_ID,
+                  tableId: COLLECTIONS.STOCK_MOVEMENTS,
+                  rowId: rb.movementIdToDelete,
+                });
+              }
+            } catch (rbErr) {
+              console.error('[updateStatus] Rollback error for product:', rb.product_id, rbErr);
+            }
+          }
+          throw itemErr;
+        }
       }
 
       await tablesDB.updateRow({
         databaseId: DATABASE_ID,
         tableId: COLLECTIONS.QUOTES,
         rowId: id,
-        data: { status }
+        data: { status },
       });
 
       animateLayout();
-      setQuotes(
-        quotes.map((q) => (q.id === id ? { ...q, status } : q))
-      );
+      setQuotes(quotes.map((q) => (q.id === id ? { ...q, status } : q)));
     } catch (err: any) {
       throw new Error(err.message || 'Failed to update quote status');
+    } finally {
+      activeStatusLocks.delete(id);
     }
   }, [user, quotes, setQuotes]);
 
@@ -299,18 +353,102 @@ export const useQuotes = () => {
   }, [quotes, setQuotes]);
 
   const remove = useCallback(async (id: string) => {
+    if (!user) return;
+    if (activeStatusLocks.has(id)) {
+      console.warn(`[remove] Operation already in progress for quote ${id}`);
+      return;
+    }
+    activeStatusLocks.add(id);
+
     try {
+      const quoteDoc = await tablesDB.getRow({
+        databaseId: DATABASE_ID,
+        tableId: COLLECTIONS.QUOTES,
+        rowId: id,
+      });
+
+      const dbStatus = quoteDoc.status as Quote['status'];
+      let items: LineItem[] = [];
+      try {
+        items = typeof quoteDoc.items === 'string' ? JSON.parse(quoteDoc.items) : (quoteDoc.items || []);
+      } catch (e) {
+        items = [];
+      }
+      const quoteNumber = quoteDoc.quote_number || id;
+
+      if (dbStatus === 'Accepted' && items.length > 0) {
+        const ledgerQueryNote = `Quote ${quoteNumber} deleted (Stock Restored)`;
+        let localProducts = [...useAppStore.getState().products];
+        let localMovements = [...useAppStore.getState().stockMovements];
+
+        for (const item of items) {
+          if (!item.product_id || item.quantity <= 0) continue;
+
+          const prodDoc = await tablesDB.getRow({
+            databaseId: DATABASE_ID,
+            tableId: COLLECTIONS.PRODUCTS,
+            rowId: item.product_id,
+          });
+
+          if (prodDoc.stock_quantity !== null && prodDoc.stock_quantity !== undefined) {
+            const currentStock = Number(prodDoc.stock_quantity) || 0;
+            const newStock = currentStock + item.quantity;
+
+            await tablesDB.updateRow({
+              databaseId: DATABASE_ID,
+              tableId: COLLECTIONS.PRODUCTS,
+              rowId: item.product_id,
+              data: { stock_quantity: newStock },
+            });
+
+            localProducts = localProducts.map((p) =>
+              p.id === item.product_id ? { ...p, stock_quantity: newStock } : p
+            );
+
+            const movDoc = await tablesDB.createRow({
+              databaseId: DATABASE_ID,
+              tableId: COLLECTIONS.STOCK_MOVEMENTS,
+              rowId: ID.unique(),
+              data: {
+                tenant_id: user.tenant_id,
+                product_id: item.product_id,
+                product_name: item.product_name,
+                movement_type: 'RETURN',
+                quantity: item.quantity,
+                note: ledgerQueryNote,
+              },
+            });
+
+            const newMov = {
+              id: movDoc.$id,
+              tenant_id: movDoc.tenant_id,
+              product_id: movDoc.product_id,
+              product_name: movDoc.product_name,
+              movement_type: movDoc.movement_type as any,
+              quantity: Number(movDoc.quantity),
+              note: movDoc.note,
+              created_at: movDoc.$createdAt || new Date().toISOString(),
+            };
+            localMovements = [newMov, ...localMovements];
+          }
+        }
+        useAppStore.getState().setProducts(localProducts);
+        useAppStore.getState().setStockMovements(localMovements);
+      }
+
       await tablesDB.deleteRow({
         databaseId: DATABASE_ID,
         tableId: COLLECTIONS.QUOTES,
-        rowId: id
+        rowId: id,
       });
       animateLayout();
       setQuotes(quotes.filter((q) => q.id !== id));
     } catch (err: any) {
       throw new Error(err.message || 'Failed to delete quote');
+    } finally {
+      activeStatusLocks.delete(id);
     }
-  }, [quotes, setQuotes]);
+  }, [user, quotes, setQuotes]);
 
   const fetchById = useCallback(async (id: string): Promise<Quote | null> => {
     if (!user) return null;

@@ -11,16 +11,6 @@ interface NotificationState {
 
 const STORAGE_KEY = 'quoteapp_notification_read_ids';
 
-// Load persisted read IDs from AsyncStorage (called once at startup)
-export const loadNotificationState = async () => {
-  try {
-    const stored = await AsyncStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      useNotificationStore.setState({ readIds: JSON.parse(stored) });
-    }
-  } catch {}
-};
-
 export const useNotificationStore = create<NotificationState>((set, get) => ({
   readIds: [],
 
@@ -43,3 +33,19 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
   },
 }));
+
+// Load persisted read IDs from AsyncStorage (called at startup)
+export const loadNotificationState = async () => {
+  try {
+    const stored = await AsyncStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) {
+        useNotificationStore.setState({ readIds: parsed });
+      }
+    }
+  } catch {}
+};
+
+// Auto-execute loadNotificationState immediately
+loadNotificationState();

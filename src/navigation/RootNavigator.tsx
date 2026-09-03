@@ -8,6 +8,7 @@ import { AuthNavigator } from './AuthNavigator';
 import { MainNavigator } from './MainNavigator';
 import { SplashScreen } from '../screens/auth/SplashScreen';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { useAutoUpdateManager } from '../hooks/useAutoUpdateManager';
 
 import { useAppTheme } from '../context/ThemeContext';
 
@@ -31,6 +32,7 @@ export const RootNavigator: React.FC = () => {
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
   useRealtimeSync();
+  useAutoUpdateManager();
   // Internal loading state for checking session
   const [isInitializing, setIsInitializing] = useState(true);
 
@@ -53,12 +55,22 @@ export const RootNavigator: React.FC = () => {
 
         if (userDocs.rows.length > 0) {
           const uDoc = userDocs.rows[0];
+          const role = (uDoc.role as 'boss' | 'employee') || 'boss';
+          const status = uDoc.status || 'active';
+
+          if (role === 'boss' && status === 'inactive') {
+            try { await account.deleteSession('current'); } catch {}
+            setUser(null);
+            return;
+          }
+
           setUser({
             id: appwriteUser.$id,
             email: appwriteUser.email,
             displayName: appwriteUser.name || uDoc.displayName || 'User',
-            role: (uDoc.role as 'boss' | 'employee') || 'boss',
+            role,
             tenant_id: uDoc.tenant_id,
+            status,
           });
         } else {
           // If no user doc, check if they are an employee created by a boss

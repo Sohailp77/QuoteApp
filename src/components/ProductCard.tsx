@@ -63,7 +63,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onDe
 
         <View style={styles.rightSide}>
           <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Sale</Text>
+            <Text style={styles.priceLabel}>MRP</Text>
             <Text style={styles.price}>{formatCurrency(product.unit_price)}</Text>
           </View>
           {product.cost_price !== undefined ? (

@@ -7,6 +7,7 @@ export interface User {
   photoURL?: string;
   role: 'boss' | 'employee';
   tenant_id: string;
+  status?: string;
 }
 
 export interface Customer {
@@ -55,6 +56,9 @@ export interface TaxRate {
   is_active: boolean;
 }
 
+export type CalcMethod = 'direct' | 'area' | 'length' | 'weight' | 'volume' | 'custom';
+export type RoundingMode = 'round_up' | 'allow_decimals' | 'round_nearest' | 'round_down';
+
 export interface Product {
   id: string;
   tenant_id?: string;
@@ -65,13 +69,17 @@ export interface Product {
   cost_price?: number;
   stock_quantity?: number;
   reorder_level?: number;
-  unit: string;
+  unit: string; // Selling/Inventory unit (e.g. BOX, PCS, ROLL, BAG, LITER)
   category: string;
   sku: string;
   barcode?: string;
   warehouse_location?: string;
   created_at: string;
-  calc_type?: 'pcs' | 'size' | 'area' | 'length' | 'weight';
+  calc_type?: string; // Database raw calc_type representation
+  calc_method?: CalcMethod;
+  input_unit?: string; // Input requirement unit (e.g. SQFT, METER, KG)
+  unit_coverage?: number; // Coverage per selling unit (e.g. 1 BOX = 15 SQFT)
+  rounding_mode?: RoundingMode;
   image_url?: string;
 }
 
@@ -141,15 +149,25 @@ export interface QuoteItem {
   quote_id?: string;
   product_id?: string;
   product_name: string;
-  unit_price: number;
-  quantity: number;
+  unit_price: number; // Price per selling unit
+  quantity: number; // Final selling quantity used for line total and stock deduction
   discount: number; // percentage
   line_total: number;
+  
+  // Extended calculation fields
+  calc_method?: CalcMethod;
+  calc_mode?: string; // Legacy fallback
+  input_qty?: number; // Requirement value (e.g. 100 SQFT)
+  input_unit?: string; // Requirement unit (e.g. SQFT, METER, KG)
+  selling_unit?: string; // Selling unit (e.g. BOX, ROLL, BAG)
+  unit_coverage?: number; // Coverage ratio (e.g. 15 SQFT / BOX)
+  calculated_qty?: number; // Raw exact calculated decimal quantity (e.g. 6.67)
+  rounding_mode?: RoundingMode;
+  formula_text?: string; // Detailed human-readable calculation summary
   pcs?: number;
   length?: number;
   width?: number;
   area?: number;
-  calc_mode?: 'simple' | 'size' | 'area' | 'length' | 'weight';
 }
 
 export type LineItem = QuoteItem;

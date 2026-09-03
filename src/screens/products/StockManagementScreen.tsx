@@ -2,7 +2,9 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
   Modal, TextInput, Alert, ActivityIndicator, ScrollView,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useProducts } from '../../hooks/useProducts';
@@ -24,7 +26,8 @@ const MOVEMENT_TYPES: { type: MovementType; label: string; icon: string; color: 
 
 export const StockManagementScreen: React.FC = () => {
   const { colors } = useAppTheme();
-  const styles = createStyles(colors);
+  const insets = useSafeAreaInsets();
+  const styles = createStyles(colors, insets);
   const nav = useNavigation<any>();
   const { products, loading: prodLoading, fetch: fetchProducts, update: updateProduct } = useProducts();
   const { movements, loading: movLoading, fetch: fetchMovements, addMovement } = useStockMovements();
@@ -339,15 +342,26 @@ export const StockManagementScreen: React.FC = () => {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* Global Processing Modal Overlay */}
+      <Modal visible={saving} transparent animationType="fade">
+        <View style={styles.loadingOverlayModal}>
+          <View style={styles.loadingOverlayBox}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingOverlayTitle}>Recording Stock Movement...</Text>
+            <Text style={styles.loadingOverlaySub}>Updating inventory levels & movement ledger</Text>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
 
-const createStyles = (colors: any) => StyleSheet.create({
+const createStyles = (colors: any, insets?: any) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 56, paddingBottom: 12, paddingHorizontal: 20,
+    paddingTop: Math.max(insets?.top || 0, 24) + 12, paddingBottom: 12, paddingHorizontal: 20,
   },
   backBtn: {
     width: 38, height: 38, borderRadius: 19,
@@ -448,4 +462,32 @@ const createStyles = (colors: any) => StyleSheet.create({
     paddingVertical: 16, alignItems: 'center', marginTop: 8,
   },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  loadingOverlayModal: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  loadingOverlayBox: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: colors.surface,
+    borderRadius: Radius.lg,
+    padding: 24,
+    alignItems: 'center',
+    gap: 12,
+    ...Shadow.lg,
+  },
+  loadingOverlayTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  loadingOverlaySub: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
 });

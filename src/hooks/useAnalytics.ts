@@ -10,6 +10,7 @@ export interface EmployeeRevenue {
   userId: string;
   revenue: number;
   quotesCount: number;
+  percentage: number;
 }
 
 export interface Analytics {
@@ -19,17 +20,22 @@ export interface Analytics {
   thisYearRevenue: number;
   pendingPaymentsTotal: number;
   pendingPaymentsCount: number;
+  totalQuotesCount: number;
   acceptedCount: number;
+  sentCount: number;
   draftCount: number;
   rejectedCount: number;
-  topProducts: { name: string; count: number; revenue: number }[];
+  conversionRate: number;
+  averageQuoteValue: number;
+  topProducts: { name: string; count: number; revenue: number; percentage: number }[];
   monthlyRevenue: RevenuePoint[];
   weeklyRevenue: RevenuePoint[];
+  customChartPoints: RevenuePoint[];
   employeeRevenue: EmployeeRevenue[];
 }
 
-const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export const useAnalytics = (quotes: Quote[], dateRange?: { start: Date; end: Date }): Analytics => {
   return useMemo(() => {
@@ -46,6 +52,9 @@ export const useAnalytics = (quotes: Quote[], dateRange?: { start: Date; end: Da
       : quotes;
 
     const accepted = filteredQuotes.filter((q) => q.status === 'Accepted');
+    const sent = filteredQuotes.filter((q) => q.status === 'Sent');
+    const draft = filteredQuotes.filter((q) => q.status === 'Draft');
+    const rejected = filteredQuotes.filter((q) => q.status === 'Rejected');
 
     const totalRevenue = accepted.reduce((s, q) => s + q.total, 0);
 
@@ -61,8 +70,12 @@ export const useAnalytics = (quotes: Quote[], dateRange?: { start: Date; end: Da
       .filter((q) => new Date(q.created_at) >= yearStart)
       .reduce((s, q) => s + q.total, 0);
 
-    const pendingPayments = accepted.filter((q) => q.payment_status === 'Pending');
+    const pendingPayments = accepted.filter((q) => q.payment_status === 'Pending' || !q.payment_status);
     const pendingPaymentsTotal = pendingPayments.reduce((s, q) => s + q.total, 0);
+
+    const totalQuotesCount = filteredQuotes.length;
+    const conversionRate = totalQuotesCount > 0 ? (accepted.length / totalQuotesCount) * 100 : 0;
+    const averageQuoteValue = accepted.length > 0 ? totalRevenue / accepted.length : 0;
 
     // Top products from line items
     const productMap: Record<string, { name: string; count: number; revenue: number }> = {};
@@ -75,21 +88,32 @@ export const useAnalytics = (quotes: Quote[], dateRange?: { start: Date; end: Da
         productMap[item.product_name].revenue += item.line_total;
       });
     });
+
     const topProducts = Object.values(productMap)
       .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 5);
+      .slice(0, 5)
+      .map((p) => ({
+        ...p,
+        percentage: totalRevenue > 0 ? (p.revenue / totalRevenue) * 100 : 0,
+      }));
 
     // Employee revenue
-    const empMap: Record<string, EmployeeRevenue> = {};
+    const empMap: Record<string, { userId: string; revenue: number; quotesCount: number }> = {};
     accepted.forEach((q) => {
-      if (!empMap[q.user_id]) {
-        empMap[q.user_id] = { userId: q.user_id, revenue: 0, quotesCount: 0 };
+      const uid = q.user_id || 'unknown';
+      if (!empMap[uid]) {
+        empMap[uid] = { userId: uid, revenue: 0, quotesCount: 0 };
       }
-      empMap[q.user_id].revenue += q.total;
-      empMap[q.user_id].quotesCount += 1;
+      empMap[uid].revenue += q.total;
+      empMap[uid].quotesCount += 1;
     });
-    const employeeRevenue = Object.values(empMap)
-      .sort((a, b) => b.revenue - a.revenue);
+
+    const employeeRevenue: EmployeeRevenue[] = Object.values(empMap)
+      .sort((a, b) => b.revenue - a.revenue)
+      .map((emp) => ({
+        ...emp,
+        percentage: totalRevenue > 0 ? (emp.revenue / totalRevenue) * 100 : 0,
+      }));
 
     // Monthly revenue (last 6 months)
     const monthlyRevenue: RevenuePoint[] = [];
@@ -119,6 +143,44 @@ export const useAnalytics = (quotes: Quote[], dateRange?: { start: Date; end: Da
       weeklyRevenue.push({ label: DAY_NAMES[d.getDay()], value: val });
     }
 
+    // Dynamic Custom Date Range Chart Points
+    const customChartPoints: RevenuePoint[] = [];
+    if (dateRange) {
+      const diffTime = Math.abs(dateRange.end.getTime() - dateRange.start.getTime());
+      const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+
+      if (diffDays <= 14) {
+        for (let i = 0; i < diffDays; i++) {
+          const d = new Date(dateRange.start.getFullYear(), dateRange.start.getMonth(), dateRange.start.getDate() + i);
+          const endD = new Date(dateRange.start.getFullYear(), dateRange.start.getMonth(), dateRange.start.getDate() + i + 1);
+          const val = accepted
+            .filter((q) => {
+              const dt = new Date(q.created_at);
+              return dt >= d && dt < endD;
+            })
+            .reduce((s, q) => s + q.total, 0);
+
+          const label = `${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`;
+          customChartPoints.push({ label, value: val });
+        }
+      } else {
+        const bucketSize = diffTime / 6;
+        for (let i = 0; i < 6; i++) {
+          const d = new Date(dateRange.start.getTime() + i * bucketSize);
+          const endD = new Date(dateRange.start.getTime() + (i + 1) * bucketSize);
+          const val = accepted
+            .filter((q) => {
+              const dt = new Date(q.created_at);
+              return dt >= d && dt < endD;
+            })
+            .reduce((s, q) => s + q.total, 0);
+
+          const label = `${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`;
+          customChartPoints.push({ label, value: val });
+        }
+      }
+    }
+
     return {
       totalRevenue,
       todayRevenue,
@@ -126,12 +188,17 @@ export const useAnalytics = (quotes: Quote[], dateRange?: { start: Date; end: Da
       thisYearRevenue,
       pendingPaymentsTotal,
       pendingPaymentsCount: pendingPayments.length,
+      totalQuotesCount,
       acceptedCount: accepted.length,
-      draftCount: filteredQuotes.filter((q) => q.status === 'Draft').length,
-      rejectedCount: filteredQuotes.filter((q) => q.status === 'Rejected').length,
+      sentCount: sent.length,
+      draftCount: draft.length,
+      rejectedCount: rejected.length,
+      conversionRate,
+      averageQuoteValue,
       topProducts,
       monthlyRevenue,
       weeklyRevenue,
+      customChartPoints,
       employeeRevenue,
     };
   }, [quotes, dateRange]);

@@ -7,7 +7,10 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useEmployees } from '../../hooks/useEmployees';
@@ -21,7 +24,8 @@ type RouteParams = { employee?: Employee };
 
 export const EmployeeFormScreen: React.FC = () => {
   const { colors } = useAppTheme();
-  const styles = createStyles(colors);
+  const insets = useSafeAreaInsets();
+  const styles = createStyles(colors, insets);
   const fieldStyles = createFieldStyles(colors);
   const nav = useNavigation<any>();
   const route = useRoute<RouteProp<{ params: RouteParams }, 'params'>>();
@@ -34,6 +38,7 @@ export const EmployeeFormScreen: React.FC = () => {
   const [phone, setPhone] = useState(existing?.phone || '');
   const [role, setRole] = useState(existing?.role || '');
   const [department, setDepartment] = useState(existing?.department || '');
+  const [defaultPassword, setDefaultPassword] = useState('Emp123456');
   const [loading, setLoading] = useState(false);
 
   const isEdit = !!existing;
@@ -48,6 +53,13 @@ export const EmployeeFormScreen: React.FC = () => {
     if (!name.trim()) { Alert.alert('Error', 'Name is required'); return; }
     if (!email.trim()) { Alert.alert('Error', 'Email is required'); return; }
     if (!role.trim()) { Alert.alert('Error', 'Role is required'); return; }
+
+    if (!isEdit) {
+      if (!defaultPassword.trim() || defaultPassword.trim().length < 8) {
+        Alert.alert('Password Error', 'Default password must be at least 8 characters long.');
+        return;
+      }
+    }
 
     setLoading(true);
     try {
@@ -66,9 +78,11 @@ export const EmployeeFormScreen: React.FC = () => {
         ]);
       } else {
         await create(data);
-        Alert.alert('Added', 'Employee added successfully', [
-          { text: 'OK', onPress: () => nav.goBack() },
-        ]);
+        Alert.alert(
+          'Employee Added!',
+          `Employee created successfully!\n\nEmail: ${email.trim().toLowerCase()}\nDefault Password: ${defaultPassword.trim()}\n\nShare these credentials with your employee so they can log into the app!`,
+          [{ text: 'OK', onPress: () => nav.goBack() }]
+        );
       }
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to save employee');
@@ -78,66 +92,84 @@ export const EmployeeFormScreen: React.FC = () => {
   };
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{isEdit ? 'Edit Employee' : 'Add Employee'}</Text>
-        <View style={{ width: 38 }} />
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {!isBoss && (
-          <View style={styles.employeeBanner}>
-            <Ionicons name="information-circle" size={20} color={colors.accent} />
-            <Text style={styles.employeeBannerText}>
-              Read-only view. Only the owner (Boss) can modify or add employees.
-            </Text>
-          </View>
-        )}
-
-        {/* Avatar placeholder */}
-        <View style={styles.avatarSection}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarLetter}>
-              {name ? name[0].toUpperCase() : '?'}
-            </Text>
-          </View>
-          {name ? <Text style={styles.avatarName}>{name}</Text> : null}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <View style={styles.screen}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
+            <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{isEdit ? 'Edit Employee' : 'Add Employee'}</Text>
+          <View style={{ width: 38 }} />
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Personal Info</Text>
-          <View style={styles.card}>
-            <Field label="Full Name *" value={name} onChangeText={setName} placeholder="John Doe" editable={isBoss} />
-            <Field label="Email *" value={email} onChangeText={setEmail} placeholder="john@company.com" keyboardType="email-address" editable={isBoss} />
-            <Field label="Phone" value={phone} onChangeText={setPhone} placeholder="+91 9876543210" keyboardType="phone-pad" editable={isBoss} />
-          </View>
-        </View>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets={true}
+        >
+          {!isBoss && (
+            <View style={styles.employeeBanner}>
+              <Ionicons name="information-circle" size={20} color={colors.accent} />
+              <Text style={styles.employeeBannerText}>
+                Read-only view. Only the owner (Boss) can modify or add employees.
+              </Text>
+            </View>
+          )}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Work Details</Text>
-          <View style={styles.card}>
-            <Field label="Role / Designation *" value={role} onChangeText={setRole} placeholder="Sales Manager" editable={isBoss} />
-            <Field label="Department" value={department} onChangeText={setDepartment} placeholder="Sales & Marketing" editable={isBoss} />
+          {/* Avatar placeholder */}
+          <View style={styles.avatarSection}>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarLetter}>
+                {name ? name[0].toUpperCase() : '?'}
+              </Text>
+            </View>
+            {name ? <Text style={styles.avatarName}>{name}</Text> : null}
           </View>
-        </View>
 
-        {isBoss && (
           <View style={styles.section}>
-            <Button
-              title={isEdit ? 'Save Changes' : 'Add Employee'}
-              onPress={handleSave}
-              loading={loading}
-              size="lg"
-            />
+            <Text style={styles.sectionTitle}>Personal Info</Text>
+            <View style={styles.card}>
+              <Field label="Full Name *" value={name} onChangeText={setName} placeholder="John Doe" editable={isBoss} />
+              <Field label="Email *" value={email} onChangeText={setEmail} placeholder="john@company.com" keyboardType="email-address" editable={isBoss} />
+              {!isEdit && (
+                <Field
+                  label="Initial Default Password *"
+                  value={defaultPassword}
+                  onChangeText={setDefaultPassword}
+                  placeholder="e.g. Emp123456"
+                  editable={isBoss}
+                />
+              )}
+              <Field label="Phone" value={phone} onChangeText={setPhone} placeholder="+91 9876543210" keyboardType="phone-pad" editable={isBoss} />
+            </View>
           </View>
-        )}
 
-        <View style={{ height: 100 }} />
-      </ScrollView>
-    </View>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Work Details</Text>
+            <View style={styles.card}>
+              <Field label="Role / Designation *" value={role} onChangeText={setRole} placeholder="Sales Manager" editable={isBoss} />
+              <Field label="Department" value={department} onChangeText={setDepartment} placeholder="Sales & Marketing" editable={isBoss} />
+            </View>
+          </View>
+
+          {isBoss && (
+            <View style={styles.section}>
+              <Button
+                title={isEdit ? 'Save Changes' : 'Add Employee'}
+                onPress={handleSave}
+                loading={loading}
+                size="lg"
+              />
+            </View>
+          )}
+
+          <View style={{ height: 100 }} />
+        </ScrollView>
+      </View>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -183,11 +215,11 @@ const createFieldStyles = (colors: any) => StyleSheet.create({
   },
 });
 
-const createStyles = (colors: any) => StyleSheet.create({
+const createStyles = (colors: any, insets?: any) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 56, paddingBottom: 12, paddingHorizontal: 20,
+    paddingTop: Math.max(insets?.top || 0, 24) + 12, paddingBottom: 12, paddingHorizontal: 20,
   },
   backBtn: {
     width: 38, height: 38, borderRadius: 19,

@@ -21,7 +21,6 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { useCompanySettings } from '../../hooks/useCompanySettings';
 import { useProducts } from '../../hooks/useProducts';
-import { useStockMovements } from '../../hooks/useStockMovements';
 import { tablesDB, DATABASE_ID, COLLECTIONS, Query } from '../../config/appwrite';
 import { useAppTheme } from '../../context/ThemeContext';
 
@@ -38,7 +37,6 @@ export const QuoteDetailScreen: React.FC = () => {
   const { quoteId } = route.params;
   const { fetchById, updateQuoteDetails, updateStatus, remove } = useQuotes();
   const { products, fetch: fetchProducts } = useProducts();
-  const { addMovement } = useStockMovements();
 
   const { settings: company, fetch: fetchCompany } = useCompanySettings();
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -46,6 +44,7 @@ export const QuoteDetailScreen: React.FC = () => {
   const [fetching, setFetching] = useState(true);
 
   const [updating, setUpdating] = useState(false);
+  const [updatingStatusTarget, setUpdatingStatusTarget] = useState<QuoteStatus | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
   // Edit fields
@@ -301,7 +300,7 @@ export const QuoteDetailScreen: React.FC = () => {
       <tr>
         <th style="width: 5%">#</th>
         <th style="width: 50%">Product / Service Description</th>
-        <th style="width: 15%; text-align: right;">Unit Price</th>
+        <th style="width: 15%; text-align: right;">MRP</th>
         <th style="width: 10%; text-align: center;">Qty</th>
         <th style="width: 10%; text-align: center;">Disc %</th>
         <th style="width: 15%; text-align: right;">Total</th>
@@ -310,7 +309,11 @@ export const QuoteDetailScreen: React.FC = () => {
     <tbody>
       ${(quote.items || []).map((item, idx) => {
         let descHtml = `<strong>${item.product_name}</strong>`;
-        if (item.calc_mode === 'size') {
+        if (item.formula_text) {
+          descHtml += `<div style="font-size: 11px; color: #666; margin-top: 3px;">
+            Formula: ${item.formula_text}
+          </div>`;
+        } else if (item.calc_mode === 'size') {
           descHtml += `<div style="font-size: 11px; color: #666; margin-top: 3px;">
             Size: ${item.length} &times; ${item.width} | Area: ${item.area} | Pcs: ${item.pcs}
           </div>`;
@@ -328,12 +331,13 @@ export const QuoteDetailScreen: React.FC = () => {
           </div>`;
         }
         
+        const unitLabel = item.selling_unit ? ` ${item.selling_unit}` : '';
         return `
           <tr>
             <td>${idx + 1}</td>
             <td>${descHtml}</td>
             <td style="text-align: right;">₹${item.unit_price.toLocaleString('en-IN')}</td>
-            <td style="text-align: center;">${item.quantity}${item.calc_mode && item.calc_mode !== 'simple' && item.calc_mode !== 'weight' ? ' (eff.)' : ''}</td>
+            <td style="text-align: center;">${item.quantity}${unitLabel}</td>
             <td style="text-align: center;">${item.discount}%</td>
             <td style="text-align: right; font-weight: bold;">₹${item.line_total.toLocaleString('en-IN')}</td>
           </tr>
@@ -344,12 +348,12 @@ export const QuoteDetailScreen: React.FC = () => {
 
   <table class="totals-table">
     <tr>
-      <td class="totals-label">Subtotal</td>
+      <td class="totals-label">Subtotal (MRP)</td>
       <td class="totals-value">₹${quote.subtotal.toLocaleString('en-IN')}</td>
     </tr>
     ${quote.discount > 0 ? `
       <tr>
-        <td class="totals-label">Discount</td>
+        <td class="totals-label">Discount (${quote.subtotal > 0 ? `${((quote.discount / quote.subtotal) * 100).toFixed(1)}%` : '0%'})</td>
         <td class="totals-value" style="color: #2EC4B6;">-₹${quote.discount.toLocaleString('en-IN')}</td>
       </tr>
     ` : ''}
@@ -443,73 +447,15 @@ export const QuoteDetailScreen: React.FC = () => {
   };
 
   const executeAcceptQuote = async (targetQuote: Quote) => {
-    // 1. Update quote status to Accepted
     await updateStatus(quoteId, 'Accepted');
     setQuote((prev) => (prev ? { ...prev, status: 'Accepted' } : null));
-
-    // 2. Decrement stock & log stock movements
-    const items = targetQuote.items || [];
-    for (const item of items) {
-      if (item.product_id) {
-        try {
-          const prod = products.find((p) => p.id === item.product_id);
-          const currentStock = prod?.stock_quantity ?? 0;
-          const actualDecremented = Math.min(currentStock, item.quantity);
-
-          if (actualDecremented > 0) {
-            await addMovement({
-              product_id: item.product_id,
-              product_name: item.product_name,
-              movement_type: 'OUT',
-              quantity: actualDecremented,
-              note: `Quote #${targetQuote.quote_number} Accepted`,
-            });
-          }
-        } catch (err) {
-          console.error(`Failed to register stock movement for product ${item.product_name}:`, err);
-        }
-      }
-    }
     fetchProducts(true);
     Alert.alert('Status Updated', 'Quote marked as Accepted and inventory updated.');
   };
 
   const executeRevertAcceptedQuote = async (targetQuote: Quote, nextStatus: QuoteStatus) => {
-    // 1. Update quote status to nextStatus
     await updateStatus(quoteId, nextStatus);
     setQuote((prev) => (prev ? { ...prev, status: nextStatus } : null));
-
-    // 2. Return stock by querying what was actually taken
-    try {
-      const response = await tablesDB.listRows({
-        databaseId: DATABASE_ID,
-        tableId: COLLECTIONS.STOCK_MOVEMENTS,
-        queries: [
-          Query.equal('note', `Quote #${targetQuote.quote_number} Accepted`)
-        ]
-      });
-
-      const acceptedMovements = response.rows || [];
-      const items = targetQuote.items || [];
-      for (const item of items) {
-        if (item.product_id) {
-          const matchingMov = acceptedMovements.find((m) => m.product_id === item.product_id && m.movement_type === 'OUT');
-          const qtyToReturn = matchingMov ? Number(matchingMov.quantity) : 0;
-
-          if (qtyToReturn > 0) {
-            await addMovement({
-              product_id: item.product_id,
-              product_name: item.product_name,
-              movement_type: 'RETURN',
-              quantity: qtyToReturn,
-              note: `Quote #${targetQuote.quote_number} reverted from Accepted to ${nextStatus}`,
-            });
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Failed to revert stock movements:', err);
-    }
     fetchProducts(true);
     Alert.alert('Status Updated', `Quote marked as ${nextStatus} and inventory returned.`);
   };
@@ -517,6 +463,7 @@ export const QuoteDetailScreen: React.FC = () => {
   const handleStatusChange = async (newStatus: QuoteStatus) => {
     if (!quote) return;
     setUpdating(true);
+    setUpdatingStatusTarget(newStatus);
     try {
       if (quote.status === 'Accepted' && newStatus !== 'Accepted') {
         await executeRevertAcceptedQuote(quote, newStatus);
@@ -550,6 +497,7 @@ export const QuoteDetailScreen: React.FC = () => {
                 text: 'Edit Quote',
                 onPress: () => {
                   setUpdating(false);
+                  setUpdatingStatusTarget(null);
                   nav.navigate('CreateQuote', { quoteId });
                 },
               },
@@ -558,6 +506,7 @@ export const QuoteDetailScreen: React.FC = () => {
                 style: 'cancel',
                 onPress: () => {
                   setUpdating(false);
+                  setUpdatingStatusTarget(null);
                 },
               },
             ]
@@ -575,6 +524,7 @@ export const QuoteDetailScreen: React.FC = () => {
       Alert.alert('Error', e.message);
     } finally {
       setUpdating(false);
+      setUpdatingStatusTarget(null);
     }
   };
 
@@ -812,33 +762,34 @@ export const QuoteDetailScreen: React.FC = () => {
                 <View key={idx} style={styles.tableRow}>
                   <View style={{ flex: 3 }}>
                     <Text style={styles.itemName}>{item.product_name}</Text>
-                    <Text style={styles.itemUnit}>{formatCurrency(item.unit_price)} each</Text>
-                    {item.calc_mode === 'size' && (
+                    <Text style={styles.itemUnit}>MRP: {formatCurrency(item.unit_price)} per {item.selling_unit || 'unit'}</Text>
+                    {item.formula_text ? (
+                      <Text style={styles.itemDimensions}>
+                        {item.formula_text}
+                      </Text>
+                    ) : item.calc_mode === 'size' ? (
                       <Text style={styles.itemDimensions}>
                         Size: {item.length} × {item.width} | Area: {item.area} | Pcs: {item.pcs}
                       </Text>
-                    )}
-                    {item.calc_mode === 'area' && (
+                    ) : item.calc_mode === 'area' ? (
                       <Text style={styles.itemDimensions}>
                         Area: {item.area} | Pcs: {item.pcs}
                       </Text>
-                    )}
-                    {item.calc_mode === 'length' && (
+                    ) : item.calc_mode === 'length' ? (
                       <Text style={styles.itemDimensions}>
                         Length: {item.length} | Pcs: {item.pcs}
                       </Text>
-                    )}
-                    {item.calc_mode === 'weight' && (
+                    ) : item.calc_mode === 'weight' ? (
                       <Text style={styles.itemDimensions}>
                         Weight: {item.pcs}
                       </Text>
-                    )}
+                    ) : null}
                     {item.discount > 0 && (
                       <Text style={styles.itemDiscount}>{item.discount}% off</Text>
                     )}
                   </View>
                   <Text style={[styles.tableCell, styles.tableRight]}>
-                    {item.calc_mode && item.calc_mode !== 'simple' && item.calc_mode !== 'weight' ? `${item.quantity}` : item.quantity}
+                    {item.quantity} {item.selling_unit || ''}
                   </Text>
                   <Text style={[styles.tableCell, styles.tableRight, styles.itemTotal]}>
                     {formatCurrency(item.line_total)}
@@ -854,12 +805,14 @@ export const QuoteDetailScreen: React.FC = () => {
           <Text style={styles.sectionTitle}>Summary</Text>
           <View style={styles.totalsCard}>
             <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Subtotal</Text>
+              <Text style={styles.totalLabel}>Subtotal (MRP)</Text>
               <Text style={styles.totalValue}>{formatCurrency(quote.subtotal)}</Text>
             </View>
             {quote.discount > 0 && (
               <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Discount</Text>
+                <Text style={styles.totalLabel}>
+                  Discount {quote.subtotal > 0 ? `(${((quote.discount / quote.subtotal) * 100).toFixed(1)}%)` : ''}
+                </Text>
                 <Text style={[styles.totalValue, { color: colors.statusAccepted }]}>
                   -{formatCurrency(quote.discount)}
                 </Text>
@@ -891,19 +844,35 @@ export const QuoteDetailScreen: React.FC = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Update Status</Text>
           <View style={styles.statusActions}>
-            {STATUS_SEQUENCE.filter((s) => s !== quote.status).map((s) => (
-              <TouchableOpacity
-                key={s}
-                style={[styles.statusBtn, { borderColor: colors[`status${s}`] }]}
-                onPress={() => handleStatusChange(s)}
-                disabled={updating}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.statusBtnText, { color: colors[`status${s}`] }]}>
-                  Mark as {s}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {STATUS_SEQUENCE.filter((s) => s !== quote.status).map((s) => {
+              const isThisBtnUpdating = updating && updatingStatusTarget === s;
+              return (
+                <TouchableOpacity
+                  key={s}
+                  style={[
+                    styles.statusBtn,
+                    { borderColor: colors[`status${s}`] },
+                    isThisBtnUpdating && { opacity: 0.8 }
+                  ]}
+                  onPress={() => handleStatusChange(s)}
+                  disabled={updating}
+                  activeOpacity={0.8}
+                >
+                  {isThisBtnUpdating ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <ActivityIndicator size="small" color={colors[`status${s}`]} />
+                      <Text style={[styles.statusBtnText, { color: colors[`status${s}`] }]}>
+                        Updating...
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={[styles.statusBtnText, { color: colors[`status${s}`] }]}>
+                      Mark as {s}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
@@ -1049,6 +1018,27 @@ export const QuoteDetailScreen: React.FC = () => {
               />
             </View>
           </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Global Action Processing Overlay Modal */}
+      <Modal visible={updating || pdfLoading} transparent animationType="fade">
+        <View style={styles.loadingOverlayModal}>
+          <View style={styles.loadingOverlayBox}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingOverlayTitle}>
+              {pdfLoading
+                ? 'Generating PDF Document...'
+                : updatingStatusTarget
+                ? `Marking Quote as ${updatingStatusTarget}...`
+                : 'Processing Update...'}
+            </Text>
+            <Text style={styles.loadingOverlaySub}>
+              {pdfLoading
+                ? 'Formatting quote items & generating PDF'
+                : 'Syncing inventory records & database'}
+            </Text>
+          </View>
         </View>
       </Modal>
     </View>
@@ -1333,5 +1323,33 @@ const createStyles = (colors: any) => StyleSheet.create({
     fontWeight: '600',
     color: colors.textSecondary,
     letterSpacing: 2,
+  },
+  loadingOverlayModal: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  loadingOverlayBox: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: colors.surface,
+    borderRadius: Radius.lg,
+    padding: 24,
+    alignItems: 'center',
+    gap: 12,
+    ...Shadow.lg,
+  },
+  loadingOverlayTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  loadingOverlaySub: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
 });

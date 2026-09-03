@@ -55,6 +55,7 @@ export const useEmployees = () => {
 
   const create = useCallback(async (employee: Omit<Employee, 'id' | 'tenant_id' | 'user_id' | 'joined_date' | 'status'>) => {
     if (!user) return null;
+    const normalizedEmail = employee.email.toLowerCase().trim();
     try {
       const doc = await tablesDB.createRow({
         databaseId: DATABASE_ID,
@@ -62,10 +63,46 @@ export const useEmployees = () => {
         rowId: ID.unique(),
         data: {
           ...employee,
+          email: normalizedEmail,
           status: 'Active',
           tenant_id: user.tenant_id,
         }
       });
+
+      // Pre-create/update the USERS record so login/signup automatically assigns them to this tenant & role
+      try {
+        const existingUserDocs = await tablesDB.listRows({
+          databaseId: DATABASE_ID,
+          tableId: COLLECTIONS.USERS,
+          queries: [Query.equal('email', normalizedEmail)]
+        });
+
+        if (existingUserDocs.rows.length === 0) {
+          await tablesDB.createRow({
+            databaseId: DATABASE_ID,
+            tableId: COLLECTIONS.USERS,
+            rowId: ID.unique(),
+            data: {
+              tenant_id: user.tenant_id,
+              email: normalizedEmail,
+              displayName: employee.name,
+              role: 'employee',
+            }
+          });
+        } else {
+          await tablesDB.updateRow({
+            databaseId: DATABASE_ID,
+            tableId: COLLECTIONS.USERS,
+            rowId: existingUserDocs.rows[0].$id,
+            data: {
+              tenant_id: user.tenant_id,
+              role: 'employee',
+            }
+          });
+        }
+      } catch (userErr) {
+        console.warn('Failed to pre-create/update USERS record for employee:', userErr);
+      }
 
       const newEmp: Employee = {
         id: doc.$id,

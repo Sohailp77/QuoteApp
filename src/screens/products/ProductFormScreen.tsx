@@ -8,9 +8,12 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
-  Modal,
   Image,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { selectAndUploadImage } from '../../utils/upload';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
@@ -19,13 +22,30 @@ import { useCategories } from '../../hooks/useCategories';
 import { Button } from '../../components/ui/Button';
 import { BarcodeScannerModal } from '../../components/BarcodeScannerModal';
 import { Radius, Shadow } from '../../theme';
-import { Product } from '../../types';
+import { Product, CalcMethod, RoundingMode } from '../../types';
 import { animateLayout } from '../../utils/animation';
 import { useAppTheme } from '../../context/ThemeContext';
+import { getProductCalcConfig, calculateQuantity } from '../../utils/quantityCalculator';
 
 type RouteParams = { product?: Product };
 
-const UNITS = ['piece', 'kg', 'litre', 'meter', 'box', 'hour', 'day', 'month'];
+const UNITS = ['piece', 'box', 'roll', 'bag', 'kg', 'litre', 'meter', 'container', 'packet'];
+
+const CALC_METHODS: { key: CalcMethod; label: string; defaultInputUnit: string; icon: string }[] = [
+  { key: 'direct', label: 'Direct Quantity', defaultInputUnit: '', icon: 'hand-right-outline' },
+  { key: 'area', label: 'Area (SQFT/SQM)', defaultInputUnit: 'SQFT', icon: 'grid-outline' },
+  { key: 'length', label: 'Length (Meter/Ft)', defaultInputUnit: 'METER', icon: 'resize-outline' },
+  { key: 'weight', label: 'Weight (KG/Ton)', defaultInputUnit: 'KG', icon: 'scale-outline' },
+  { key: 'volume', label: 'Volume (Liter)', defaultInputUnit: 'LITER', icon: 'beaker-outline' },
+  { key: 'custom', label: 'Custom Conversion', defaultInputUnit: 'Unit', icon: 'calculator-outline' },
+];
+
+const ROUNDING_MODES: { key: RoundingMode; label: string; desc: string }[] = [
+  { key: 'round_up', label: 'Round Up', desc: 'Always round up (e.g. 6.2 → 7)' },
+  { key: 'allow_decimals', label: 'Allow Decimals', desc: 'Keep exact decimals (e.g. 2.5)' },
+  { key: 'round_nearest', label: 'Nearest Whole', desc: 'Standard rounding (e.g. 6.6 → 7)' },
+  { key: 'round_down', label: 'Round Down', desc: 'Round down (e.g. 6.9 → 6)' },
+];
 
 const BarcodeGraphic: React.FC<{ value: string }> = ({ value }) => {
   const { colors } = useAppTheme();
@@ -57,14 +77,23 @@ const BarcodeGraphic: React.FC<{ value: string }> = ({ value }) => {
 
 export const ProductFormScreen: React.FC = () => {
   const { colors } = useAppTheme();
-  const styles = createStyles(colors);
+  const insets = useSafeAreaInsets();
+  const styles = createStyles(colors, insets);
   const fieldStyles = createFieldStyles(colors);
   const nav = useNavigation<any>();
-  const route = useRoute<RouteProp<{ params: RouteParams }, 'params'>>();
-  const existing = route.params?.product;
+  const route = useRoute<any>();
+  const existing: Product | undefined = route.params?.product;
 
   const { create: createProduct, update: updateProduct, findByBarcode } = useProducts();
   const { categories, fetch: fetchCategories, create: createCategory } = useCategories();
+
+  const initialCalcConfig = existing ? getProductCalcConfig(existing) : {
+    calc_method: 'direct' as CalcMethod,
+    input_unit: '',
+    unit_coverage: 1,
+    rounding_mode: 'round_up' as RoundingMode,
+    selling_unit: 'piece',
+  };
 
   const [name, setName] = useState(existing?.name || '');
   const [description, setDescription] = useState(existing?.description || '');
@@ -73,7 +102,10 @@ export const ProductFormScreen: React.FC = () => {
   const [stockQuantity, setStockQuantity] = useState(existing?.stock_quantity?.toString() || '');
   const [unit, setUnit] = useState(existing?.unit || 'piece');
   const [category, setCategory] = useState(existing?.category || '');
-  const [calcType, setCalcType] = useState<'pcs' | 'size' | 'area' | 'length' | 'weight'>(existing?.calc_type || 'pcs');
+  const [calcMethod, setCalcMethod] = useState<CalcMethod>(initialCalcConfig.calc_method);
+  const [inputUnit, setInputUnit] = useState(initialCalcConfig.input_unit);
+  const [unitCoverage, setUnitCoverage] = useState(initialCalcConfig.unit_coverage ? initialCalcConfig.unit_coverage.toString() : '1');
+  const [roundingMode, setRoundingMode] = useState<RoundingMode>(initialCalcConfig.rounding_mode);
   const [sku, setSku] = useState(existing?.sku || '');
   const [barcode, setBarcode] = useState(existing?.barcode || '');
   const [warehouseLocation, setWarehouseLocation] = useState(existing?.warehouse_location || '');
@@ -92,15 +124,6 @@ export const ProductFormScreen: React.FC = () => {
       setCategory('');
     } else {
       setCategory(catName);
-      const cat = categories.find((c) => c.name === catName);
-      if (cat?.calc_type) {
-        setCalcType(cat.calc_type);
-        if (unit === 'piece') {
-          if (cat.calc_type === 'size' || cat.calc_type === 'area') setUnit('Sq Ft');
-          else if (cat.calc_type === 'length') setUnit('meter');
-          else if (cat.calc_type === 'weight') setUnit('kg');
-        }
-      }
     }
   };
   const [categoryAdding, setCategoryAdding] = useState(false);
@@ -133,7 +156,7 @@ export const ProductFormScreen: React.FC = () => {
     
     const price = parseFloat(unitPrice);
     if (!unitPrice || isNaN(price) || price <= 0) {
-      Alert.alert('Error', 'Enter a valid unit price');
+      Alert.alert('Error', 'Enter a valid MRP');
       return;
     }
 
@@ -149,20 +172,33 @@ export const ProductFormScreen: React.FC = () => {
       return;
     }
 
+    const coverageVal = parseFloat(unitCoverage);
+    if (calcMethod !== 'direct' && (isNaN(coverageVal) || coverageVal <= 0)) {
+      Alert.alert('Error', 'Enter a valid unit coverage factor');
+      return;
+    }
+
     setLoading(true);
     try {
+      const selectedMethodDef = CALC_METHODS.find((m) => m.key === calcMethod);
+      const defaultUnit = selectedMethodDef?.defaultInputUnit || 'SQFT';
+      const finalInputUnit = calcMethod === 'direct' ? '' : (inputUnit.trim() || defaultUnit);
+
       const data = {
         name: name.trim(),
         description: description.trim(),
         unit_price: price,
         cost_price: cPrice,
         stock_quantity: stock,
-        unit,
+        unit: unit.trim() || 'piece',
         category,
         sku: sku.trim(),
         barcode: barcode.trim(),
         warehouse_location: warehouseLocation.trim(),
-        calc_type: calcType,
+        calc_method: calcMethod,
+        input_unit: finalInputUnit,
+        unit_coverage: calcMethod === 'direct' ? 1 : (coverageVal || 1),
+        rounding_mode: roundingMode,
         image_url: productImage,
       };
 
@@ -213,16 +249,24 @@ export const ProductFormScreen: React.FC = () => {
   };
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{isEdit ? 'Edit Product' : 'Add Product'}</Text>
-        <View style={{ width: 38 }} />
-      </View>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <View style={styles.screen}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
+            <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{isEdit ? 'Edit Product' : 'Add Product'}</Text>
+          <View style={{ width: 38 }} />
+        </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets={true}
+        >
         {/* Icon preview */}
         <View style={styles.iconSection}>
           <View style={styles.imageSectionContainer}>
@@ -259,7 +303,7 @@ export const ProductFormScreen: React.FC = () => {
           {name ? <Text style={styles.productNamePreview}>{name}</Text> : null}
           {unitPrice ? (
             <Text style={styles.pricePreview}>
-              ₹{parseFloat(unitPrice || '0').toLocaleString('en-IN')} / {unit}
+              MRP: ₹{parseFloat(unitPrice || '0').toLocaleString('en-IN')} / {unit}
             </Text>
           ) : null}
         </View>
@@ -369,7 +413,7 @@ export const ProductFormScreen: React.FC = () => {
             <View style={styles.row}>
               <View style={{ flex: 1 }}>
                 <Field
-                  label="Unit Price (₹) *"
+                  label="MRP (₹) *"
                   value={unitPrice}
                   onChangeText={setUnitPrice}
                   placeholder="0"
@@ -396,7 +440,7 @@ export const ProductFormScreen: React.FC = () => {
               keyboardType="number-pad"
             />
 
-            <Text style={fieldStyles.label}>Unit</Text>
+            <Text style={fieldStyles.label}>Selling / Stock Unit</Text>
             <View style={styles.unitGrid}>
               {UNITS.map((u) => (
                 <TouchableOpacity
@@ -410,28 +454,137 @@ export const ProductFormScreen: React.FC = () => {
               ))}
             </View>
 
-            <Text style={[fieldStyles.label, { marginTop: 14 }]}>Calculation Method</Text>
+            <Text style={[fieldStyles.label, { marginTop: 16 }]}>Quantity Calculation Method</Text>
             <View style={styles.calcGrid}>
-              {[
-                { type: 'pcs', label: 'PCS' },
-                { type: 'size', label: 'Size (L × W)' },
-                { type: 'area', label: 'Area' },
-                { type: 'length', label: 'Length' },
-                { type: 'weight', label: 'Weight (KG)' },
-              ].map((c) => (
-                <TouchableOpacity
-                  key={c.type}
-                  style={[styles.calcChip, calcType === c.type && styles.calcChipActive]}
-                  onPress={() => {
-                    animateLayout();
-                    setCalcType(c.type as any);
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.calcText, calcType === c.type && styles.calcTextActive]}>{c.label}</Text>
-                </TouchableOpacity>
-              ))}
+              {CALC_METHODS.map((c) => {
+                const isActive = calcMethod === c.key;
+                return (
+                  <TouchableOpacity
+                    key={c.key}
+                    style={[styles.calcChip, isActive && styles.calcChipActive]}
+                    onPress={() => {
+                      animateLayout();
+                      setCalcMethod(c.key);
+                      if (!inputUnit && c.defaultInputUnit) {
+                        setInputUnit(c.defaultInputUnit);
+                      }
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name={c.icon as any}
+                      size={14}
+                      color={isActive ? colors.primary : colors.textSecondary}
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text style={[styles.calcText, isActive && styles.calcTextActive]}>{c.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
+
+            {calcMethod !== 'direct' && (
+              <View style={styles.calcConfigWrap}>
+                <View style={styles.row}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={fieldStyles.label}>Customer Input Unit</Text>
+                    <TextInput
+                      style={fieldStyles.input}
+                      value={inputUnit}
+                      onChangeText={setInputUnit}
+                      placeholder={
+                        calcMethod === 'area'
+                          ? 'e.g. SQFT or SQM'
+                          : calcMethod === 'length'
+                          ? 'e.g. METER or FEET'
+                          : calcMethod === 'weight'
+                          ? 'e.g. KG or TON'
+                          : calcMethod === 'volume'
+                          ? 'e.g. LITER'
+                          : 'e.g. Unit'
+                      }
+                      placeholderTextColor={colors.textMuted}
+                      autoCapitalize="characters"
+                    />
+                  </View>
+                  <View style={{ width: 16 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={fieldStyles.label}>Coverage / 1 {unit || 'Unit'}</Text>
+                    <TextInput
+                      style={fieldStyles.input}
+                      value={unitCoverage}
+                      onChangeText={setUnitCoverage}
+                      placeholder="15"
+                      keyboardType="decimal-pad"
+                    />
+                  </View>
+                </View>
+                <Text style={styles.helperSubtext}>
+                  1 {unit || 'Selling Unit'} covers {unitCoverage || '1'} {inputUnit || 'Input Unit'}s.
+                </Text>
+
+                <Text style={[fieldStyles.label, { marginTop: 14 }]}>Rounding Strategy for Quote</Text>
+                <View style={styles.roundingGrid}>
+                  {ROUNDING_MODES.map((r) => {
+                    const isSelected = roundingMode === r.key;
+                    return (
+                      <TouchableOpacity
+                        key={r.key}
+                        style={[styles.roundingChip, isSelected && styles.roundingChipActive]}
+                        onPress={() => {
+                          animateLayout();
+                          setRoundingMode(r.key);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons
+                          name={isSelected ? 'radio-button-on' : 'radio-button-off'}
+                          size={14}
+                          color={isSelected ? colors.primary : colors.textMuted}
+                          style={{ marginRight: 6 }}
+                        />
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.roundingTitle, isSelected && styles.roundingTitleActive]}>
+                            {r.label}
+                          </Text>
+                          <Text style={styles.roundingDesc}>{r.desc}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Calculation Live Preview Card */}
+                {(() => {
+                  const sampleInputVal = 100;
+                  const sampleRes = calculateQuantity({
+                    calc_method: calcMethod,
+                    input_qty: sampleInputVal,
+                    unit_coverage: parseFloat(unitCoverage) || 1,
+                    rounding_mode: roundingMode,
+                    input_unit: inputUnit || 'SQFT',
+                    selling_unit: unit || 'BOX',
+                  });
+                  return (
+                    <View style={styles.previewBox}>
+                      <View style={styles.previewHeader}>
+                        <Ionicons name="sparkles-outline" size={16} color={colors.primary} />
+                        <Text style={styles.previewTitle}>Live Calculation Preview</Text>
+                      </View>
+                      <Text style={styles.previewText}>
+                        Customer inputs requirement: <Text style={{ fontWeight: '700' }}>{sampleInputVal} {inputUnit || 'SQFT'}</Text>
+                      </Text>
+                      <Text style={styles.previewMath}>
+                        Math: {sampleRes.formula_text}
+                      </Text>
+                      <Text style={styles.previewResult}>
+                        Quoted Quantity: <Text style={{ color: colors.primary, fontWeight: '800' }}>{sampleRes.final_qty} {unit || 'BOX'}</Text>
+                      </Text>
+                    </View>
+                  );
+                })()}
+              </View>
+            )}
           </View>
         </View>
 
@@ -499,7 +652,23 @@ export const ProductFormScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Global Processing Modal Overlay */}
+      <Modal visible={loading} transparent animationType="fade">
+        <View style={styles.loadingOverlayModal}>
+          <View style={styles.loadingOverlayBox}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingOverlayTitle}>
+              {isEdit ? 'Saving Product Changes...' : 'Adding Product...'}
+            </Text>
+            <Text style={styles.loadingOverlaySub}>
+              Syncing product details, barcode & inventory settings
+            </Text>
+          </View>
+        </View>
+      </Modal>
     </View>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -540,11 +709,11 @@ const createFieldStyles = (colors: any) => StyleSheet.create({
   },
 });
 
-const createStyles = (colors: any) => StyleSheet.create({
+const createStyles = (colors: any, insets?: any) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 56, paddingBottom: 12, paddingHorizontal: 20,
+    paddingTop: Math.max(insets?.top || 0, 24) + 12, paddingBottom: 12, paddingHorizontal: 20,
   },
   backBtn: {
     width: 38, height: 38, borderRadius: 19,
@@ -758,12 +927,123 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   calcGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   calcChip: {
-    paddingHorizontal: 14, paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: Radius.full,
     backgroundColor: colors.surfaceAlt,
-    borderWidth: 1, borderColor: colors.border,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  calcChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  calcText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
-  calcTextActive: { color: '#fff' },
+  calcChipActive: { backgroundColor: colors.primary + '15', borderColor: colors.primary },
+  calcText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
+  calcTextActive: { color: colors.primary, fontWeight: '700' },
+
+  calcConfigWrap: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  helperSubtext: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  roundingGrid: {
+    gap: 8,
+    marginTop: 6,
+  },
+  roundingChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    borderRadius: Radius.md,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  roundingChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary + '0D',
+  },
+  roundingTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  roundingTitleActive: {
+    color: colors.primary,
+  },
+  roundingDesc: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+
+  // Preview Box
+  previewBox: {
+    marginTop: 16,
+    padding: 14,
+    borderRadius: Radius.md,
+    backgroundColor: colors.primary + '0F',
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  previewTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  previewText: {
+    fontSize: 12,
+    color: colors.textPrimary,
+    marginBottom: 2,
+  },
+  previewMath: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  previewResult: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  loadingOverlayModal: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  loadingOverlayBox: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: colors.surface,
+    borderRadius: Radius.lg,
+    padding: 24,
+    alignItems: 'center',
+    gap: 12,
+    ...Shadow.lg,
+  },
+  loadingOverlayTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  loadingOverlaySub: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
 });

@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useCompanySettings } from '../../hooks/useCompanySettings';
@@ -22,7 +23,8 @@ import { useAppTheme } from '../../context/ThemeContext';
 
 export const CompanySettingsScreen: React.FC = () => {
   const { colors } = useAppTheme();
-  const styles = createStyles(colors);
+  const insets = useSafeAreaInsets();
+  const styles = createStyles(colors, insets);
   const fieldStyles = createFieldStyles(colors);
   const nav = useNavigation();
   const user = useAuthStore((s) => s.user);
@@ -108,7 +110,12 @@ export const CompanySettingsScreen: React.FC = () => {
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
         ) : (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets={true}
+            contentContainerStyle={styles.scrollContent}
+          >
             {!isBoss && (
               <View style={styles.employeeBanner}>
                 <Ionicons name="information-circle" size={20} color={colors.primary} />
@@ -266,13 +273,13 @@ const createFieldStyles = (colors: any) => StyleSheet.create({
   },
 });
 
-const createStyles = (colors: any) => StyleSheet.create({
+const createStyles = (colors: any, insets?: any) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 56,
+    paddingTop: Math.max(insets?.top || 0, 24) + 12,
     paddingBottom: 12,
     paddingHorizontal: 20,
   },

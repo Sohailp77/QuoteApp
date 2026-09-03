@@ -14,8 +14,10 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useQuotes } from '../../hooks/useQuotes';
 import { useEmployees } from '../../hooks/useEmployees';
 import { useProducts } from '../../hooks/useProducts';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNotifications } from '../../hooks/useNotifications';
-import { useNotificationStore } from '../../store/useNotificationStore';
+import { useNotificationStore, loadNotificationState } from '../../store/useNotificationStore';
+import { usePushNotificationManager } from '../../hooks/usePushNotificationManager';
 import { useAnalytics } from '../../hooks/useAnalytics';
 import { QuoteCard } from '../../components/QuoteCard';
 import { Radius, Shadow } from '../../theme';
@@ -30,11 +32,10 @@ const PRIORITY_COLOR: Record<string, string> = {
   info: '#3B82F6',
 };
 
-
-
 export const HomeScreen: React.FC = () => {
   const { colors } = useAppTheme();
-  const styles = createStyles(colors);
+  const insets = useSafeAreaInsets();
+  const styles = createStyles(colors, insets);
   const user = useAuthStore((s) => s.user);
   const nav = useNavigation<any>();
   const { quotes, loading: qLoading, fetch: fetchQuotes } = useQuotes();
@@ -45,14 +46,20 @@ export const HomeScreen: React.FC = () => {
   const analytics = useAnalytics(quotes);
   const [showAllNotifs, setShowAllNotifs] = useState(false);
 
+  // Active unread notifications
+  const unreadNotifs = notifications.filter((n) => !readIds.includes(n.id));
+  const displayedNotifs = showAllNotifs ? unreadNotifs : unreadNotifs.slice(0, 3);
+
+  // Integrate Push Notifications for active alerts (auto-cancels when resolved)
+  usePushNotificationManager(unreadNotifs);
+
   useEffect(() => {
+    loadNotificationState();
     fetchQuotes();
     fetchEmployees();
     fetchProducts();
   }, []);
 
-  const unreadNotifs = notifications.filter((n) => !readIds.includes(n.id));
-  const displayedNotifs = showAllNotifs ? notifications : notifications.slice(0, 3);
   const pendingCount = quotes.filter((q) => q.status === 'Sent').length;
   const recentQuotes = quotes.slice(0, 5);
   const firstName = user?.displayName?.split(' ')[0] || 'there';
@@ -162,29 +169,27 @@ export const HomeScreen: React.FC = () => {
       </View>
 
       {/* ── Notifications ───────────────────────────────── */}
-      {notifications.length > 0 && (
+      {/* ── Notifications / Alerts ───────────────────────────── */}
+      {unreadNotifs.length > 0 && (
         <View style={{ marginTop: 24 }}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleRow}>
               <Text style={styles.sectionTitle}>Alerts</Text>
-              {unreadNotifs.length > 0 && (
-                <View style={styles.unreadBadge}>
-                  <Text style={styles.unreadBadgeText}>{unreadNotifs.length}</Text>
-                </View>
-              )}
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadBadgeText}>{unreadNotifs.length}</Text>
+              </View>
             </View>
-            <TouchableOpacity onPress={() => markAllRead(notifications.map((n) => n.id))}>
+            <TouchableOpacity onPress={() => markAllRead(unreadNotifs.map((n) => n.id))}>
               <Text style={styles.markAllText}>Mark all read</Text>
             </TouchableOpacity>
           </View>
 
           {displayedNotifs.map((notif) => {
-            const isRead = readIds.includes(notif.id);
             const c = PRIORITY_COLOR[notif.priority] || colors.textSecondary;
             return (
               <TouchableOpacity
                 key={notif.id}
-                style={[styles.notifCard, isRead && styles.notifCardRead]}
+                style={styles.notifCard}
                 onPress={() => {
                   markRead(notif.id);
                   if (notif.actionScreen === 'QuoteDetail' && notif.actionParams) {
@@ -199,20 +204,20 @@ export const HomeScreen: React.FC = () => {
                   <Ionicons name={notif.icon as any} size={16} color={c} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.notifTitle, { color: isRead ? colors.textSecondary : colors.textPrimary }]}>
+                  <Text style={[styles.notifTitle, { color: colors.textPrimary }]}>
                     {notif.title}
                   </Text>
                   <Text style={styles.notifBody} numberOfLines={1}>{notif.body}</Text>
                 </View>
-                {!isRead && <View style={[styles.unreadDot, { backgroundColor: c }]} />}
+                <View style={[styles.unreadDot, { backgroundColor: c }]} />
               </TouchableOpacity>
             );
           })}
 
-          {notifications.length > 3 && (
+          {unreadNotifs.length > 3 && (
             <TouchableOpacity style={styles.showMoreBtn} onPress={() => setShowAllNotifs((v) => !v)}>
               <Text style={styles.showMoreText}>
-                {showAllNotifs ? 'Show less' : `Show ${notifications.length - 3} more`}
+                {showAllNotifs ? 'Show less' : `Show ${unreadNotifs.length - 3} more`}
               </Text>
               <Ionicons name={showAllNotifs ? 'chevron-up' : 'chevron-down'} size={13} color={colors.primary} />
             </TouchableOpacity>
@@ -257,7 +262,7 @@ export const HomeScreen: React.FC = () => {
   );
 };
 
-const createStyles = (colors: any) => StyleSheet.create({
+const createStyles = (colors: any, insets?: any) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { paddingHorizontal: 20, paddingBottom: 20 },
 
@@ -266,7 +271,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 60,
+    paddingTop: Math.max(insets?.top || 0, 24) + 16,
     paddingBottom: 20,
   },
   headerLeft: { flex: 1 },
