@@ -1,24 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform, Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { account, ID, tablesDB, DATABASE_ID, COLLECTIONS, Query } from '../../config/appwrite';
+import * as WebBrowser from 'expo-web-browser';
+import { account, ID, tablesDB, DATABASE_ID, COLLECTIONS, Query, APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID } from '../../config/appwrite';
 import { useAuthStore } from '../../store/useAuthStore';
-import { Radius, Shadow, Spacing } from '../../theme';
+import { Radius, Shadow } from '../../theme';
 import { useAppTheme } from '../../context/ThemeContext';
 
+WebBrowser.maybeCompleteAuthSession();
+
 export const LoginScreen: React.FC = () => {
-  const { colors } = useAppTheme();
-  const styles = createStyles(colors);
+  const { colors, isDark } = useAppTheme();
+  const styles = createStyles(colors, isDark);
   const setUser = useAuthStore((s) => s.setUser);
 
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Field focus refs
+  const emailInputRef = useRef<TextInput>(null);
+  const passwordInputRef = useRef<TextInput>(null);
 
   // Password reset states
   const [showResetModal, setShowResetModal] = useState(false);
@@ -100,105 +108,46 @@ export const LoginScreen: React.FC = () => {
     }
   };
 
-  const handleEmailAuth = async () => {
-    if (!email.trim() || !password.trim()) {
-      Alert.alert('Required Fields', 'Please fill in all fields.');
-      return;
+  /**
+   * Universal resolution logic for Boss & Employee user roles and multi-tenant setup
+   */
+  const resolveUserRoleAndLogin = async (appwriteUser: any, fallbackName?: string) => {
+    const userEmail = appwriteUser.email.toLowerCase();
+
+    // 1. Check existing USERS database record
+    const userDocs = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: COLLECTIONS.USERS,
+      queries: [Query.equal('email', userEmail)]
+    });
+
+    let resolvedTenantId = `tenant_${appwriteUser.$id}`;
+    let resolvedRole: 'boss' | 'employee' = 'boss';
+    let resolvedStatus = 'active';
+
+    if (userDocs.rows.length > 0) {
+      const uDoc = userDocs.rows[0];
+      resolvedTenantId = uDoc.tenant_id;
+      resolvedRole = uDoc.role || 'boss';
+      resolvedStatus = uDoc.status || 'active';
     }
 
-    if (isRegister && !displayName.trim()) {
-      Alert.alert('Required Fields', 'Please enter your name.');
-      return;
-    }
+    // 2. Employee table lookup by email
+    // If the boss created an employee record for this email, link them automatically!
+    const empDocs = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: COLLECTIONS.EMPLOYEES,
+      queries: [Query.equal('email', userEmail)]
+    });
 
-    setLoading(true);
-    const normalizedEmail = email.trim().toLowerCase();
+    if (empDocs.rows.length > 0) {
+      const emp = empDocs.rows[0];
+      resolvedRole = 'employee';
+      resolvedTenantId = emp.tenant_id;
+      resolvedStatus = 'active';
 
-    try {
-      if (isRegister) {
-        // Appwrite Registration
-        try {
-          await account.create(ID.unique(), normalizedEmail, password, displayName.trim());
-        } catch (createErr: any) {
-          console.log('User account create note:', createErr?.message);
-        }
-        await account.createEmailPasswordSession(normalizedEmail, password);
-      } else {
-        // Appwrite Login
-        try {
-          await account.createEmailPasswordSession(normalizedEmail, password);
-        } catch (loginErr: any) {
-          // If login fails because user account hasn't been created in Appwrite Auth yet,
-          // check if they exist in USERS or EMPLOYEES table (created by a boss)
-          const empCheck = await tablesDB.listRows({
-            databaseId: DATABASE_ID,
-            tableId: COLLECTIONS.EMPLOYEES,
-            queries: [Query.equal('email', normalizedEmail)]
-          });
-
-          const userCheck = await tablesDB.listRows({
-            databaseId: DATABASE_ID,
-            tableId: COLLECTIONS.USERS,
-            queries: [Query.equal('email', normalizedEmail)]
-          });
-
-          if (empCheck.rows.length > 0 || userCheck.rows.length > 0) {
-            const empName = userCheck.rows[0]?.displayName || empCheck.rows[0]?.name || displayName.trim() || 'Employee';
-            try {
-              await account.create(ID.unique(), normalizedEmail, password, empName);
-              await account.createEmailPasswordSession(normalizedEmail, password);
-            } catch (autoCreateErr: any) {
-              throw loginErr;
-            }
-          } else {
-            throw loginErr;
-          }
-        }
-      }
-
-      const appwriteUser = await account.get();
-      let resolvedRole: 'boss' | 'employee' = 'boss';
-      let resolvedTenantId = `tenant_${appwriteUser.$id}`;
-
-      // Check USERS collection by normalized email
-      const userDocs = await tablesDB.listRows({
-        databaseId: DATABASE_ID,
-        tableId: COLLECTIONS.USERS,
-        queries: [Query.equal('email', appwriteUser.email.toLowerCase())]
-      });
-
-      // Check EMPLOYEES collection by normalized email
-      const empDocs = await tablesDB.listRows({
-        databaseId: DATABASE_ID,
-        tableId: COLLECTIONS.EMPLOYEES,
-        queries: [Query.equal('email', appwriteUser.email.toLowerCase())]
-      });
-
-      let resolvedStatus = 'active';
-
-      if (userDocs.rows.length > 0) {
-        const uDoc = userDocs.rows[0];
-        resolvedRole = (uDoc.role as 'boss' | 'employee') || 'boss';
-        resolvedTenantId = uDoc.tenant_id;
-        resolvedStatus = uDoc.status || 'active';
-      } else if (empDocs.rows.length > 0) {
-        const emp = empDocs.rows[0];
-        resolvedRole = 'employee';
-        resolvedTenantId = emp.tenant_id;
-        resolvedStatus = 'active';
-      } else {
-        // New Boss account registration: set inactive by default for manual admin approval
-        resolvedRole = 'boss';
-        resolvedTenantId = `tenant_${appwriteUser.$id}`;
-        resolvedStatus = 'inactive';
-      }
-
-      // Link employee record user_id if needed
-      if (empDocs.rows.length > 0) {
-        const emp = empDocs.rows[0];
-        resolvedRole = 'employee';
-        resolvedTenantId = emp.tenant_id;
-
+      // Link Appwrite User ID to Employee row if not linked
+      if (!emp.user_id) {
         try {
           await tablesDB.updateRow({
             databaseId: DATABASE_ID,
@@ -207,50 +156,117 @@ export const LoginScreen: React.FC = () => {
             data: { user_id: appwriteUser.$id }
           });
         } catch (e) {
-          console.warn('Failed to link employee uid');
+          console.log('Employee link note:', e);
         }
       }
+    }
 
-      // Create user profile document if not existing
-      if (userDocs.rows.length === 0) {
-        await tablesDB.createRow({
-          databaseId: DATABASE_ID,
-          tableId: COLLECTIONS.USERS,
-          rowId: ID.unique(),
-          data: {
-            tenant_id: resolvedTenantId,
-            email: appwriteUser.email.toLowerCase(),
-            displayName: appwriteUser.name || displayName.trim() || 'User',
-            role: resolvedRole,
-            status: resolvedStatus,
-          }
-        });
-      }
-
-      // Block inactive Boss accounts (leave employee flow unchanged)
-      if (resolvedRole === 'boss' && resolvedStatus === 'inactive') {
-        try {
-          await account.deleteSession('current');
-        } catch (sErr) {}
-
-        Alert.alert(
-          'Account Approval Pending',
-          'Your account has been registered successfully, but is currently marked as inactive.\n\nPlease contact the administrator to manually authorize and activate your account access.',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-
-      setUser({
-        id: appwriteUser.$id,
-        email: appwriteUser.email,
-        displayName: appwriteUser.name || displayName.trim() || 'User',
-        role: resolvedRole,
-        tenant_id: resolvedTenantId,
-        status: resolvedStatus,
+    // 3. Create user profile document in USERS collection if missing
+    if (userDocs.rows.length === 0) {
+      await tablesDB.createRow({
+        databaseId: DATABASE_ID,
+        tableId: COLLECTIONS.USERS,
+        rowId: ID.unique(),
+        data: {
+          tenant_id: resolvedTenantId,
+          email: userEmail,
+          displayName: appwriteUser.name || fallbackName || 'User',
+          role: resolvedRole,
+          status: resolvedStatus,
+        }
       });
+    }
+
+    // 4. Block inactive accounts
+    if (resolvedStatus === 'inactive') {
+      try {
+        await account.deleteSession('current');
+      } catch (sErr) {}
+
+      Alert.alert(
+        'Account Pending Approval',
+        'Your account has been registered, but is awaiting administrator authorization.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    // 5. Save to global state store
+    setUser({
+      id: appwriteUser.$id,
+      email: appwriteUser.email,
+      displayName: appwriteUser.name || fallbackName || 'User',
+      role: resolvedRole,
+      tenant_id: resolvedTenantId,
+      status: resolvedStatus,
+    });
+  };
+
+  const handleEmailAuth = async () => {
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedPassword = password.trim();
+    const trimmedName = displayName.trim();
+
+    if (!trimmedEmail || !trimmedPassword) {
+      Alert.alert('Required Fields', 'Please enter your email address and password.');
+      return;
+    }
+
+    if (isRegister && !trimmedName) {
+      Alert.alert('Missing Name', 'Please enter your full name to complete registration.');
+      return;
+    }
+
+    if (trimmedPassword.length < 6) {
+      Alert.alert('Short Password', 'Password should be at least 6 characters long.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      let appwriteUser: any = null;
+
+      if (isRegister) {
+        appwriteUser = await account.create(
+          ID.unique(),
+          trimmedEmail,
+          trimmedPassword,
+          trimmedName
+        );
+        await account.createEmailPasswordSession(trimmedEmail, trimmedPassword);
+      } else {
+        try {
+          await account.createEmailPasswordSession(trimmedEmail, trimmedPassword);
+        } catch (sessErr) {
+          console.log('Session note:', sessErr);
+        }
+        appwriteUser = await account.get();
+      }
+
+      await resolveUserRoleAndLogin(appwriteUser, trimmedName);
     } catch (err: any) {
-      Alert.alert('Authentication Failed', err.message || 'Please check your credentials.');
+      Alert.alert('Authentication Failed', err.message || 'Please check your credentials and try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleAuth = async () => {
+    setLoading(true);
+    try {
+      const redirectUrl = Platform.OS === 'android' ? 'bizflow://' : 'bizflow://';
+      const authUrl = `${APPWRITE_ENDPOINT}/account/sessions/oauth2/google?project=${APPWRITE_PROJECT_ID}&success=${encodeURIComponent(redirectUrl)}&failure=${encodeURIComponent(redirectUrl)}`;
+
+      const res = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
+
+      if (res.type === 'success') {
+        const appwriteUser = await account.get();
+        await resolveUserRoleAndLogin(appwriteUser);
+      }
+    } catch (err: any) {
+      console.log('Google auth note:', err);
+      Alert.alert('Google Sign-In', err.message || 'Unable to sign in with Google.');
     } finally {
       setLoading(false);
     }
@@ -261,97 +277,149 @@ export const LoginScreen: React.FC = () => {
       style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
+      {/* Background Pixel Line Art & Organic Shape Accents (Active in both Light and Dark modes) */}
+      <View style={styles.topShapeAccent} />
+      <View style={styles.curvedRingLine1} />
+      <View style={styles.curvedRingLine2} />
+      <View style={styles.centerMintCircle} />
+      <View style={styles.bottomShapeAccent} />
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
-        automaticallyAdjustKeyboardInsets={true}
+        showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <View style={styles.logoWrap}>
-            <Ionicons name="document-text" size={32} color="#fff" />
-          </View>
-          <Text style={styles.title}>QuoteApp</Text>
-          <Text style={styles.subtitle}>Manage quotes & inventory with ease.</Text>
+          <Text style={styles.largeTitle}>{isRegister ? 'Create\nAccount' : 'Welcome\nBack'}</Text>
+          <Text style={styles.headerSubtitle}>
+            {isRegister ? 'Sign up to create & manage business quotes' : 'Sign in to access your business dashboard'}
+          </Text>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>{isRegister ? 'Create Account' : 'Welcome Back'}</Text>
-          <Text style={styles.cardSubtitle}>
-            {isRegister ? 'Sign up to get started' : 'Enter your details to proceed'}
-          </Text>
-
+        <View style={styles.formCard}>
+          {/* Registration Full Name */}
           {isRegister && (
-            <View style={styles.inputWrap}>
-              <Ionicons name="person-outline" size={20} color={colors.textPrimary} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Full Name"
-                placeholderTextColor={colors.textPrimary}
-                value={displayName}
-                onChangeText={setDisplayName}
-                autoCapitalize="words"
-              />
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Full Name</Text>
+              <View style={styles.inputBox}>
+                <Ionicons name="person-outline" size={18} color={colors.primary} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter your full name"
+                  placeholderTextColor={colors.textMuted}
+                  value={displayName}
+                  onChangeText={setDisplayName}
+                  autoCapitalize="words"
+                  returnKeyType="next"
+                  onSubmitEditing={() => emailInputRef.current?.focus()}
+                />
+              </View>
             </View>
           )}
 
-          <View style={styles.inputWrap}>
-            <Ionicons name="mail-outline" size={20} color={colors.textPrimary} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Email Address"
-              placeholderTextColor={colors.textPrimary}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+          {/* Email Address */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Email Address</Text>
+            <View style={styles.inputBox}>
+              <Ionicons name="mail-outline" size={18} color={colors.primary} style={styles.inputIcon} />
+              <TextInput
+                ref={emailInputRef}
+                style={styles.input}
+                placeholder="name@company.com"
+                placeholderTextColor={colors.textMuted}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="next"
+                onSubmitEditing={() => passwordInputRef.current?.focus()}
+              />
+            </View>
           </View>
 
-          <View style={styles.inputWrap}>
-            <Ionicons name="lock-closed-outline" size={20} color={colors.textPrimary} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              placeholderTextColor={colors.textPrimary}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
+          {/* Password */}
+          <View style={styles.fieldGroup}>
+            <View style={styles.labelRow}>
+              <Text style={styles.fieldLabel}>Password</Text>
+              {!isRegister && (
+                <TouchableOpacity
+                  onPress={() => {
+                    setResetEmail(email);
+                    setResetStep('request');
+                    setShowResetModal(true);
+                  }}
+                >
+                  <Text style={styles.forgotInlineText}>Forgot password?</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <View style={styles.inputBox}>
+              <Ionicons name="lock-closed-outline" size={18} color={colors.primary} style={styles.inputIcon} />
+              <TextInput
+                ref={passwordInputRef}
+                style={styles.input}
+                placeholder="••••••••"
+                placeholderTextColor={colors.textMuted}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                returnKeyType="done"
+                onSubmitEditing={handleEmailAuth}
+              />
+              <TouchableOpacity onPress={() => setShowPassword((v) => !v)} style={styles.eyeBtn}>
+                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
           </View>
 
-          {!isRegister && (
-            <TouchableOpacity
-              style={styles.forgotRow}
-              onPress={() => {
-                setResetEmail(email);
-                setResetStep('request');
-                setShowResetModal(true);
-              }}
-            >
-              <Text style={styles.forgotText}>Forgot Password?</Text>
-            </TouchableOpacity>
-          )}
-
+          {/* Main Primary Action Button */}
           <TouchableOpacity
-            style={[styles.primaryBtn, loading && styles.btnDisabled]}
+            style={[styles.mainSubmitBtn, loading && styles.btnDisabled]}
             onPress={handleEmailAuth}
             disabled={loading}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.primaryBtnText}>{isRegister ? 'Sign Up' : 'Log In'}</Text>
+              <>
+                <Text style={styles.mainSubmitBtnText}>
+                  {isRegister ? 'Create Account' : 'Sign In with Email'}
+                </Text>
+                <Ionicons name="arrow-forward" size={18} color="#fff" />
+              </>
             )}
           </TouchableOpacity>
 
-          <View style={styles.footerRow}>
-            <Text style={styles.footerText}>
-              {isRegister ? 'Already have an account?' : "Don't have an account?"}
-            </Text>
-            <TouchableOpacity onPress={() => setIsRegister(!isRegister)}>
-              <Text style={styles.footerLink}>{isRegister ? 'Log In' : 'Sign Up'}</Text>
+          {/* Divider */}
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>OR</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Continue with Google */}
+          <TouchableOpacity
+            style={styles.googleBtn}
+            onPress={handleGoogleAuth}
+            activeOpacity={0.85}
+          >
+            <View style={styles.googleIconBadge}>
+              <Ionicons name="logo-google" size={18} color="#34A853" />
+            </View>
+            <Text style={styles.googleBtnText}>Continue with Google</Text>
+          </TouchableOpacity>
+
+          {/* Footer Navigation Link */}
+          <View style={styles.bottomLinksWrap}>
+            <TouchableOpacity onPress={() => setIsRegister(!isRegister)} activeOpacity={0.7}>
+              <Text style={styles.switchAuthPrompt}>
+                {isRegister ? 'Already have an account? ' : "Don't have an account? "}
+                <Text style={styles.switchAuthHighlight}>
+                  {isRegister ? 'Sign In' : 'Sign Up'}
+                </Text>
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -380,14 +448,14 @@ export const LoginScreen: React.FC = () => {
               {resetStep === 'request' ? (
                 <>
                   <Text style={styles.resetModalSub}>
-                    Enter your registered email address below. We'll send you a password recovery link and secret code.
+                    Enter your registered email address to receive password recovery instructions, or sign in directly with Google.
                   </Text>
 
                   <View style={styles.inputWrap}>
-                    <Ionicons name="mail-outline" size={20} color={colors.textPrimary} style={styles.inputIcon} />
+                    <Ionicons name="mail-outline" size={18} color={colors.primary} style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
-                      placeholder="Registered Email"
+                      placeholder="Email Address"
                       placeholderTextColor={colors.textMuted}
                       value={resetEmail}
                       onChangeText={setResetEmail}
@@ -408,24 +476,37 @@ export const LoginScreen: React.FC = () => {
                     )}
                   </TouchableOpacity>
 
+                  <View style={[styles.dividerRow, { marginTop: 18, marginBottom: 16 }]}>
+                    <View style={styles.dividerLine} />
+                    <Text style={styles.dividerText}>OR RECOVER WITH</Text>
+                    <View style={styles.dividerLine} />
+                  </View>
+
                   <TouchableOpacity
-                    style={styles.resetStepSwitchRow}
-                    onPress={() => setResetStep('confirm')}
+                    style={styles.googleBtn}
+                    onPress={() => {
+                      setShowResetModal(false);
+                      handleGoogleAuth();
+                    }}
+                    activeOpacity={0.85}
                   >
-                    <Text style={styles.resetStepSwitchText}>Already have a reset secret code? Tap here</Text>
+                    <View style={styles.googleIconBadge}>
+                      <Ionicons name="logo-google" size={18} color="#34A853" />
+                    </View>
+                    <Text style={styles.googleBtnText}>Instant Sign-In with Google</Text>
                   </TouchableOpacity>
                 </>
               ) : (
                 <>
                   <Text style={styles.resetModalSub}>
-                    Check your email inbox/spam folder for your User ID and Secret Code, then enter them below.
+                    Check your email inbox for your User ID and Secret Code, then enter them below.
                   </Text>
 
                   <View style={styles.inputWrap}>
-                    <Ionicons name="person-outline" size={20} color={colors.textPrimary} style={styles.inputIcon} />
+                    <Ionicons name="person-outline" size={18} color={colors.primary} style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
-                      placeholder="User ID (from email/account)"
+                      placeholder="User ID"
                       placeholderTextColor={colors.textMuted}
                       value={resetUserId}
                       onChangeText={setResetUserId}
@@ -434,10 +515,10 @@ export const LoginScreen: React.FC = () => {
                   </View>
 
                   <View style={styles.inputWrap}>
-                    <Ionicons name="key-outline" size={20} color={colors.textPrimary} style={styles.inputIcon} />
+                    <Ionicons name="key-outline" size={18} color={colors.primary} style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
-                      placeholder="Secret Code (from email link)"
+                      placeholder="Secret Code"
                       placeholderTextColor={colors.textMuted}
                       value={resetSecret}
                       onChangeText={setResetSecret}
@@ -446,10 +527,10 @@ export const LoginScreen: React.FC = () => {
                   </View>
 
                   <View style={styles.inputWrap}>
-                    <Ionicons name="lock-closed-outline" size={20} color={colors.textPrimary} style={styles.inputIcon} />
+                    <Ionicons name="lock-closed-outline" size={18} color={colors.primary} style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
-                      placeholder="New Password (min 8 chars)"
+                      placeholder="New Password"
                       placeholderTextColor={colors.textMuted}
                       value={newPassword}
                       onChangeText={setNewPassword}
@@ -468,13 +549,6 @@ export const LoginScreen: React.FC = () => {
                       <Text style={styles.primaryBtnText}>Update Password</Text>
                     )}
                   </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.resetStepSwitchRow}
-                    onPress={() => setResetStep('request')}
-                  >
-                    <Text style={styles.resetStepSwitchText}>← Request new email reset link</Text>
-                  </TouchableOpacity>
                 </>
               )}
             </ScrollView>
@@ -485,73 +559,149 @@ export const LoginScreen: React.FC = () => {
   );
 };
 
-const createStyles = (colors: any) => StyleSheet.create({
+const createStyles = (colors: any, isDark?: boolean) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  scrollContent: { flexGrow: 1, padding: 24, justifyContent: 'center' },
-  header: { alignItems: 'center', marginBottom: 40, marginTop: 40 },
-  logoWrap: {
-    width: 64, height: 64, borderRadius: 20,
-    backgroundColor: colors.primary,
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: 16,
-    ...Shadow.md,
+  
+  // Organic Line Art & Curved Accents (Vibrant in both Dark & Light modes)
+  topShapeAccent: {
+    position: 'absolute', top: -60, right: -60,
+    width: 300, height: 300, borderRadius: 150,
+    backgroundColor: isDark ? colors.primary + '55' : colors.primary,
+    opacity: isDark ? 0.75 : 0.9,
   },
-  title: { fontSize: 28, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 },
-  subtitle: { fontSize: 15, color: colors.textSecondary, marginTop: 4, textAlign: 'center' },
-  card: { backgroundColor: colors.surface, borderRadius: Radius.xl, padding: 24, ...Shadow.lg },
-  cardTitle: { fontSize: 22, fontWeight: '700', color: colors.textPrimary, marginBottom: 4 },
-  cardSubtitle: { fontSize: 14, color: colors.textSecondary, marginBottom: 24 },
+  curvedRingLine1: {
+    position: 'absolute', top: 80, right: -40,
+    width: 240, height: 240, borderRadius: 120,
+    borderWidth: 1.5,
+    borderColor: isDark ? colors.primary + '80' : colors.primary + '35',
+  },
+  curvedRingLine2: {
+    position: 'absolute', top: 120, right: -20,
+    width: 200, height: 200, borderRadius: 100,
+    borderWidth: 1.5,
+    borderColor: isDark ? colors.primary + '50' : colors.primary + '20',
+  },
+  centerMintCircle: {
+    position: 'absolute', top: 220, left: 30,
+    width: 140, height: 140, borderRadius: 70,
+    backgroundColor: isDark ? '#2EC4B630' : colors.surfaceAlt,
+    opacity: isDark ? 0.6 : 0.6,
+  },
+  bottomShapeAccent: {
+    position: 'absolute', bottom: -70, left: -70,
+    width: 220, height: 220, borderRadius: 110,
+    backgroundColor: isDark ? colors.primary + '35' : colors.primary + '18',
+  },
+
+  scrollContent: { flexGrow: 1, paddingHorizontal: 28, justifyContent: 'center', paddingVertical: 40 },
+  header: { marginBottom: 28, marginTop: 36 },
+  largeTitle: { fontSize: 36, fontWeight: '800', color: isDark ? '#FFFFFF' : colors.primary, lineHeight: 44, letterSpacing: -0.5 },
+  headerSubtitle: { fontSize: 13, color: isDark ? colors.textSecondary : colors.textSecondary, marginTop: 6, fontWeight: '500' },
+
+  formCard: { width: '100%' },
+
+  fieldGroup: { marginBottom: 16 },
   inputWrap: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.surfaceAlt,
-    borderWidth: 1, borderColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: isDark ? colors.surfaceAlt : '#FFFFFF',
     borderRadius: Radius.lg,
-    marginBottom: 16, paddingHorizontal: 14,
+    borderWidth: 1.5,
+    borderColor: isDark ? colors.primary + '40' : colors.border,
+    paddingHorizontal: 14,
+    height: 50,
+    marginBottom: 16,
+    ...Shadow.xs,
+  },
+  labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  fieldLabel: { fontSize: 12, fontWeight: '700', color: colors.textSecondary, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  forgotInlineText: { fontSize: 12, fontWeight: '700', color: colors.primary },
+
+  inputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: isDark ? colors.surfaceAlt : '#FFFFFF',
+    borderRadius: Radius.lg,
+    borderWidth: 1.5,
+    borderColor: isDark ? colors.primary + '40' : colors.border,
+    paddingHorizontal: 14,
+    height: 50,
+    ...Shadow.xs,
   },
   inputIcon: { marginRight: 10 },
-  input: { flex: 1, height: 50, fontSize: 15, color: colors.textPrimary },
+  input: { flex: 1, height: 48, fontSize: 14, color: colors.textPrimary, fontWeight: '600' },
+  eyeBtn: { padding: 6 },
+
+  mainSubmitBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.primary,
+    height: 52,
+    borderRadius: Radius.full,
+    marginTop: 8,
+    marginBottom: 20,
+    ...Shadow.md,
+  },
+  mainSubmitBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700', letterSpacing: 0.3 },
+  btnDisabled: { opacity: 0.7 },
+
+  // Divider
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: isDark ? colors.primary + '30' : colors.border },
+  dividerText: { marginHorizontal: 16, fontSize: 12, fontWeight: '700', color: colors.textMuted, letterSpacing: 1 },
+
+  // Google Button
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    backgroundColor: isDark ? colors.surfaceAlt : '#FFFFFF',
+    height: 52,
+    borderRadius: Radius.full,
+    borderWidth: 1.5,
+    borderColor: isDark ? colors.primary + '50' : colors.border,
+    marginBottom: 24,
+    ...Shadow.sm,
+  },
+  googleIconBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: isDark ? colors.background : '#F8F9FA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: isDark ? colors.border : '#E8EAED',
+  },
+  googleBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+
   primaryBtn: {
     backgroundColor: colors.primary,
     borderRadius: Radius.full,
-    height: 52, alignItems: 'center', justifyContent: 'center',
-    marginTop: 8, ...Shadow.sm,
+    height: 50, alignItems: 'center', justifyContent: 'center',
+    marginTop: 16, ...Shadow.sm,
   },
-  btnDisabled: { opacity: 0.7 },
-  primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  footerRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 24, gap: 6 },
-  footerText: { fontSize: 14, color: colors.textSecondary },
-  footerLink: { fontSize: 14, fontWeight: '700', color: colors.primary },
-  forgotRow: { alignItems: 'flex-end', marginBottom: 16 },
-  forgotText: { fontSize: 13, fontWeight: '600', color: colors.primary },
-  resetModalContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'flex-end',
-  },
+  primaryBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+
+  bottomLinksWrap: { alignItems: 'center', marginTop: 4 },
+  switchAuthPrompt: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+  switchAuthHighlight: { fontWeight: '800', color: colors.primary },
+
+  resetModalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   resetModalCard: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: Radius.xl,
-    borderTopRightRadius: Radius.xl,
-    padding: 24,
-    maxHeight: '85%',
-    ...Shadow.lg,
+    backgroundColor: colors.surface, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl,
+    padding: 24, maxHeight: '85%', ...Shadow.lg,
   },
-  resetModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
+  resetModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   resetModalTitle: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
-  resetCloseBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.surfaceAlt,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  resetModalSub: { fontSize: 13, color: colors.textSecondary, marginBottom: 20, lineHeight: 18 },
-  resetStepSwitchRow: { marginTop: 16, alignItems: 'center', paddingVertical: 8 },
-  resetStepSwitchText: { fontSize: 13, fontWeight: '600', color: colors.primary },
+  resetModalSub: { fontSize: 13, color: colors.textSecondary, marginBottom: 20 },
+  resetCloseBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
 });

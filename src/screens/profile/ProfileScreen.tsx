@@ -108,7 +108,7 @@ export const ProfileScreen: React.FC = () => {
     { icon: 'barcode-outline', label: 'Warehouse & Barcodes', action: () => nav.navigate('Warehouse') },
     ...(user?.role === 'boss' ? [{ icon: 'person-outline', label: 'View & manage employees', action: () => nav.navigate('People', { screen: 'EmployeesList' }) }] : []),
     { icon: 'cloud-download-outline', label: 'Check for App Updates', action: checkForUpdatesManual },
-    { icon: 'information-circle-outline', label: 'About QuoteApp', action: () => { } },
+    { icon: 'information-circle-outline', label: 'About BizFlow', action: () => { } },
   ];
 
   return (
@@ -160,7 +160,7 @@ export const ProfileScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.version}>QuoteApp v1.0.0</Text>
+      <Text style={styles.version}>BizFlow v1.0.0</Text>
       <View style={{ height: 100 }} />
 
       {/* Change Password Modal */}

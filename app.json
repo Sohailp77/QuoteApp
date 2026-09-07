@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "QuoteApp",
+    "name": "BizFlow",
     "slug": "quote-native-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -33,7 +33,7 @@
       "expo-web-browser",
       "@react-native-community/datetimepicker"
     ],
-    "scheme": "bizFlow",
+    "scheme": "bizflow",
     "extra": {
       "eas": {
         "projectId": "3b6d4f7f-ec13-4260-9eaf-633ec1618107"

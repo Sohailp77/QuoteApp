@@ -1,38 +1,40 @@
 export const palette = {
-  // Primary teal-green (like reference image)
-  green500: '#2BAE78',
-  green600: '#219A68',
-  green700: '#1A7A53',
-  greenLight: '#E8F8F1',
-  greenTile: '#1E9E6B', // dark tile background
+  // Material Pixel Green palette
+  green500: '#1E8E3E',
+  green600: '#0F5A2A',
+  green700: '#0A3B1B',
+  greenLight: '#EAF5ED',
+  mintBackground: '#EAF5ED',
+  mintTile: '#D7EEDF',
+  mintAccent: '#B7E4C7',
 
-  // Orange accent
+  // Accent Colors
   orange500: '#F5813C',
   orange600: '#E0722D',
   orangeLight: '#FEF0E8',
 
-  // Navy/dark tile
-  navy: '#2D3A6A',
-  navyTile: '#1E2D5A',
+  // Dark tiles
+  navy: '#1B4332',
+  navyTile: '#081C15',
 
-  // Neutral grayscale
+  // Neutral light grayscale
   white: '#FFFFFF',
-  gray50: '#F8F9FB',
-  gray100: '#F1F3F6',
-  gray200: '#E4E7EE',
-  gray300: '#CBD1DE',
-  gray400: '#9EA8BC',
-  gray500: '#6B7A99',
-  gray600: '#4A5568',
-  gray700: '#2D3748',
-  gray900: '#111827',
+  gray50: '#EAF5ED', // Pixel Mint background
+  gray100: '#D7EEDF', // Squircle tile background
+  gray200: '#C8E6C9',
+  gray300: '#A3D9A5',
+  gray400: '#74C69D',
+  gray500: '#52B788',
+  gray600: '#2D6A4F',
+  gray700: '#1B4332',
+  gray900: '#081C15',
 
-  // Dark mode surfaces
-  dark900: '#0C0D10',
-  dark800: '#141519',
-  dark700: '#1C1D23',
-  dark600: '#24262E',
-  dark500: '#2E3038',
+  // Pure Neutral Dark Mode Grayscale (Pixel Dark)
+  dark900: '#121212', // Screen background
+  dark800: '#1E1E1E', // Card surface
+  dark700: '#252525', // Tile & Input background
+  dark600: '#2D2D2D', // Border & Divider
+  dark500: '#383838', // Elevated element
 
   // Status
   blue500: '#3B82F6',
@@ -86,35 +88,35 @@ export interface ThemeColors {
 }
 
 export const lightColors: ThemeColors = {
-  background: palette.gray50,
+  background: palette.mintBackground,
   surface: palette.white,
-  surfaceAlt: palette.gray100,
+  surfaceAlt: palette.mintTile,
   surfaceRaised: palette.white,
 
-  primary: palette.green500,
-  primaryDark: palette.green600,
-  primaryLight: palette.greenLight,
-  accent: palette.orange500,
-  accentLight: palette.orangeLight,
+  primary: palette.green600,
+  primaryDark: palette.green700,
+  primaryLight: palette.mintTile,
+  accent: palette.green500,
+  accentLight: palette.mintAccent,
 
-  textPrimary: palette.gray900,
-  textSecondary: palette.gray500,
-  textMuted: palette.gray300,
+  textPrimary: palette.navyTile,
+  textSecondary: palette.gray600,
+  textMuted: palette.gray500,
   textInverse: palette.white,
   textOnPrimary: palette.white,
 
-  border: palette.gray200,
-  divider: palette.gray100,
-  overlay: 'rgba(0,0,0,0.3)',
+  border: 'rgba(15, 90, 42, 0.12)',
+  divider: 'rgba(15, 90, 42, 0.06)',
+  overlay: 'rgba(8, 28, 21, 0.4)',
 
-  statusDraft: palette.gray500,
+  statusDraft: palette.gray600,
   statusSent: palette.blue500,
-  statusAccepted: palette.emerald500,
+  statusAccepted: palette.green500,
   statusRejected: palette.red500,
   statusExpired: palette.amber500,
 
   tiles: {
-    green: palette.green500,
+    green: palette.green600,
     orange: palette.orange500,
     navy: palette.navy,
     teal: '#00B4D8',
@@ -125,36 +127,36 @@ export const lightColors: ThemeColors = {
 
 export const darkColors: ThemeColors = {
   background: palette.dark900,
-  surface: palette.dark700,
-  surfaceAlt: palette.dark600,
-  surfaceRaised: palette.dark800,
+  surface: palette.dark800,
+  surfaceAlt: palette.dark700,
+  surfaceRaised: palette.dark500,
 
-  primary: palette.green500,
-  primaryDark: palette.green600,
-  primaryLight: 'rgba(43,174,120,0.15)',
-  accent: palette.orange500,
-  accentLight: 'rgba(245,129,60,0.15)',
+  primary: '#22C55E', // Sleek green accent for active state ONLY
+  primaryDark: '#16A34A',
+  primaryLight: 'rgba(34, 197, 94, 0.15)',
+  accent: '#22C55E',
+  accentLight: 'rgba(34, 197, 94, 0.15)',
 
-  textPrimary: '#F3F4F6',
-  textSecondary: palette.gray400,
-  textMuted: palette.dark500,
-  textInverse: palette.white,
-  textOnPrimary: palette.white,
+  textPrimary: '#FFFFFF', // Crisp White primary text in dark mode
+  textSecondary: '#A1A1AA', // Neutral Light Grey secondary text
+  textMuted: '#71717A', // Muted Grey text
+  textInverse: '#121212',
+  textOnPrimary: '#FFFFFF',
 
-  border: 'rgba(255,255,255,0.07)',
-  divider: 'rgba(255,255,255,0.04)',
-  overlay: 'rgba(0,0,0,0.6)',
+  border: 'rgba(255, 255, 255, 0.12)',
+  divider: 'rgba(255, 255, 255, 0.06)',
+  overlay: 'rgba(0, 0, 0, 0.75)',
 
-  statusDraft: palette.gray400,
+  statusDraft: '#A1A1AA',
   statusSent: palette.blue400,
   statusAccepted: palette.emerald400,
   statusRejected: palette.red400,
   statusExpired: palette.amber400,
 
   tiles: {
-    green: palette.green500,
+    green: '#22C55E',
     orange: palette.orange500,
-    navy: palette.navy,
+    navy: '#383838',
     teal: '#00B4D8',
     purple: '#7C3AED',
     rose: '#E11D48',

@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet, Platform, Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HomeScreen } from '../screens/home/HomeScreen';
 import { AnalyticsDashboardScreen } from '../screens/home/AnalyticsDashboardScreen';
@@ -24,8 +25,7 @@ import { TaxRatesScreen } from '../screens/profile/TaxRatesScreen';
 import { ProductCategoriesScreen } from '../screens/profile/ProductCategoriesScreen';
 import { WarehouseScreen } from '../screens/profile/WarehouseScreen';
 import { useAppTheme } from '../context/ThemeContext';
-
-
+import { Radius, Shadow } from '../theme';
 
 const Tab = createBottomTabNavigator();
 const HomeStack = createStackNavigator();
@@ -49,7 +49,6 @@ const QuotesStack = () => (
   </QuoteStack.Navigator>
 );
 
-// People = Employees + Customers combined under one tab
 const PeopleStackNav = () => (
   <PeopleStack.Navigator screenOptions={{ headerShown: false }}>
     <PeopleStack.Screen name="EmployeesList" component={EmployeesScreen} />
@@ -69,7 +68,6 @@ const ProductsStack = () => (
   </ProductStack.Navigator>
 );
 
-
 const ProfilesStack = () => (
   <ProfileStack.Navigator screenOptions={{ headerShown: false }}>
     <ProfileStack.Screen name="ProfileMain" component={ProfileScreen} />
@@ -81,8 +79,9 @@ const ProfilesStack = () => (
 );
 
 export const MainNavigator: React.FC = () => {
-  const { colors } = useAppTheme();
-  const styles = createStyles(colors);
+  const { colors, isDark } = useAppTheme();
+  const insets = useSafeAreaInsets();
+  const styles = createStyles(colors, insets, isDark);
 
   return (
     <Tab.Navigator
@@ -93,7 +92,8 @@ export const MainNavigator: React.FC = () => {
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: styles.tabBar,
         tabBarLabelStyle: styles.tabLabel,
-        tabBarIcon: ({ focused, color, size }) => {
+        tabBarItemStyle: styles.tabBarItem,
+        tabBarIcon: ({ focused, color }) => {
           const icons: Record<string, [string, string]> = {
             Home: ['home', 'home-outline'],
             Quotes: ['document-text', 'document-text-outline'],
@@ -103,11 +103,13 @@ export const MainNavigator: React.FC = () => {
           };
           const [filledIcon, outlineIcon] = icons[route.name] || ['ellipse', 'ellipse-outline'];
           return (
-            <Ionicons
-              name={(focused ? filledIcon : outlineIcon) as any}
-              size={22}
-              color={color}
-            />
+            <View style={focused ? styles.activeIconPill : styles.inactiveIconWrap}>
+              <Ionicons
+                name={(focused ? filledIcon : outlineIcon) as any}
+                size={20}
+                color={focused ? colors.primary : colors.textSecondary}
+              />
+            </View>
           );
         },
       })}
@@ -121,24 +123,47 @@ export const MainNavigator: React.FC = () => {
   );
 };
 
-const createStyles = (colors: any) => StyleSheet.create({
+const createStyles = (colors: any, insets: any, isDark?: boolean) => StyleSheet.create({
   tabBar: {
-    backgroundColor: colors.surfaceRaised,
-    borderTopWidth: 0,
-    height: Platform.OS === 'ios' ? 88 : 68,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
-    paddingTop: 10,
-    borderRadius: 0,
-    marginHorizontal: 0,
-    elevation: 20,
+    position: 'absolute',
+    bottom: Math.max(insets.bottom, 14) + 6,
+    left: 18,
+    right: 18,
+    backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF',
+    borderRadius: Radius.full,
+    height: 64,
+    paddingBottom: 6,
+    paddingTop: 6,
+    paddingHorizontal: 8,
+    borderWidth: 1.5,
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(15, 90, 42, 0.12)',
+    elevation: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: isDark ? 0.45 : 0.16,
+    shadowRadius: 20,
+  },
+  tabBarItem: {
+    paddingVertical: 2,
+  },
+  activeIconPill: {
+    width: 44,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: isDark ? 'rgba(34, 197, 94, 0.18)' : 'rgba(15, 90, 42, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inactiveIconWrap: {
+    width: 44,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tabLabel: {
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: '700',
     marginTop: 2,
+    letterSpacing: -0.2,
   },
 });
