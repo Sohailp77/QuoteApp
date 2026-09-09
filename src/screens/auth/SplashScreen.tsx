@@ -23,7 +23,7 @@ export const SplashScreen: React.FC = () => {
           <Text style={styles.logoIcon}>B</Text>
         </View>
         <Text style={styles.appName}>BizFlow</Text>
-        <Text style={styles.tagline}>Smart Quoting. Faster Deals.</Text>
+        <Text style={styles.tagline}>Smart Quoting</Text>
       </Animated.View>
     </View>
   );
