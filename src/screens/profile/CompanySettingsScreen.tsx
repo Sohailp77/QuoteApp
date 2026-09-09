@@ -20,6 +20,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { Radius, Shadow, Spacing } from '../../theme';
 import { Button } from '../../components/ui/Button';
 import { useAppTheme } from '../../context/ThemeContext';
+import { AppBackground } from '../../components/AppBackground';
 
 export const CompanySettingsScreen: React.FC = () => {
   const { colors } = useAppTheme();
@@ -97,6 +98,7 @@ export const CompanySettingsScreen: React.FC = () => {
       style={{ flex: 1 }}
     >
       <View style={styles.screen}>
+        <AppBackground />
         <View style={styles.header}>
           <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
             <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />

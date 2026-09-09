@@ -189,3 +189,49 @@ create index if not exists idx_stock_movements_product_id on stock_movements(pro
 -- ============================================================
 alter table quotes add column if not exists customer_id uuid references customers(id) on delete set null;
 alter table products add column if not exists reorder_level integer;
+alter table products add column if not exists vendor_id uuid references vendors(id) on delete set null;
+
+-- ============================================================
+-- VENDORS (3NF: vendor data normalized out of products)
+-- ============================================================
+create table if not exists vendors (
+  id uuid default gen_random_uuid() primary key,
+  tenant_id text not null,
+  name text not null,
+  contact_person text default '',
+  phone text default '',
+  email text default '',
+  address text default '',
+  gst_number text default '',
+  notes text default '',
+  is_active boolean not null default true,
+  created_at timestamptz default now()
+);
+alter table vendors enable row level security;
+create policy "Allow all for authenticated users" on vendors for all using (true);
+create index if not exists idx_vendors_tenant_id on vendors(tenant_id);
+
+-- ============================================================
+-- DIRECT SALES (sales outside the quote/order workflow)
+-- ============================================================
+create table if not exists direct_sales (
+  id uuid default gen_random_uuid() primary key,
+  tenant_id text not null,
+  sale_number text not null,
+  customer_name text default '',
+  customer_phone text default '',
+  items jsonb default '[]'::jsonb,
+  subtotal numeric(14, 2) not null default 0,
+  discount numeric(14, 2) not null default 0,
+  tax numeric(14, 2) not null default 0,
+  total numeric(14, 2) not null default 0,
+  payment_method text default 'Cash',
+  payment_status text not null default 'Paid'
+    check (payment_status in ('Paid', 'Partial', 'Pending')),
+  notes text default '',
+  created_at timestamptz default now()
+);
+alter table direct_sales enable row level security;
+create policy "Allow all for authenticated users" on direct_sales for all using (true);
+create index if not exists idx_direct_sales_tenant_id on direct_sales(tenant_id);
+create index if not exists idx_direct_sales_created_at on direct_sales(created_at desc);

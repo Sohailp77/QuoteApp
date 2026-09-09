@@ -7,9 +7,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useProducts } from '../../hooks/useProducts';
 import { useCompanySettings } from '../../hooks/useCompanySettings';
 import { useReorders } from '../../hooks/useReorders';
+import { useVendors } from '../../hooks/useVendors';
 import { Product, Reorder, ReorderItem } from '../../types';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Radius, Shadow } from '../../theme';
 import { useAppTheme } from '../../context/ThemeContext';
+import { useTabBarHeight } from '../../hooks/useTabBarHeight';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -93,7 +96,8 @@ interface SuccessModalProps {
 
 const OrderSuccessModal: React.FC<SuccessModalProps> = ({ orders, companyName, onDone }) => {
   const { colors } = useAppTheme();
-  const s = styles(colors);
+  const insets = useSafeAreaInsets();
+  const s = styles(colors, 0, insets);
   const [sharingId, setSharingId] = useState<string | null>(null);
   const [viewingId, setViewingId] = useState<string | null>(null);
 
@@ -211,10 +215,13 @@ interface Props {
 
 export const ReorderCreateTab: React.FC<Props> = ({ onOrderCreated }) => {
   const { colors } = useAppTheme();
-  const s = styles(colors);
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useTabBarHeight();
+  const s = styles(colors, tabBarHeight, insets);
   const { products, fetch: fetchProducts } = useProducts();
   const { settings: company, fetch: fetchCompany } = useCompanySettings();
   const { createReorder } = useReorders();
+  const { vendors: allVendors, fetch: fetchVendors } = useVendors();
 
   const [selected, setSelected] = useState<SelectedMap>({});
   const [vendorFilter, setVendorFilter] = useState('ALL');
@@ -222,12 +229,14 @@ export const ReorderCreateTab: React.FC<Props> = ({ onOrderCreated }) => {
   const [saving, setSaving] = useState(false);
   const [createdOrders, setCreatedOrders] = useState<Reorder[]>([]);
 
-  useEffect(() => { fetchProducts(); fetchCompany(); }, []);
+  useEffect(() => { fetchProducts(); fetchCompany(); fetchVendors(); }, []);
 
-  const getVendor = (p: Product) =>
-    (p as any).vendor || (p.category ? p.category : 'No Vendor');
+  const getVendor = (p: Product) => {
+    const v = allVendors.find(v => v.id === p.vendor_id);
+    return v?.name || p.category || 'Unassigned';
+  };
 
-  const vendors = ['ALL', ...Array.from(new Set(products.map(getVendor)))];
+  const vendors = ['ALL', ...Array.from(new Set(allVendors.map(v => v.name)))];
 
   const filtered = products.filter(p => {
     if (showLowOnly) {
@@ -337,7 +346,7 @@ export const ReorderCreateTab: React.FC<Props> = ({ onOrderCreated }) => {
       <FlatList
         data={filtered}
         keyExtractor={p => p.id}
-        contentContainerStyle={{ padding: 16, paddingBottom: selectedProducts.length > 0 ? 160 : 40 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: selectedProducts.length > 0 ? tabBarHeight + 90 : tabBarHeight + 20 }}
         ListEmptyComponent={
           <View style={s.empty}>
             <Ionicons name="cube-outline" size={48} color={colors.textMuted} />
@@ -446,7 +455,7 @@ export const ReorderCreateTab: React.FC<Props> = ({ onOrderCreated }) => {
   );
 };
 
-const styles = (colors: any) => StyleSheet.create({
+const styles = (colors: any, tabBarHeight: number = 0, insets?: any) => StyleSheet.create({
   filterBar: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 10, flexWrap: 'wrap' },
   filterChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: Radius.full, borderWidth: 1, borderColor: colors.primary + '60', backgroundColor: colors.surfaceAlt },
   filterChipActive: { backgroundColor: colors.primary },
@@ -476,7 +485,22 @@ const styles = (colors: any) => StyleSheet.create({
   qtyPlus: { width: 32, height: 32, borderRadius: 8, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
   emptyText: { fontSize: 15, fontWeight: '600', color: colors.textMuted },
-  bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: colors.surface, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, ...Shadow.md, borderTopWidth: 1, borderColor: colors.border },
+  bottomBar: {
+    position: 'absolute',
+    bottom: tabBarHeight + 10,
+    left: 16,
+    right: 16,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: Radius.xl,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    ...Shadow.lg,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+  },
   bottomInfo: { flex: 1 },
   bottomCount: { fontSize: 14, fontWeight: '800', color: colors.textPrimary },
   bottomVendors: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
@@ -484,7 +508,7 @@ const styles = (colors: any) => StyleSheet.create({
   placeBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
   // Success modal
   successModal: { flex: 1, backgroundColor: colors.background },
-  successTop: { alignItems: 'center', paddingTop: 60, paddingBottom: 24, paddingHorizontal: 24 },
+  successTop: { alignItems: 'center', paddingTop: Math.max(insets?.top || 0, 24) + 16, paddingBottom: 24, paddingHorizontal: 24 },
   successIcon: { marginBottom: 12 },
   successTitle: { fontSize: 26, fontWeight: '800', color: colors.textPrimary, marginBottom: 6 },
   successSubtitle: { fontSize: 14, color: colors.textSecondary, textAlign: 'center' },

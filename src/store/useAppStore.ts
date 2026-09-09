@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Quote, Product, Category, TaxRate, Customer, Employee, StockMovement, CompanySettings, Reorder } from '../types';
+import { Quote, Product, Category, TaxRate, Customer, Employee, StockMovement, CompanySettings, Reorder, Vendor, DirectSale } from '../types';
 
 interface AppState {
   quotes: Quote[];
@@ -12,6 +12,8 @@ interface AppState {
   stockMovements: StockMovement[];
   reorders: Reorder[];
   companySettings: CompanySettings | null;
+  vendors: Vendor[];
+  directSales: DirectSale[];
 
   quotesLoaded: boolean;
   productsLoaded: boolean;
@@ -22,6 +24,8 @@ interface AppState {
   stockMovementsLoaded: boolean;
   reordersLoaded: boolean;
   companySettingsLoaded: boolean;
+  vendorsLoaded: boolean;
+  directSalesLoaded: boolean;
 
   setQuotes: (quotes: Quote[]) => void;
   setProducts: (products: Product[]) => void;
@@ -32,6 +36,8 @@ interface AppState {
   setStockMovements: (stockMovements: StockMovement[]) => void;
   setReorders: (reorders: Reorder[]) => void;
   setCompanySettings: (companySettings: CompanySettings | null) => void;
+  setVendors: (vendors: Vendor[]) => void;
+  setDirectSales: (directSales: DirectSale[]) => void;
 
   setQuotesLoaded: (loaded: boolean) => void;
   setProductsLoaded: (loaded: boolean) => void;
@@ -42,6 +48,8 @@ interface AppState {
   setStockMovementsLoaded: (loaded: boolean) => void;
   setReordersLoaded: (loaded: boolean) => void;
   setCompanySettingsLoaded: (loaded: boolean) => void;
+  setVendorsLoaded: (loaded: boolean) => void;
+  setDirectSalesLoaded: (loaded: boolean) => void;
 
   clearAll: () => void;
 }
@@ -86,6 +94,8 @@ export const useAppStore = create<AppState>()(
       stockMovements: [],
       reorders: [],
       companySettings: null,
+      vendors: [],
+      directSales: [],
 
       quotesLoaded: false,
       productsLoaded: false,
@@ -96,6 +106,8 @@ export const useAppStore = create<AppState>()(
       stockMovementsLoaded: false,
       reordersLoaded: false,
       companySettingsLoaded: false,
+      vendorsLoaded: false,
+      directSalesLoaded: false,
 
       setQuotes: (quotes) => set({ quotes }),
       setProducts: (products) => set({ products }),
@@ -106,6 +118,8 @@ export const useAppStore = create<AppState>()(
       setStockMovements: (stockMovements) => set({ stockMovements }),
       setReorders: (reorders) => set({ reorders }),
       setCompanySettings: (companySettings) => set({ companySettings }),
+      setVendors: (vendors) => set({ vendors }),
+      setDirectSales: (directSales) => set({ directSales }),
 
       setQuotesLoaded: (quotesLoaded) => set({ quotesLoaded }),
       setProductsLoaded: (productsLoaded) => set({ productsLoaded }),
@@ -116,6 +130,8 @@ export const useAppStore = create<AppState>()(
       setStockMovementsLoaded: (stockMovementsLoaded) => set({ stockMovementsLoaded }),
       setReordersLoaded: (reordersLoaded) => set({ reordersLoaded }),
       setCompanySettingsLoaded: (companySettingsLoaded) => set({ companySettingsLoaded }),
+      setVendorsLoaded: (vendorsLoaded) => set({ vendorsLoaded }),
+      setDirectSalesLoaded: (directSalesLoaded) => set({ directSalesLoaded }),
 
       clearAll: () => set({
         quotes: [],
@@ -127,6 +143,8 @@ export const useAppStore = create<AppState>()(
         stockMovements: [],
         reorders: [],
         companySettings: null,
+        vendors: [],
+        directSales: [],
         quotesLoaded: false,
         productsLoaded: false,
         categoriesLoaded: false,
@@ -136,6 +154,8 @@ export const useAppStore = create<AppState>()(
         stockMovementsLoaded: false,
         reordersLoaded: false,
         companySettingsLoaded: false,
+        vendorsLoaded: false,
+        directSalesLoaded: false,
       }),
     }),
     {
@@ -153,6 +173,8 @@ export const useAppStore = create<AppState>()(
         stockMovements: state.stockMovements,
         reorders: state.reorders,
         companySettings: state.companySettings,
+        vendors: state.vendors,
+        directSales: state.directSales,
       }),
     }
   )

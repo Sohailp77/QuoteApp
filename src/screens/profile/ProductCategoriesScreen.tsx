@@ -13,14 +13,17 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCategories } from '../../hooks/useCategories';
 import { Radius, Shadow } from '../../theme';
 import { Button } from '../../components/ui/Button';
 import { useAppTheme } from '../../context/ThemeContext';
+import { AppBackground } from '../../components/AppBackground';
 
 export const ProductCategoriesScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
-  const styles = createStyles(colors);
+  const styles = createStyles(colors, insets);
   const nav = useNavigation();
   const { categories, loading, fetch, create, update, remove } = useCategories();
 
@@ -105,6 +108,7 @@ export const ProductCategoriesScreen: React.FC = () => {
 
   return (
     <View style={styles.screen}>
+      <AppBackground />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
@@ -225,13 +229,13 @@ export const ProductCategoriesScreen: React.FC = () => {
   );
 };
 
-const createStyles = (colors: any) => StyleSheet.create({
+const createStyles = (colors: any, insets: any) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 56,
+    paddingTop: Math.max(insets?.top || 0, 24) + 12,
     paddingBottom: 12,
     paddingHorizontal: 20,
   },

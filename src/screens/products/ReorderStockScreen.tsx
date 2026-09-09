@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Radius, Shadow } from '../../theme';
 import { useAppTheme } from '../../context/ThemeContext';
 import { ReorderCreateTab } from './ReorderCreateTab';
@@ -11,7 +12,8 @@ type TabId = 'create' | 'history';
 
 export const ReorderStockScreen: React.FC = () => {
   const { colors } = useAppTheme();
-  const s = styles(colors);
+  const insets = useSafeAreaInsets();
+  const s = styles(colors, insets);
   const nav = useNavigation<any>();
   const [tab, setTab] = useState<TabId>('create');
 
@@ -54,11 +56,11 @@ export const ReorderStockScreen: React.FC = () => {
   );
 };
 
-const styles = (colors: any) => StyleSheet.create({
+const styles = (colors: any, insets?: any) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 56, paddingBottom: 12, paddingHorizontal: 20,
+    paddingTop: Math.max(insets?.top || 0, 24) + 12, paddingBottom: 12, paddingHorizontal: 20,
   },
   backBtn: {
     width: 38, height: 38, borderRadius: 19,

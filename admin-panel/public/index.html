@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QuoteApp - Master Admin Control Center</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- RemixIcons -->
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Header Bar -->
+    <header class="admin-header">
+      <div class="header-brand">
+        <div class="brand-logo">
+          <i class="ri-shield-keyhole-line"></i>
+        </div>
+        <div class="brand-text">
+          <h1>QuoteApp <span>Master Admin</span></h1>
+          <p>System Controller & Database Management Studio</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="system-status-pill online">
+          <span class="pulse-dot"></span>
+          <span id="status-text">Connected to Appwrite</span>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btn-refresh-stats">
+          <i class="ri-refresh-line"></i> Sync Data
+        </button>
+        <button class="btn btn-primary btn-sm" id="btn-quick-backup">
+          <i class="ri-download-cloud-2-line"></i> Quick Full Backup
+        </button>
+      </div>
+    </header>
+
+    <!-- Metrics Summary Bar -->
+    <section class="metrics-grid">
+      <div class="metric-card cyan">
+        <div class="metric-icon"><i class="ri-store-3-line"></i></div>
+        <div class="metric-info">
+          <span class="metric-label">Total Businesses</span>
+          <h2 class="metric-value" id="stat-total-businesses">--</h2>
+          <span class="metric-sub" id="stat-active-deactive-summary">Loading status...</span>
+        </div>
+      </div>
+
+      <div class="metric-card purple">
+        <div class="metric-icon"><i class="ri-user-star-line"></i></div>
+        <div class="metric-info">
+          <span class="metric-label">System Accounts</span>
+          <h2 class="metric-value" id="stat-total-users">--</h2>
+          <span class="metric-sub" id="stat-user-detail">Registered Auth Users</span>
+        </div>
+      </div>
+
+      <div class="metric-card emerald">
+        <div class="metric-icon"><i class="ri-money-dollar-circle-line"></i></div>
+        <div class="metric-info">
+          <span class="metric-label">Total Platform Revenue</span>
+          <h2 class="metric-value" id="stat-total-revenue">₹0</h2>
+          <span class="metric-sub" id="stat-quote-sales-breakdown">Quotes & Direct Sales</span>
+        </div>
+      </div>
+
+      <div class="metric-card amber">
+        <div class="metric-icon"><i class="ri-box-3-line"></i></div>
+        <div class="metric-info">
+          <span class="metric-label">Products & Quotes</span>
+          <h2 class="metric-value" id="stat-total-items">-- / --</h2>
+          <span class="metric-sub">Catalog Products / Quotes</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Content Navigation Tabs -->
+    <nav class="admin-tabs">
+      <button class="tab-btn active" data-tab="tab-businesses">
+        <i class="ri-building-4-line"></i> Businesses & Accounts
+      </button>
+      <button class="tab-btn" data-tab="tab-backup-restore">
+        <i class="ri-database-2-line"></i> Database Backup & Restore
+      </button>
+      <button class="tab-btn" data-tab="tab-data-explorer">
+        <i class="ri-table-line"></i> Database Data Explorer
+      </button>
+      <button class="tab-btn" data-tab="tab-system-config">
+        <i class="ri-settings-4-line"></i> System Overview & Config
+      </button>
+    </nav>
+
+    <!-- Tab Panels Container -->
+    <main class="tab-content-container">
+
+      <!-- TAB 1: Businesses & Accounts -->
+      <section class="tab-panel active" id="tab-businesses">
+        <div class="panel-toolbar">
+          <div class="search-box">
+            <i class="ri-search-line"></i>
+            <input type="text" id="search-businesses" placeholder="Search business name, owner email, tenant ID...">
+          </div>
+          <div class="filter-group">
+            <select id="filter-business-status" class="form-select">
+              <option value="all">All Status (Active & Disabled)</option>
+              <option value="active">Active Only</option>
+              <option value="disabled">Deactivated Only</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="businesses-grid" id="businesses-list">
+          <div class="loading-spinner-container">
+            <div class="spinner"></div>
+            <p>Fetching registered businesses from Appwrite...</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: Database Backup & Restore -->
+      <section class="tab-panel" id="tab-backup-restore">
+        <div class="backup-restore-grid">
+          <!-- Export Card -->
+          <div class="card export-card">
+            <div class="card-header">
+              <i class="ri-download-2-line header-icon"></i>
+              <div>
+                <h3>Database Backup & Export</h3>
+                <p>Generate clean, complete JSON snapshots of your database.</p>
+              </div>
+            </div>
+
+            <div class="card-body">
+              <div class="form-group">
+                <label for="backup-scope-select">Select Export Scope</label>
+                <select id="backup-scope-select" class="form-select">
+                  <option value="ALL">Full System (All 11 Database Collections)</option>
+                </select>
+              </div>
+
+              <div class="backup-info-box">
+                <i class="ri-information-line"></i>
+                <div>
+                  <strong>What gets exported?</strong>
+                  <p>All database collections: users, company settings, products, quotes, employees, customers, stock movements, tax rates, categories, vendors, and sales data.</p>
+                </div>
+              </div>
+
+              <button class="btn btn-primary btn-lg" id="btn-export-json">
+                <i class="ri-file-download-line"></i> Download JSON Snapshot
+              </button>
+            </div>
+          </div>
+
+          <!-- Restore Card -->
+          <div class="card restore-card">
+            <div class="card-header">
+              <i class="ri-upload-2-line header-icon"></i>
+              <div>
+                <h3>Database Restore & Import</h3>
+                <p>Restore or import database collections from JSON backup files.</p>
+              </div>
+            </div>
+
+            <div class="card-body">
+              <div class="drop-zone" id="restore-drop-zone">
+                <i class="ri-folder-upload-line drop-icon"></i>
+                <p>Click or drag & drop backup JSON file here</p>
+                <input type="file" id="restore-file-input" accept=".json" style="display: none;">
+              </div>
+
+              <div id="restore-preview-container" class="restore-preview hidden">
+                <div class="preview-header">
+                  <h4><i class="ri-eye-line"></i> Backup Snapshot Preview</h4>
+                  <span class="badge" id="preview-timestamp">--</span>
+                </div>
+                <div class="preview-stats-grid" id="preview-collections-list">
+                  <!-- Collection doc counts populated by JS -->
+                </div>
+
+                <div class="preview-actions">
+                  <button class="btn btn-secondary" id="btn-cancel-restore">Cancel</button>
+                  <button class="btn btn-danger" id="btn-confirm-restore">
+                    <i class="ri-restart-line"></i> Confirm & Execute Restore
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: Data Explorer -->
+      <section class="tab-panel" id="tab-data-explorer">
+        <div class="panel-toolbar">
+          <div class="form-group inline">
+            <label>Collection:</label>
+            <select id="explorer-collection-select" class="form-select">
+              <option value="users">Users (users)</option>
+              <option value="company_settings">Company Settings (company_settings)</option>
+              <option value="products">Products (products)</option>
+              <option value="quotes">Quotes (quotes)</option>
+              <option value="employees">Employees (employees)</option>
+              <option value="customers">Customers (customers)</option>
+              <option value="stock_movements">Stock Movements (stock_movements)</option>
+              <option value="categories">Categories (categories)</option>
+              <option value="tax_rates">Tax Rates (tax_rates)</option>
+              <option value="vendors">Vendors (vendors)</option>
+              <option value="direct_sales">Direct Sales (direct_sales)</option>
+            </select>
+          </div>
+
+          <div class="form-group inline">
+            <label>Filter Tenant:</label>
+            <select id="explorer-tenant-select" class="form-select">
+              <option value="">All Tenants</option>
+            </select>
+          </div>
+
+          <button class="btn btn-secondary" id="btn-explorer-fetch">
+            <i class="ri-refresh-line"></i> Refresh Collection
+          </button>
+          <button class="btn btn-primary" id="btn-explorer-new-doc">
+            <i class="ri-add-line"></i> Add New Document
+          </button>
+        </div>
+
+        <div class="explorer-table-container">
+          <table class="data-table" id="explorer-table">
+            <thead>
+              <tr id="explorer-table-head">
+                <th>Document ID</th>
+                <th>Tenant ID</th>
+                <th>Details</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="explorer-table-body">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- TAB 4: System Config -->
+      <section class="tab-panel" id="tab-system-config">
+        <div class="card">
+          <div class="card-header">
+            <i class="ri-server-line header-icon"></i>
+            <h3>Appwrite Backend System Configuration</h3>
+          </div>
+          <div class="card-body">
+            <div class="config-grid">
+              <div class="config-item">
+                <span class="config-label">Appwrite Endpoint</span>
+                <code class="config-val">https://syd.cloud.appwrite.io/v1</code>
+              </div>
+              <div class="config-item">
+                <span class="config-label">Appwrite Project ID</span>
+                <code class="config-val">6a2a9df8001ac14f2796</code>
+              </div>
+              <div class="config-item">
+                <span class="config-label">Database ID</span>
+                <code class="config-val">6a2a9e52003d6f85443e</code>
+              </div>
+              <div class="config-item">
+                <span class="config-label">Master Admin Server</span>
+                <code class="config-val">http://localhost:4000 (Node.js SDK Server)</code>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Modal: Password Reset -->
+  <div class="modal-overlay hidden" id="modal-password-reset">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="ri-lock-password-line"></i> Reset Business Owner Password</h3>
+        <button class="modal-close-btn" data-modal="modal-password-reset"><i class="ri-close-line"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">Target Account: <strong id="reset-target-email">--</strong></p>
+
+        <div class="form-group mt-3">
+          <label for="input-new-password">New Password</label>
+          <div class="password-input-wrapper">
+            <input type="text" id="input-new-password" class="form-input" placeholder="Enter new password (min 6 chars)">
+            <button class="btn btn-secondary btn-sm" id="btn-generate-password">
+              <i class="ri-magic-line"></i> Generate
+            </button>
+          </div>
+        </div>
+
+        <div class="alert alert-info mt-3">
+          <i class="ri-shield-check-line"></i>
+          <span>Updating password immediately enables the business owner to log in with this new credential across all devices.</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-modal="modal-password-reset">Cancel</button>
+        <button class="btn btn-primary" id="btn-save-password">
+          <i class="ri-save-line"></i> Save New Password
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Raw JSON Document Editor -->
+  <div class="modal-overlay hidden" id="modal-doc-editor">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <h3 id="doc-editor-title"><i class="ri-edit-box-line"></i> Document Editor</h3>
+        <button class="modal-close-btn" data-modal="modal-doc-editor"><i class="ri-close-line"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Document Data (JSON Format)</label>
+          <textarea id="doc-editor-json" class="json-textarea" rows="12"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-modal="modal-doc-editor">Cancel</button>
+        <button class="btn btn-primary" id="btn-save-doc-json">
+          <i class="ri-check-line"></i> Save Document
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

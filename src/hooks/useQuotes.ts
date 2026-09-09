@@ -378,34 +378,41 @@ export const useQuotes = () => {
 
       if (dbStatus === 'Accepted' && items.length > 0) {
         const ledgerQueryNote = `Quote ${quoteNumber} deleted (Stock Restored)`;
-        let localProducts = [...useAppStore.getState().products];
-        let localMovements = [...useAppStore.getState().stockMovements];
+        const stockableItems = items.filter(item => item.product_id && item.quantity > 0);
 
-        for (const item of items) {
-          if (!item.product_id || item.quantity <= 0) continue;
+        // Step 1: Fetch all products in parallel
+        const prodDocs = await Promise.all(
+          stockableItems.map(item =>
+            tablesDB.getRow({
+              databaseId: DATABASE_ID,
+              tableId: COLLECTIONS.PRODUCTS,
+              rowId: item.product_id!,
+            }).catch(() => null)
+          )
+        );
 
-          const prodDoc = await tablesDB.getRow({
-            databaseId: DATABASE_ID,
-            tableId: COLLECTIONS.PRODUCTS,
-            rowId: item.product_id,
-          });
-
-          if (prodDoc.stock_quantity !== null && prodDoc.stock_quantity !== undefined) {
+        // Step 2: Update all stock quantities in parallel
+        const stockUpdates: Array<{ product_id: string; newStock: number }> = [];
+        await Promise.all(
+          stockableItems.map(async (item, idx) => {
+            const prodDoc = prodDocs[idx];
+            if (!prodDoc || prodDoc.stock_quantity === null || prodDoc.stock_quantity === undefined) return;
             const currentStock = Number(prodDoc.stock_quantity) || 0;
             const newStock = currentStock + item.quantity;
-
+            stockUpdates.push({ product_id: item.product_id!, newStock });
             await tablesDB.updateRow({
               databaseId: DATABASE_ID,
               tableId: COLLECTIONS.PRODUCTS,
-              rowId: item.product_id,
+              rowId: item.product_id!,
               data: { stock_quantity: newStock },
             });
+          })
+        );
 
-            localProducts = localProducts.map((p) =>
-              p.id === item.product_id ? { ...p, stock_quantity: newStock } : p
-            );
-
-            const movDoc = await tablesDB.createRow({
+        // Step 3: Create all stock movements in parallel
+        const movDocs = await Promise.all(
+          stockableItems.map(item =>
+            tablesDB.createRow({
               databaseId: DATABASE_ID,
               tableId: COLLECTIONS.STOCK_MOVEMENTS,
               rowId: ID.unique(),
@@ -417,23 +424,30 @@ export const useQuotes = () => {
                 quantity: item.quantity,
                 note: ledgerQueryNote,
               },
-            });
+            }).catch(() => null)
+          )
+        );
 
-            const newMov = {
-              id: movDoc.$id,
-              tenant_id: movDoc.tenant_id,
-              product_id: movDoc.product_id,
-              product_name: movDoc.product_name,
-              movement_type: movDoc.movement_type as any,
-              quantity: Number(movDoc.quantity),
-              note: movDoc.note,
-              created_at: movDoc.$createdAt || new Date().toISOString(),
-            };
-            localMovements = [newMov, ...localMovements];
-          }
-        }
-        useAppStore.getState().setProducts(localProducts);
-        useAppStore.getState().setStockMovements(localMovements);
+        // Step 4: Update local store in one batch
+        const updatedProducts = useAppStore.getState().products.map(p => {
+          const upd = stockUpdates.find(u => u.product_id === p.id);
+          return upd ? { ...p, stock_quantity: upd.newStock } : p;
+        });
+        const newMovements = movDocs
+          .filter(Boolean)
+          .map(doc => ({
+            id: doc!.$id,
+            tenant_id: doc!.tenant_id,
+            product_id: doc!.product_id,
+            product_name: doc!.product_name,
+            movement_type: doc!.movement_type as any,
+            quantity: Number(doc!.quantity),
+            note: doc!.note,
+            created_at: doc!.$createdAt || new Date().toISOString(),
+          }));
+
+        useAppStore.getState().setProducts(updatedProducts);
+        useAppStore.getState().setStockMovements([...newMovements, ...useAppStore.getState().stockMovements]);
       }
 
       await tablesDB.deleteRow({
@@ -449,6 +463,7 @@ export const useQuotes = () => {
       activeStatusLocks.delete(id);
     }
   }, [user, quotes, setQuotes]);
+
 
   const fetchById = useCallback(async (id: string): Promise<Quote | null> => {
     if (!user) return null;

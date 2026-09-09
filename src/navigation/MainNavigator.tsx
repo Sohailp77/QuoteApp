@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet, Platform, Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -19,6 +20,11 @@ import { ProductFormScreen } from '../screens/products/ProductFormScreen';
 import { CategoryManagerScreen } from '../screens/products/CategoryManagerScreen';
 import { StockManagementScreen } from '../screens/products/StockManagementScreen';
 import { ReorderStockScreen } from '../screens/products/ReorderStockScreen';
+import { VendorsScreen } from '../screens/vendors/VendorsScreen';
+import { VendorFormScreen } from '../screens/vendors/VendorFormScreen';
+import { DirectSalesScreen } from '../screens/sales/DirectSalesScreen';
+import { CreateDirectSaleScreen } from '../screens/sales/CreateDirectSaleScreen';
+import { PaymentsScreen } from '../screens/payments/PaymentsScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { CompanySettingsScreen } from '../screens/profile/CompanySettingsScreen';
 import { TaxRatesScreen } from '../screens/profile/TaxRatesScreen';
@@ -32,6 +38,7 @@ const HomeStack = createStackNavigator();
 const QuoteStack = createStackNavigator();
 const PeopleStack = createStackNavigator();
 const ProductStack = createStackNavigator();
+const SalesStack = createStackNavigator();
 const ProfileStack = createStackNavigator();
 
 const HomeStackNav = () => (
@@ -65,7 +72,16 @@ const ProductsStack = () => (
     <ProductStack.Screen name="CategoryManager" component={CategoryManagerScreen} />
     <ProductStack.Screen name="StockManagement" component={StockManagementScreen} />
     <ProductStack.Screen name="ReorderStock" component={ReorderStockScreen} />
+    <ProductStack.Screen name="VendorsList" component={VendorsScreen} />
+    <ProductStack.Screen name="VendorForm" component={VendorFormScreen} />
   </ProductStack.Navigator>
+);
+
+const SalesStackNav = () => (
+  <SalesStack.Navigator screenOptions={{ headerShown: false }}>
+    <SalesStack.Screen name="DirectSalesList" component={DirectSalesScreen} />
+    <SalesStack.Screen name="CreateDirectSale" component={CreateDirectSaleScreen} />
+  </SalesStack.Navigator>
 );
 
 const ProfilesStack = () => (
@@ -75,8 +91,21 @@ const ProfilesStack = () => (
     <ProfileStack.Screen name="TaxRates" component={TaxRatesScreen} />
     <ProfileStack.Screen name="ProductCategories" component={ProductCategoriesScreen} />
     <ProfileStack.Screen name="Warehouse" component={WarehouseScreen} />
+    <ProfileStack.Screen name="PaymentsList" component={PaymentsScreen} />
   </ProfileStack.Navigator>
 );
+
+// Helper to determine if tab bar should be displayed based on active route
+const TAB_ROOT_SCREENS = [
+  undefined,
+  'HomeMain',
+  'QuotesList',
+  'EmployeesList',
+  'CustomersList',
+  'ProductsList',
+  'DirectSalesList',
+  'ProfileMain',
+];
 
 export const MainNavigator: React.FC = () => {
   const { colors, isDark } = useAppTheme();
@@ -85,39 +114,46 @@ export const MainNavigator: React.FC = () => {
 
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarShowLabel: true,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textSecondary,
-        tabBarStyle: styles.tabBar,
-        tabBarLabelStyle: styles.tabLabel,
-        tabBarItemStyle: styles.tabBarItem,
-        tabBarIcon: ({ focused, color }) => {
-          const icons: Record<string, [string, string]> = {
-            Home: ['home', 'home-outline'],
-            Quotes: ['document-text', 'document-text-outline'],
-            People: ['people', 'people-outline'],
-            Products: ['cube', 'cube-outline'],
-            Profile: ['person', 'person-outline'],
-          };
-          const [filledIcon, outlineIcon] = icons[route.name] || ['ellipse', 'ellipse-outline'];
-          return (
-            <View style={focused ? styles.activeIconPill : styles.inactiveIconWrap}>
-              <Ionicons
-                name={(focused ? filledIcon : outlineIcon) as any}
-                size={20}
-                color={focused ? colors.primary : colors.textSecondary}
-              />
-            </View>
-          );
-        },
-      })}
+      screenOptions={({ route }) => {
+        const routeName = getFocusedRouteNameFromRoute(route);
+        const isTabRoot = TAB_ROOT_SCREENS.includes(routeName);
+
+        return {
+          headerShown: false,
+          tabBarShowLabel: true,
+          tabBarActiveTintColor: colors.primary,
+          tabBarInactiveTintColor: colors.textSecondary,
+          tabBarStyle: isTabRoot ? styles.tabBar : { display: 'none' },
+          tabBarLabelStyle: styles.tabLabel,
+          tabBarItemStyle: styles.tabBarItem,
+          tabBarIcon: ({ focused, color }) => {
+            const icons: Record<string, [string, string]> = {
+              Home: ['home', 'home-outline'],
+              Quotes: ['document-text', 'document-text-outline'],
+              People: ['people', 'people-outline'],
+              Products: ['cube', 'cube-outline'],
+              Sales: ['receipt', 'receipt-outline'],
+              Profile: ['person', 'person-outline'],
+            };
+            const [filledIcon, outlineIcon] = icons[route.name] || ['ellipse', 'ellipse-outline'];
+            return (
+              <View style={focused ? styles.activeIconPill : styles.inactiveIconWrap}>
+                <Ionicons
+                  name={(focused ? filledIcon : outlineIcon) as any}
+                  size={20}
+                  color={focused ? colors.primary : colors.textSecondary}
+                />
+              </View>
+            );
+          },
+        };
+      }}
     >
       <Tab.Screen name="Home" component={HomeStackNav} />
       <Tab.Screen name="Quotes" component={QuotesStack} />
       <Tab.Screen name="People" component={PeopleStackNav} />
       <Tab.Screen name="Products" component={ProductsStack} />
+      <Tab.Screen name="Sales" component={SalesStackNav} />
       <Tab.Screen name="Profile" component={ProfilesStack} />
     </Tab.Navigator>
   );
@@ -167,3 +203,4 @@ const createStyles = (colors: any, insets: any, isDark?: boolean) => StyleSheet.
     letterSpacing: -0.2,
   },
 });
+

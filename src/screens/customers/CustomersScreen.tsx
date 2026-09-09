@@ -5,15 +5,20 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCustomers } from '../../hooks/useCustomers';
 import { Customer } from '../../types';
 import { Radius, Shadow } from '../../theme';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { useAppTheme } from '../../context/ThemeContext';
+import { AppBackground } from '../../components/AppBackground';
+import { useTabBarHeight } from '../../hooks/useTabBarHeight';
 
 export const CustomersScreen: React.FC = () => {
   const { colors } = useAppTheme();
-  const styles = createStyles(colors);
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useTabBarHeight();
+  const styles = createStyles(colors, insets);
   const nav = useNavigation<any>();
   const { customers, loading, fetch, remove } = useCustomers();
   const [search, setSearch] = useState('');
@@ -43,8 +48,16 @@ export const CustomersScreen: React.FC = () => {
 
   return (
     <View style={styles.screen}>
+      <AppBackground />
       <View style={styles.header}>
-        <Text style={styles.title}>Customers</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          {nav.canGoBack() && (
+            <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn} activeOpacity={0.8}>
+              <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+          )}
+          <Text style={styles.title}>Customers</Text>
+        </View>
         <TouchableOpacity
           style={styles.addBtn}
           onPress={() => nav.navigate('CustomerForm', {})}
@@ -65,7 +78,7 @@ export const CustomersScreen: React.FC = () => {
         data={filtered}
         keyExtractor={(c) => c.id}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={fetch} tintColor={colors.primary} />}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: tabBarHeight }}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Ionicons name="people-circle-outline" size={52} color={colors.textMuted} />
@@ -104,13 +117,14 @@ export const CustomersScreen: React.FC = () => {
   );
 };
 
-const createStyles = (colors: any) => StyleSheet.create({
+const createStyles = (colors: any, insets?: any) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingTop: 60, paddingBottom: 16, paddingHorizontal: 20,
+    paddingTop: Math.max(insets?.top || 0, 24) + 16, paddingBottom: 16, paddingHorizontal: 20,
   },
   title: { fontSize: 28, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
   addBtn: {
     width: 42, height: 42, borderRadius: 21,
     backgroundColor: colors.primary,

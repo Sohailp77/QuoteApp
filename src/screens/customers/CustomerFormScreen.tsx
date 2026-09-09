@@ -67,27 +67,6 @@ export const CustomerFormScreen: React.FC = () => {
     }
   };
 
-  const Field: React.FC<{
-    label: string; value: string; onChangeText: (t: string) => void;
-    placeholder?: string; keyboardType?: any; multiline?: boolean; icon?: string;
-  }> = ({ label, value, onChangeText, placeholder, keyboardType, multiline, icon }) => (
-    <View style={fieldStyles.wrap}>
-      <Text style={fieldStyles.label}>{label}</Text>
-      <View style={[fieldStyles.inputWrap, multiline && { height: 90 }]}>
-        {icon ? <Ionicons name={icon as any} size={16} color={colors.textMuted} style={{ marginRight: 8 }} /> : null}
-        <TextInput
-          style={[fieldStyles.input, multiline && { flex: 1, textAlignVertical: 'top' }]}
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor={colors.textMuted}
-          keyboardType={keyboardType}
-          multiline={multiline}
-        />
-      </View>
-    </View>
-  );
-
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -169,6 +148,31 @@ export const CustomerFormScreen: React.FC = () => {
         </ScrollView>
       </View>
     </KeyboardAvoidingView>
+  );
+};
+
+const Field: React.FC<{
+  label: string; value: string; onChangeText: (t: string) => void;
+  placeholder?: string; keyboardType?: any; multiline?: boolean; icon?: string;
+}> = ({ label, value, onChangeText, placeholder, keyboardType, multiline, icon }) => {
+  const { colors } = useAppTheme();
+  const fieldStyles = createFieldStyles(colors);
+  return (
+    <View style={fieldStyles.wrap}>
+      <Text style={fieldStyles.label}>{label}</Text>
+      <View style={[fieldStyles.inputWrap, multiline && { height: 90 }]}>
+        {icon ? <Ionicons name={icon as any} size={16} color={colors.textMuted} style={{ marginRight: 8 }} /> : null}
+        <TextInput
+          style={[fieldStyles.input, multiline && { flex: 1, textAlignVertical: 'top' }]}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={colors.textMuted}
+          keyboardType={keyboardType}
+          multiline={multiline}
+        />
+      </View>
+    </View>
   );
 };
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,10 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useQuotes } from '../../hooks/useQuotes';
 import { useEmployees } from '../../hooks/useEmployees';
 import { useProducts } from '../../hooks/useProducts';
+import { useReorders } from '../../hooks/useReorders';
+import { useDirectSales } from '../../hooks/useDirectSales';
+import { useCustomers } from '../../hooks/useCustomers';
+import { useVendors } from '../../hooks/useVendors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNotifications } from '../../hooks/useNotifications';
 import { useNotificationStore, loadNotificationState } from '../../store/useNotificationStore';
@@ -24,6 +28,9 @@ import { useAnalytics } from '../../hooks/useAnalytics';
 import { QuoteCard } from '../../components/QuoteCard';
 import { Radius, Shadow } from '../../theme';
 import { useAppTheme } from '../../context/ThemeContext';
+import { AppBackground } from '../../components/AppBackground';
+import { useTabBarHeight } from '../../hooks/useTabBarHeight';
+import { animateLayout } from '../../utils/animation';
 
 const formatCurrency = (amount: number) =>
   `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 0 })}`;
@@ -34,18 +41,41 @@ const PRIORITY_COLOR: Record<string, string> = {
   info: '#3B82F6',
 };
 
+const APP_COMMANDS = [
+  { icon: 'add-circle', label: 'Create New Quote', screen: 'Quotes', sub: 'CreateQuote', type: 'Action' },
+  { icon: 'add-circle-outline', label: 'Add Product', screen: 'Products', sub: 'ProductForm', type: 'Action' },
+  { icon: 'cart-outline', label: 'Create Direct Sale', screen: 'Sales', sub: 'CreateDirectSale', type: 'Action' },
+  { icon: 'person-add-outline', label: 'Add Customer', screen: 'People', sub: 'CustomerForm', type: 'Action' },
+  { icon: 'business-outline', label: 'Add Vendor', screen: 'Products', sub: 'VendorForm', type: 'Action' },
+  { icon: 'people-outline', label: 'Add Employee', screen: 'People', sub: 'EmployeeForm', type: 'Action' },
+  { icon: 'analytics-outline', label: 'Analytics Dashboard', screen: 'Home', sub: 'AnalyticsDashboard', type: 'Navigation' },
+  { icon: 'cube-outline', label: 'Stock Management', screen: 'Products', sub: 'StockManagement', type: 'Navigation' },
+  { icon: 'layers-outline', label: 'Reorder Stock', screen: 'Products', sub: 'ReorderStock', type: 'Navigation' },
+  { icon: 'wallet-outline', label: 'Payments & Debits', screen: 'Profile', sub: 'PaymentsList', type: 'Navigation' },
+  { icon: 'grid-outline', label: 'Category Manager', screen: 'Products', sub: 'CategoryManager', type: 'Navigation' },
+  { icon: 'settings-outline', label: 'Company Settings', screen: 'Profile', sub: 'CompanySettings', type: 'Settings' },
+  { icon: 'cash-outline', label: 'Tax Rates & GST', screen: 'Profile', sub: 'TaxRates', type: 'Settings' },
+  { icon: 'location-outline', label: 'Warehouse Management', screen: 'Profile', sub: 'Warehouse', type: 'Settings' },
+];
+
 export const HomeScreen: React.FC = () => {
   const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useTabBarHeight();
   const styles = createStyles(colors, insets, isDark);
   const user = useAuthStore((s) => s.user);
   const nav = useNavigation<any>();
   const { quotes, loading: qLoading, fetch: fetchQuotes } = useQuotes();
   const { employees, fetch: fetchEmployees } = useEmployees();
   const { products, fetch: fetchProducts } = useProducts();
+  const { reorders, fetch: fetchReorders } = useReorders();
+  const { directSales, fetch: fetchDirectSales } = useDirectSales();
+  const { customers, fetch: fetchCustomers } = useCustomers();
+  const { vendors, fetch: fetchVendors } = useVendors();
+
   const notifications = useNotifications(quotes, products);
   const { readIds, markRead, markAllRead } = useNotificationStore();
-  const analytics = useAnalytics(quotes);
+  const analytics = useAnalytics(quotes, reorders, directSales);
   const [showAllNotifs, setShowAllNotifs] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -61,14 +91,97 @@ export const HomeScreen: React.FC = () => {
     fetchQuotes();
     fetchEmployees();
     fetchProducts();
+    fetchReorders();
+    fetchDirectSales();
+    fetchCustomers();
+    fetchVendors();
   }, []);
 
+  const handleSearchChange = (text: string) => {
+    animateLayout();
+    setSearchQuery(text);
+  };
+
+  // Universal Search Logic
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return null;
+
+    const matchedCommands = APP_COMMANDS.filter(
+      (c) => c.label.toLowerCase().includes(q) || c.type.toLowerCase().includes(q)
+    );
+
+    const matchedQuotes = quotes.filter(
+      (item) =>
+        item.quote_number.toLowerCase().includes(q) ||
+        item.client_name.toLowerCase().includes(q) ||
+        (item.client_phone && item.client_phone.toLowerCase().includes(q)) ||
+        (item.client_email && item.client_email.toLowerCase().includes(q)) ||
+        (item.status && item.status.toLowerCase().includes(q))
+    ).slice(0, 5);
+
+    const matchedProducts = products.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.sku?.toLowerCase().includes(q) ||
+        p.category?.toLowerCase().includes(q) ||
+        p.barcode?.toLowerCase().includes(q)
+    ).slice(0, 5);
+
+    const matchedSales = directSales.filter(
+      (s) =>
+        s.sale_number.toLowerCase().includes(q) ||
+        (s.customer_name && s.customer_name.toLowerCase().includes(q)) ||
+        (s.payment_status && s.payment_status.toLowerCase().includes(q))
+    ).slice(0, 5);
+
+    const matchedCustomers = (customers || []).filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        (c.phone && c.phone.includes(q)) ||
+        (c.email && c.email.toLowerCase().includes(q)) ||
+        (c.gst_number && c.gst_number.toLowerCase().includes(q))
+    ).slice(0, 5);
+
+    const matchedVendors = (vendors || []).filter(
+      (v) =>
+        v.name.toLowerCase().includes(q) ||
+        (v.contact_person && v.contact_person.toLowerCase().includes(q)) ||
+        (v.phone && v.phone.includes(q)) ||
+        (v.email && v.email.toLowerCase().includes(q))
+    ).slice(0, 5);
+
+    const matchedEmployees = employees.filter(
+      (e) =>
+        e.name.toLowerCase().includes(q) ||
+        e.role.toLowerCase().includes(q) ||
+        e.department.toLowerCase().includes(q) ||
+        (e.phone && e.phone.includes(q))
+    ).slice(0, 5);
+
+    const totalCount =
+      matchedCommands.length +
+      matchedQuotes.length +
+      matchedProducts.length +
+      matchedSales.length +
+      matchedCustomers.length +
+      matchedVendors.length +
+      matchedEmployees.length;
+
+    return {
+      commands: matchedCommands,
+      quotes: matchedQuotes,
+      products: matchedProducts,
+      sales: matchedSales,
+      customers: matchedCustomers,
+      vendors: matchedVendors,
+      employees: matchedEmployees,
+      totalCount,
+    };
+  }, [searchQuery, quotes, products, directSales, customers, vendors, employees]);
+
   const pendingCount = quotes.filter((q) => q.status === 'Sent').length;
-  const recentQuotes = quotes.filter(q => 
-    !searchQuery || 
-    q.client_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    q.quote_number.toLowerCase().includes(searchQuery.toLowerCase())
-  ).slice(0, 5);
+  const recentQuotes = quotes.slice(0, 5);
 
   const firstName = user?.displayName?.split(' ')[0] || 'there';
   const isBoss = user?.role === 'boss';
@@ -78,21 +191,28 @@ export const HomeScreen: React.FC = () => {
     { icon: 'add-circle-outline', label: 'New Quote', screen: 'Quotes', sub: 'CreateQuote', stat: `${quotes.length}` },
     { icon: 'cube-outline', label: 'Products', screen: 'Products', sub: 'ProductsList', stat: `${products.length}` },
     { icon: 'people-outline', label: 'Employees', screen: 'People', sub: 'EmployeesList', stat: `${employees.length}` },
-    { icon: 'wallet-outline', label: 'Payments', screen: 'Home', sub: 'AnalyticsDashboard', stat: `${analytics.pendingPaymentsCount}` },
+    { icon: 'wallet-outline', label: 'Payments', screen: 'Profile', sub: 'PaymentsList', stat: `${analytics.pendingPaymentsCount}` },
+    { icon: 'receipt-outline', label: 'Direct Sales', screen: 'Sales', sub: 'DirectSalesList', stat: null },
+    { icon: 'business-outline', label: 'Vendors', screen: 'Products', sub: 'VendorsList', stat: null },
     { icon: 'calendar-outline', label: 'Quotes', screen: 'Quotes', stat: null },
     { icon: 'stats-chart-outline', label: 'Analytics', screen: 'Home', sub: 'AnalyticsDashboard', stat: null },
     { icon: 'layers-outline', label: 'Reorder', screen: 'Products', sub: 'ReorderStock', stat: null },
     { icon: 'options-outline', label: 'Settings', screen: 'Profile', stat: null },
   ];
 
-  const handleRefresh = () => { fetchQuotes(); fetchEmployees(); fetchProducts(); };
+  const handleRefresh = () => {
+    fetchQuotes();
+    fetchEmployees();
+    fetchProducts();
+    fetchReorders();
+    fetchDirectSales();
+    fetchCustomers();
+    fetchVendors();
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* Background Pixel Line Art & Organic Shape Accents (Active in both Light and Dark modes) */}
-      <View style={styles.bgBlobTopRight} />
-      <View style={styles.curvedRingTopRight} />
-      <View style={styles.bgBlobMiddleLeft} />
+      <AppBackground />
 
       <ScrollView
         style={styles.screen}
@@ -106,7 +226,7 @@ export const HomeScreen: React.FC = () => {
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Text style={styles.greetingTitle}>Hello</Text>
-            <Text style={styles.greetingName}>{user?.displayName || 'David Friedman'}</Text>
+            <Text style={styles.greetingName}>{user?.displayName || 'user'}</Text>
           </View>
           <TouchableOpacity onPress={() => nav.navigate('Profile')} activeOpacity={0.85}>
             <View style={styles.avatarRing}>
@@ -123,17 +243,6 @@ export const HomeScreen: React.FC = () => {
 
         {/* ── Material Quick Action Pills ──────────────────────── */}
         <View style={styles.pillActionsRow}>
-          <TouchableOpacity
-            style={styles.actionPill}
-            onPress={() => nav.navigate('Quotes', { screen: 'CreateQuote' })}
-            activeOpacity={0.8}
-          >
-            <View style={styles.pillIconCircle}>
-              <Ionicons name="add" size={16} color={colors.primary} />
-            </View>
-            <Text style={styles.pillText}>New Quote</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity
             style={styles.actionPill}
             onPress={() => setShowAllNotifs((v) => !v)}
@@ -156,21 +265,255 @@ export const HomeScreen: React.FC = () => {
             </View>
             <Text style={styles.pillText}>Analytics</Text>
           </TouchableOpacity>
-        </View>
 
-        {/* ── Material Search Bar ────────────────────────── */}
-        <View style={styles.searchWrap}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search For..."
-            placeholderTextColor={colors.textMuted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          <TouchableOpacity style={styles.searchCircleBtn} activeOpacity={0.85}>
-            <Ionicons name="search" size={18} color="#fff" />
+          <TouchableOpacity
+            style={styles.actionPill}
+            onPress={() => nav.navigate('Sales', { screen: 'DirectSalesList' })}
+            activeOpacity={0.8}
+          >
+            <View style={styles.pillIconCircle}>
+              <Ionicons name="receipt-outline" size={16} color={colors.primary} />
+            </View>
+            <Text style={styles.pillText}>Sales</Text>
           </TouchableOpacity>
         </View>
+
+        {/* ── Universal App-Wide Search Bar ────────────────────────── */}
+        <View style={styles.searchWrap}>
+          <Ionicons name="search-outline" size={18} color={colors.primary} style={{ marginRight: 8 }} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search quotes, products, vendors, customers, screens..."
+            placeholderTextColor={colors.textMuted}
+            value={searchQuery}
+            onChangeText={handleSearchChange}
+          />
+          {searchQuery !== '' ? (
+            <TouchableOpacity onPress={() => handleSearchChange('')} style={{ padding: 4 }}>
+              <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.searchCircleBtn}>
+              <Ionicons name="search" size={16} color="#fff" />
+            </View>
+          )}
+        </View>
+
+        {/* ── Universal Search Results Hub (Shown when search query exists) ── */}
+        {searchResults && (
+          <View style={styles.searchResultsPanel}>
+            <View style={styles.searchPanelHeader}>
+              <Text style={styles.searchPanelTitle}>SEARCH RESULTS</Text>
+              <View style={styles.resultBadge}>
+                <Text style={styles.resultBadgeText}>{searchResults.totalCount} matches</Text>
+              </View>
+            </View>
+
+            {searchResults.totalCount === 0 ? (
+              <View style={styles.noSearchMatch}>
+                <Ionicons name="search-outline" size={36} color={colors.textMuted} />
+                <Text style={styles.noMatchTitle}>No matching items found</Text>
+                <Text style={styles.noMatchSub}>
+                  No quotes, products, vendors, customers, or commands match "{searchQuery}".
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.searchResultsList}>
+                {/* ⚡ App Commands Section */}
+                {searchResults.commands.length > 0 && (
+                  <View style={styles.searchGroup}>
+                    <Text style={styles.groupTitle}>ACTIONS & NAVIGATION ({searchResults.commands.length})</Text>
+                    {searchResults.commands.map((c, i) => (
+                      <TouchableOpacity
+                        key={`cmd-${i}`}
+                        style={styles.resultRow}
+                        onPress={() => {
+                          handleSearchChange('');
+                          if (c.sub) nav.navigate(c.screen, { screen: c.sub });
+                          else nav.navigate(c.screen as any);
+                        }}
+                      >
+                        <View style={[styles.resultIconWrap, { backgroundColor: colors.primary + '18' }]}>
+                          <Ionicons name={c.icon as any} size={18} color={colors.primary} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.resultMainTitle}>{c.label}</Text>
+                          <Text style={styles.resultSubTitle}>{c.type} Shortcut</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                {/* 📄 Quotes Section */}
+                {searchResults.quotes.length > 0 && (
+                  <View style={styles.searchGroup}>
+                    <Text style={styles.groupTitle}>QUOTES ({searchResults.quotes.length})</Text>
+                    {searchResults.quotes.map((q) => (
+                      <TouchableOpacity
+                        key={`quote-${q.id}`}
+                        style={styles.resultRow}
+                        onPress={() => {
+                          handleSearchChange('');
+                          nav.navigate('Quotes', { screen: 'QuoteDetail', params: { quoteId: q.id } });
+                        }}
+                      >
+                        <View style={[styles.resultIconWrap, { backgroundColor: '#3B82F618' }]}>
+                          <Ionicons name="document-text-outline" size={18} color="#3B82F6" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Text style={styles.resultMainTitle}>{q.quote_number}</Text>
+                            <Text style={[styles.statusTag, { color: q.status === 'Sent' ? '#3B82F6' : '#10B981' }]}>
+                              {q.status}
+                            </Text>
+                          </View>
+                          <Text style={styles.resultSubTitle}>{q.client_name} • {formatCurrency(q.total)}</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                {/* 📦 Products Section */}
+                {searchResults.products.length > 0 && (
+                  <View style={styles.searchGroup}>
+                    <Text style={styles.groupTitle}>PRODUCTS ({searchResults.products.length})</Text>
+                    {searchResults.products.map((p) => (
+                      <TouchableOpacity
+                        key={`prod-${p.id}`}
+                        style={styles.resultRow}
+                        onPress={() => {
+                          handleSearchChange('');
+                          nav.navigate('Products', { screen: 'ProductForm', params: { product: p } });
+                        }}
+                      >
+                        <View style={[styles.resultIconWrap, { backgroundColor: '#10B98118' }]}>
+                          <Ionicons name="cube-outline" size={18} color="#10B981" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.resultMainTitle}>{p.name}</Text>
+                          <Text style={styles.resultSubTitle}>
+                            {p.category || 'General'} • {formatCurrency(p.unit_price)} • Stock: {p.stock_quantity || 0}
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                {/* 🛒 Direct Sales Section */}
+                {searchResults.sales.length > 0 && (
+                  <View style={styles.searchGroup}>
+                    <Text style={styles.groupTitle}>DIRECT SALES ({searchResults.sales.length})</Text>
+                    {searchResults.sales.map((s) => (
+                      <TouchableOpacity
+                        key={`sale-${s.id}`}
+                        style={styles.resultRow}
+                        onPress={() => {
+                          handleSearchChange('');
+                          nav.navigate('Sales', { screen: 'DirectSalesList' });
+                        }}
+                      >
+                        <View style={[styles.resultIconWrap, { backgroundColor: '#8B5CF618' }]}>
+                          <Ionicons name="cart-outline" size={18} color="#8B5CF6" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.resultMainTitle}>{s.sale_number}</Text>
+                          <Text style={styles.resultSubTitle}>
+                            {s.customer_name || 'Walk-in'} • {formatCurrency(s.total)} ({s.payment_status})
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                {/* 👥 Customers Section */}
+                {searchResults.customers.length > 0 && (
+                  <View style={styles.searchGroup}>
+                    <Text style={styles.groupTitle}>CUSTOMERS ({searchResults.customers.length})</Text>
+                    {searchResults.customers.map((c) => (
+                      <TouchableOpacity
+                        key={`cust-${c.id}`}
+                        style={styles.resultRow}
+                        onPress={() => {
+                          handleSearchChange('');
+                          nav.navigate('People', { screen: 'CustomerForm', params: { customer: c } });
+                        }}
+                      >
+                        <View style={[styles.resultIconWrap, { backgroundColor: '#EC489918' }]}>
+                          <Ionicons name="person-outline" size={18} color="#EC4899" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.resultMainTitle}>{c.name}</Text>
+                          <Text style={styles.resultSubTitle}>{c.phone || c.email || 'Customer'}</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                {/* 🤝 Vendors Section */}
+                {searchResults.vendors.length > 0 && (
+                  <View style={styles.searchGroup}>
+                    <Text style={styles.groupTitle}>VENDORS ({searchResults.vendors.length})</Text>
+                    {searchResults.vendors.map((v) => (
+                      <TouchableOpacity
+                        key={`vend-${v.id}`}
+                        style={styles.resultRow}
+                        onPress={() => {
+                          handleSearchChange('');
+                          nav.navigate('Products', { screen: 'VendorForm', params: { vendor: v } });
+                        }}
+                      >
+                        <View style={[styles.resultIconWrap, { backgroundColor: '#F59E0B18' }]}>
+                          <Ionicons name="business-outline" size={18} color="#F59E0B" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.resultMainTitle}>{v.name}</Text>
+                          <Text style={styles.resultSubTitle}>{v.contact_person || v.phone || 'Vendor Supplier'}</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                {/* 🏢 Employees Section */}
+                {searchResults.employees.length > 0 && (
+                  <View style={styles.searchGroup}>
+                    <Text style={styles.groupTitle}>TEAM / EMPLOYEES ({searchResults.employees.length})</Text>
+                    {searchResults.employees.map((e) => (
+                      <TouchableOpacity
+                        key={`emp-${e.id}`}
+                        style={styles.resultRow}
+                        onPress={() => {
+                          handleSearchChange('');
+                          nav.navigate('People', { screen: 'EmployeeForm', params: { employee: e } });
+                        }}
+                      >
+                        <View style={[styles.resultIconWrap, { backgroundColor: '#14B8A618' }]}>
+                          <Ionicons name="people-outline" size={18} color="#14B8A6" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.resultMainTitle}>{e.name}</Text>
+                          <Text style={styles.resultSubTitle}>{e.role} • {e.department}</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+        )}
 
         {/* ── Sleek Executive Summary Card ── */}
         <View style={styles.heroBanner}>
@@ -323,7 +666,7 @@ export const HomeScreen: React.FC = () => {
           ))
         )}
 
-        <View style={{ height: 100 }} />
+        <View style={{ height: tabBarHeight }} />
       </ScrollView>
     </View>
   );
@@ -332,26 +675,6 @@ export const HomeScreen: React.FC = () => {
 const createStyles = (colors: any, insets?: any, isDark?: boolean) => StyleSheet.create({
   screen: { flex: 1 },
   content: { paddingHorizontal: 20, paddingBottom: 20 },
-
-  // Background Accent Shapes (Vibrant in both Dark & Light modes)
-  bgBlobTopRight: {
-    position: 'absolute', top: -30, right: -40,
-    width: 220, height: 220, borderRadius: 110,
-    backgroundColor: isDark ? colors.primary + '45' : 'rgba(215, 238, 223, 0.6)',
-    opacity: isDark ? 0.7 : 0.9,
-  },
-  curvedRingTopRight: {
-    position: 'absolute', top: 50, right: -20,
-    width: 200, height: 200, borderRadius: 100,
-    borderWidth: 1.5,
-    borderColor: isDark ? colors.primary + '70' : colors.primary + '30',
-  },
-  bgBlobMiddleLeft: {
-    position: 'absolute', top: 320, left: -60,
-    width: 180, height: 180, borderRadius: 90,
-    backgroundColor: isDark ? colors.primary + '30' : 'rgba(215, 238, 223, 0.35)',
-    opacity: isDark ? 0.6 : 0.8,
-  },
 
   // Top User Header
   header: {
@@ -416,6 +739,102 @@ const createStyles = (colors: any, insets?: any, isDark?: boolean) => StyleSheet
     width: 36, height: 36, borderRadius: 18,
     backgroundColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
+  },
+
+  // Universal Search Results Panel
+  searchResultsPanel: {
+    backgroundColor: colors.surface,
+    borderRadius: Radius.lg,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1.5,
+    borderColor: colors.primary + '40',
+    ...Shadow.md,
+  },
+  searchPanelHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderColor: colors.border,
+  },
+  searchPanelTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.primary,
+    letterSpacing: 0.8,
+  },
+  resultBadge: {
+    backgroundColor: colors.primary + '15',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: Radius.full,
+  },
+  resultBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  noSearchMatch: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    gap: 8,
+  },
+  noMatchTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  noMatchSub: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  searchResultsList: {
+    gap: 16,
+  },
+  searchGroup: {
+    gap: 6,
+  },
+  groupTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textMuted,
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  resultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: Radius.md,
+    backgroundColor: colors.surfaceAlt,
+  },
+  resultIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resultMainTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  resultSubTitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  statusTag: {
+    fontSize: 11,
+    fontWeight: '700',
   },
 
   // Premium Executive Summary Hero Card

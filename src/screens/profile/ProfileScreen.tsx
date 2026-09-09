@@ -21,10 +21,13 @@ import { account } from '../../config/appwrite';
 import { checkForUpdatesManual } from '../../hooks/useAutoUpdateManager';
 import { Radius, Shadow } from '../../theme';
 import { useAppTheme } from '../../context/ThemeContext';
+import { AppBackground } from '../../components/AppBackground';
+import { useTabBarHeight } from '../../hooks/useTabBarHeight';
 
 export const ProfileScreen: React.FC = () => {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useTabBarHeight();
   const styles = createStyles(colors, insets);
   const nav = useNavigation<any>();
   const user = useAuthStore((s) => s.user);
@@ -102,6 +105,7 @@ export const ProfileScreen: React.FC = () => {
 
   const menuItems = [
     { icon: 'business-outline', label: 'Company Profile & Bank Info', action: () => nav.navigate('CompanySettings') },
+    { icon: 'card-outline', label: 'Payments & Collections', action: () => nav.navigate('PaymentsList') },
     { icon: 'key-outline', label: 'Change / Reset Password', action: () => setShowPasswordModal(true) },
     { icon: 'receipt-outline', label: 'Tax Slabs', action: () => nav.navigate('TaxRates') },
     { icon: 'grid-outline', label: 'Product Categories', action: () => nav.navigate('ProductCategories') },
@@ -112,7 +116,9 @@ export const ProfileScreen: React.FC = () => {
   ];
 
   return (
-    <ScrollView style={styles.screen} showsVerticalScrollIndicator={false}>
+    <View style={styles.screen}>
+      <AppBackground />
+      <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
       {/* Profile Hero */}
       <View style={styles.hero}>
         <View style={styles.heroBg} />
@@ -161,7 +167,7 @@ export const ProfileScreen: React.FC = () => {
       </View>
 
       <Text style={styles.version}>BizFlow v1.0.0</Text>
-      <View style={{ height: 100 }} />
+      <View style={{ height: tabBarHeight }} />
 
       {/* Change Password Modal */}
       <Modal visible={showPasswordModal} transparent animationType="slide">
@@ -232,12 +238,14 @@ export const ProfileScreen: React.FC = () => {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 
 const createStyles = (colors: any, insets?: any) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
+  scrollArea: { flex: 1 },
   hero: { alignItems: 'center', paddingTop: Math.max(insets?.top || 0, 24) + 24, paddingBottom: 32, position: 'relative' },
   heroBg: {
     position: 'absolute',

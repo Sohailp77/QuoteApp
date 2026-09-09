@@ -71,6 +71,7 @@ export interface Product {
   reorder_level?: number;
   unit: string; // Selling/Inventory unit (e.g. BOX, PCS, ROLL, BAG, LITER)
   category: string;
+  vendor_id?: string;
   sku: string;
   barcode?: string;
   warehouse_location?: string;
@@ -197,6 +198,50 @@ export interface Quote {
   tracking_number?: string;
   delivery_status?: 'Pending' | 'Shipped' | 'Delivered';
   delivery_note?: string;
+}
+
+export interface Vendor {
+  id: string;
+  tenant_id: string;
+  name: string;
+  contact_person?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  gst_number?: string;
+  notes?: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export type DirectSaleStatus = 'Paid' | 'Partial' | 'Pending';
+
+export interface DirectSaleItem {
+  id?: string;
+  product_id?: string;
+  product_name: string;
+  unit_price: number;
+  quantity: number;
+  discount: number;
+  line_total: number;
+  unit?: string;
+}
+
+export interface DirectSale {
+  id: string;
+  tenant_id: string;
+  sale_number: string;
+  customer_name: string;
+  customer_phone?: string;
+  items: DirectSaleItem[];
+  subtotal: number;
+  discount: number;
+  tax: number;
+  total: number;
+  payment_method: string;
+  payment_status: DirectSaleStatus;
+  notes?: string;
+  created_at: string;
 }
 
 // Navigation types

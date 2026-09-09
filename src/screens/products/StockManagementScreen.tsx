@@ -15,6 +15,8 @@ type MovementType = StockMovement['movement_type'];
 import { Product } from '../../types';
 import { Radius, Shadow } from '../../theme';
 import { useAppTheme } from '../../context/ThemeContext';
+import { AppBackground } from '../../components/AppBackground';
+import { useTabBarHeight } from '../../hooks/useTabBarHeight';
 
 const MOVEMENT_TYPES: { type: MovementType; label: string; icon: string; color: string; sign: number }[] = [
   { type: 'IN', label: 'Stock In', icon: 'add-circle', color: '#10B981', sign: 1 },
@@ -27,6 +29,7 @@ const MOVEMENT_TYPES: { type: MovementType; label: string; icon: string; color: 
 export const StockManagementScreen: React.FC = () => {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useTabBarHeight();
   const styles = createStyles(colors, insets);
   const nav = useNavigation<any>();
   const { products, loading: prodLoading, fetch: fetchProducts, update: updateProduct } = useProducts();
@@ -115,6 +118,7 @@ export const StockManagementScreen: React.FC = () => {
 
   return (
     <View style={styles.screen}>
+      <AppBackground />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
@@ -151,7 +155,7 @@ export const StockManagementScreen: React.FC = () => {
           keyExtractor={(p) => p.id}
           refreshing={prodLoading}
           onRefresh={fetchProducts}
-          contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: tabBarHeight }}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="cube-outline" size={52} color={colors.textMuted} />
@@ -228,7 +232,7 @@ export const StockManagementScreen: React.FC = () => {
           keyExtractor={(m) => m.id}
           refreshing={movLoading}
           onRefresh={() => fetchMovements()}
-          contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: tabBarHeight }}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="analytics-outline" size={52} color={colors.textMuted} />

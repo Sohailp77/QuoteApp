@@ -9,12 +9,13 @@ import { useAppTheme } from '../context/ThemeContext';
 interface QuoteCardProps {
   quote: Quote;
   onPress: () => void;
+  onDelete?: () => void;
 }
 
 const formatCurrency = (amount: number) =>
   `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 0 })}`;
 
-export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, onPress }) => {
+export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, onPress, onDelete }) => {
   const { colors } = useAppTheme();
   const styles = createStyles(colors);
   return (
@@ -24,7 +25,14 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, onPress }) => {
           <Text style={styles.quoteNumber}>{quote.quote_number}</Text>
           <Badge label={quote.status} status={quote.status} />
         </View>
-        <Text style={styles.amount}>{formatCurrency(quote.total)}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={styles.amount}>{formatCurrency(quote.total)}</Text>
+          {onDelete && (
+            <TouchableOpacity onPress={(e) => { e.stopPropagation(); onDelete(); }} style={{ padding: 4 }}>
+              <Ionicons name="trash-outline" size={18} color="#E53935" />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <View style={styles.divider} />

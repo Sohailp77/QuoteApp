@@ -19,6 +19,7 @@ import { Radius, Shadow } from '../../theme';
 import { Quote, QuoteStatus } from '../../types';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCompanySettings } from '../../hooks/useCompanySettings';
 import { useProducts } from '../../hooks/useProducts';
 import { tablesDB, DATABASE_ID, COLLECTIONS, Query } from '../../config/appwrite';
@@ -29,9 +30,28 @@ const formatCurrency = (amount: number) =>
 
 const STATUS_SEQUENCE: QuoteStatus[] = ['Draft', 'Sent', 'Accepted', 'Rejected', 'Expired'];
 
+// ── Safe helpers to prevent PDF crash on invalid dates/nulls ────────────
+const safeDateFmt = (dateStr: string | undefined | null, opts?: Intl.DateTimeFormatOptions): string => {
+  if (!dateStr) return 'N/A';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return 'N/A';
+  return d.toLocaleDateString('en-IN', opts || { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
+const safeNum = (val: number | null | undefined): number => {
+  const n = Number(val);
+  return isNaN(n) ? 0 : n;
+};
+
+const safeLocale = (val: number | null | undefined): string => {
+  return safeNum(val).toLocaleString('en-IN');
+};
+// ────────────────────────────────────────────────────────────────────────
+
 export const QuoteDetailScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
-  const styles = createStyles(colors);
+  const styles = createStyles(colors, insets);
   const nav = useNavigation<any>();
   const route = useRoute<RouteProp<{ params: { quoteId: string } }, 'params'>>();
   const { quoteId } = route.params;
@@ -40,6 +60,7 @@ export const QuoteDetailScreen: React.FC = () => {
 
   const { settings: company, fetch: fetchCompany } = useCompanySettings();
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [fetching, setFetching] = useState(true);
 
@@ -265,8 +286,8 @@ export const QuoteDetailScreen: React.FC = () => {
         <h1 class="quote-title">Quotation</h1>
         <div class="quote-meta">
           Quote #: <strong>${quote.quote_number}</strong><br>
-          Date: <span>${new Date(quote.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span><br>
-          Valid Until: <span>${new Date(quote.valid_until).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+          Date: <span>${safeDateFmt(quote.created_at)}</span><br>
+          Valid Until: <span>${safeDateFmt(quote.valid_until)}</span>
         </div>
       </td>
     </tr>
@@ -336,10 +357,10 @@ export const QuoteDetailScreen: React.FC = () => {
           <tr>
             <td>${idx + 1}</td>
             <td>${descHtml}</td>
-            <td style="text-align: right;">₹${item.unit_price.toLocaleString('en-IN')}</td>
-            <td style="text-align: center;">${item.quantity}${unitLabel}</td>
-            <td style="text-align: center;">${item.discount}%</td>
-            <td style="text-align: right; font-weight: bold;">₹${item.line_total.toLocaleString('en-IN')}</td>
+            <td style="text-align: right;">₹${safeLocale(item.unit_price)}</td>
+            <td style="text-align: center;">${safeNum(item.quantity)}${unitLabel}</td>
+            <td style="text-align: center;">${safeNum(item.discount)}%</td>
+            <td style="text-align: right; font-weight: bold;">₹${safeLocale(item.line_total)}</td>
           </tr>
         `;
       }).join('')}
@@ -349,23 +370,23 @@ export const QuoteDetailScreen: React.FC = () => {
   <table class="totals-table">
     <tr>
       <td class="totals-label">Subtotal (MRP)</td>
-      <td class="totals-value">₹${quote.subtotal.toLocaleString('en-IN')}</td>
+      <td class="totals-value">₹${safeLocale(quote.subtotal)}</td>
     </tr>
-    ${quote.discount > 0 ? `
+    ${safeNum(quote.discount) > 0 ? `
       <tr>
-        <td class="totals-label">Discount (${quote.subtotal > 0 ? `${((quote.discount / quote.subtotal) * 100).toFixed(1)}%` : '0%'})</td>
-        <td class="totals-value" style="color: #2EC4B6;">-₹${quote.discount.toLocaleString('en-IN')}</td>
+        <td class="totals-label">Discount (${safeNum(quote.subtotal) > 0 ? `${((safeNum(quote.discount) / safeNum(quote.subtotal)) * 100).toFixed(1)}%` : '0%'})</td>
+        <td class="totals-value" style="color: #2EC4B6;">-₹${safeLocale(quote.discount)}</td>
       </tr>
     ` : ''}
-    ${quote.tax > 0 ? `
+    ${safeNum(quote.tax) > 0 ? `
       <tr>
         <td class="totals-label">Tax (GST)</td>
-        <td class="totals-value">₹${quote.tax.toLocaleString('en-IN')}</td>
+        <td class="totals-value">₹${safeLocale(quote.tax)}</td>
       </tr>
     ` : ''}
     <tr class="final-row">
       <td class="totals-label">Grand Total</td>
-      <td class="totals-value">₹${quote.total.toLocaleString('en-IN')}</td>
+      <td class="totals-value">₹${safeLocale(quote.total)}</td>
     </tr>
   </table>
 
@@ -390,8 +411,8 @@ export const QuoteDetailScreen: React.FC = () => {
         </td>
       ` : `
         <td class="footer-cell">
-          <div class="footer-title">Terms & Conditions</div>
-          <div>1. Validity of this quotation is ${Math.round((new Date(quote.valid_until).getTime() - new Date(quote.created_at).getTime()) / (1000 * 60 * 60 * 24))} days.</div>
+          <div class="footer-title">Terms &amp; Conditions</div>
+          <div>1. Validity: ${quote.valid_until ? (() => { const d1 = new Date(quote.created_at); const d2 = new Date(quote.valid_until); const days = isNaN(d1.getTime()) || isNaN(d2.getTime()) ? 0 : Math.max(0, Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24))); return days > 0 ? `${days} days (until ${safeDateFmt(quote.valid_until)})` : safeDateFmt(quote.valid_until); })() : 'As per mutual agreement'}.</div>
           <div>2. Deliveries will be executed as per schedule.</div>
         </td>
       `}
@@ -564,43 +585,60 @@ export const QuoteDetailScreen: React.FC = () => {
   };
 
   const handleDelete = () => {
-    Alert.alert('Delete Quote', 'This action cannot be undone. Product stock will be restored if this quote is currently Accepted.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          await remove(quoteId);
-          nav.goBack();
+    Alert.alert(
+      'Delete Quote',
+      'This action cannot be undone. Product stock will be restored if this quote is currently Accepted.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await remove(quoteId);
+              nav.goBack();
+            } catch (e: any) {
+              setDeleting(false);
+              Alert.alert('Delete Failed', e.message || 'Could not delete this quote. Please try again.');
+            }
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   const statusColor = colors[`status${quote.status}`] || colors.textMuted;
 
   return (
     <View style={styles.screen}>
+      {/* Deletion loading overlay */}
+      {deleting && (
+        <View style={styles.deletingOverlay}>
+          <ActivityIndicator size="large" color="#fff" />
+          <Text style={styles.deletingText}>Deleting quote…{'\n'}Restoring stock if applicable</Text>
+        </View>
+      )}
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn} disabled={deleting}>
           <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{quote.quote_number}</Text>
         <View style={{ flexDirection: 'row', gap: 10 }}>
-          {quote.status !== 'Accepted' && (
+          {quote.status !== 'Accepted' && !deleting && (
             <TouchableOpacity onPress={() => nav.navigate('CreateQuote', { quoteId })} style={styles.editBtn}>
               <Ionicons name="create-outline" size={20} color={colors.primary} />
             </TouchableOpacity>
           )}
-          <TouchableOpacity onPress={handleSharePDF} style={styles.shareBtn} disabled={pdfLoading}>
+          <TouchableOpacity onPress={handleSharePDF} style={styles.shareBtn} disabled={pdfLoading || deleting}>
             {pdfLoading ? (
               <ActivityIndicator size="small" color={colors.primary} />
             ) : (
               <Ionicons name="share-social-outline" size={20} color={colors.primary} />
             )}
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleDelete} style={styles.deleteBtn}>
+          <TouchableOpacity onPress={handleDelete} style={styles.deleteBtn} disabled={deleting}>
             <Ionicons name="trash-outline" size={20} color={colors.statusRejected} />
           </TouchableOpacity>
         </View>
@@ -1045,7 +1083,7 @@ export const QuoteDetailScreen: React.FC = () => {
   );
 };
 
-const createStyles = (colors: any) => StyleSheet.create({
+const createStyles = (colors: any, insets: any) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   notFound: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
   notFoundText: { fontSize: 18, color: colors.textSecondary },
@@ -1053,7 +1091,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 56,
+    paddingTop: Math.max(insets?.top || 0, 24) + 12,
     paddingBottom: 12,
     paddingHorizontal: 20,
   },
@@ -1351,5 +1389,24 @@ const createStyles = (colors: any) => StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  deletingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.72)',
+    zIndex: 999,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  deletingText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+    textAlign: 'center',
+    lineHeight: 22,
   },
 });

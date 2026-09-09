@@ -3,13 +3,14 @@ import {
   View,
   Text,
   StyleSheet,
-  Modal,
   TouchableOpacity,
   FlatList,
   Alert,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useProducts } from '../hooks/useProducts';
 import { Radius, Shadow } from '../theme';
 import { Button } from './ui/Button';
@@ -28,8 +29,9 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   onScan,
   title = 'Scan Barcode',
 }) => {
+  const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
-  const styles = createStyles(colors);
+  const styles = createStyles(colors, insets);
   const [permission, requestPermission] = useCameraPermissions();
   const { products, fetch } = useProducts();
   const [showSimulator, setShowSimulator] = useState(false);
@@ -172,14 +174,14 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   );
 };
 
-const createStyles = (colors: any) => StyleSheet.create({
+const createStyles = (colors: any, insets: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: Math.max(insets?.top || 0, 24) + 12,
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,

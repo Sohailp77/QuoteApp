@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,23 +7,32 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useProducts } from '../../hooks/useProducts';
 import { ProductCard } from '../../components/ProductCard';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { Radius } from '../../theme';
 import { animateLayout } from '../../utils/animation';
 import { useAppTheme } from '../../context/ThemeContext';
+import { AppBackground } from '../../components/AppBackground';
+import { useTabBarHeight } from '../../hooks/useTabBarHeight';
+import { FilterModal, FilterGroup } from '../../components/ui/FilterModal';
 
 export const ProductsScreen: React.FC = () => {
   const { colors } = useAppTheme();
-  const styles = createStyles(colors);
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useTabBarHeight();
+  const styles = createStyles(colors, insets);
   const nav = useNavigation<any>();
   const { products, loading, fetch, remove } = useProducts();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
+  const [stockLevel, setStockLevel] = useState<'All' | 'In Stock' | 'Low Stock' | 'Out of Stock'>('All');
+  const [showFilterModal, setShowFilterModal] = useState(false);
 
   const handleSearchChange = (text: string) => {
     animateLayout();
@@ -32,15 +41,43 @@ export const ProductsScreen: React.FC = () => {
 
   useEffect(() => { fetch(); }, []);
 
-  const categories = ['All', ...Array.from(new Set(products.map((p) => p.category).filter(Boolean)))];
+  const categories = useMemo(() => {
+    return ['All', ...Array.from(new Set(products.map((p) => p.category).filter((c): c is string => Boolean(c))))];
+  }, [products]);
 
-  const filtered = products.filter((p) => {
-    const matchSearch =
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.category?.toLowerCase().includes(search.toLowerCase());
-    const matchCat = activeCategory === 'All' || p.category === activeCategory;
-    return matchSearch && matchCat;
-  });
+  const handleResetFilters = () => {
+    animateLayout();
+    setActiveCategory('All');
+    setStockLevel('All');
+  };
+
+  const activeFilterCount = (activeCategory !== 'All' ? 1 : 0) + (stockLevel !== 'All' ? 1 : 0);
+
+  const filtered = useMemo(() => {
+    return products.filter((p) => {
+      const s = search.toLowerCase();
+      const matchSearch =
+        p.name.toLowerCase().includes(s) ||
+        p.category?.toLowerCase().includes(s) ||
+        p.sku?.toLowerCase().includes(s);
+      
+      const matchCat = activeCategory === 'All' || p.category === activeCategory;
+
+      let matchStock = true;
+      const stock = p.stock_quantity || 0;
+      const reorderLevel = p.reorder_level || 5;
+
+      if (stockLevel === 'In Stock') {
+        matchStock = stock > reorderLevel;
+      } else if (stockLevel === 'Low Stock') {
+        matchStock = stock <= reorderLevel && stock > 0;
+      } else if (stockLevel === 'Out of Stock') {
+        matchStock = stock === 0;
+      }
+
+      return matchSearch && matchCat && matchStock;
+    });
+  }, [products, search, activeCategory, stockLevel]);
 
   const handleDelete = (id: string, name: string) => {
     Alert.alert(`Delete "${name}"?`, 'This action cannot be undone.', [
@@ -49,10 +86,40 @@ export const ProductsScreen: React.FC = () => {
     ]);
   };
 
+  const filterGroups: FilterGroup[] = [
+    {
+      id: 'category',
+      title: 'Category',
+      options: categories.map((cat) => ({ id: cat, label: cat })),
+      selectedValue: activeCategory,
+      onSelect: (val) => setActiveCategory(val),
+    },
+    {
+      id: 'stock',
+      title: 'Stock Level',
+      options: [
+        { id: 'All', label: 'All Items' },
+        { id: 'In Stock', label: 'In Stock' },
+        { id: 'Low Stock', label: 'Low Stock' },
+        { id: 'Out of Stock', label: 'Out of Stock' },
+      ],
+      selectedValue: stockLevel,
+      onSelect: (val) => setStockLevel(val as any),
+    },
+  ];
+
   return (
     <View style={styles.screen}>
+      <AppBackground />
       <View style={styles.header}>
-        <Text style={styles.title}>Products</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          {nav.canGoBack() && (
+            <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn} activeOpacity={0.8}>
+              <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+          )}
+          <Text style={styles.title}>Products</Text>
+        </View>
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={styles.headerActionBtn}
@@ -80,31 +147,51 @@ export const ProductsScreen: React.FC = () => {
         </View>
       </View>
 
-      <SearchBar
-        value={search}
-        onChangeText={handleSearchChange}
-        placeholder="Search products..."
-        style={styles.search}
-      />
+      {/* Search & Filter Control Row */}
+      <View style={styles.searchRow}>
+        <View style={{ flex: 1 }}>
+          <SearchBar
+            value={search}
+            onChangeText={handleSearchChange}
+            placeholder="Search products..."
+            style={{ marginBottom: 0 }}
+          />
+        </View>
 
-      {/* Category chips */}
-      {categories.length > 1 && (
-        <View style={styles.filterRow}>
-          {categories.map((cat) => (
-            <TouchableOpacity
-              key={cat}
-              style={[styles.chip, activeCategory === cat && styles.chipActive]}
-              onPress={() => {
-                animateLayout();
-                setActiveCategory(cat);
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.chipText, activeCategory === cat && styles.chipTextActive]}>
-                {cat}
-              </Text>
+        <TouchableOpacity
+          style={[styles.filterControlBtn, activeFilterCount > 0 && styles.filterControlBtnActive]}
+          onPress={() => setShowFilterModal(true)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="options-outline" size={20} color={activeFilterCount > 0 ? '#fff' : colors.primary} />
+          {activeFilterCount > 0 && (
+            <View style={styles.badgeDot}>
+              <Text style={styles.badgeDotText}>{activeFilterCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Active Filter Pills Bar */}
+      {activeFilterCount > 0 && (
+        <View style={styles.activeFiltersBar}>
+          <Text style={styles.activeLabel}>Active Filters:</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, alignItems: 'center' }}>
+            {activeCategory !== 'All' && (
+              <View style={styles.activePill}>
+                <Text style={styles.activePillText}>{activeCategory}</Text>
+              </View>
+            )}
+            {stockLevel !== 'All' && (
+              <View style={styles.activePill}>
+                <Text style={styles.activePillText}>{stockLevel}</Text>
+              </View>
+            )}
+            <TouchableOpacity onPress={handleResetFilters} style={styles.clearPill}>
+              <Ionicons name="close-circle" size={14} color="#E53935" />
+              <Text style={styles.clearPillText}>Clear All</Text>
             </TouchableOpacity>
-          ))}
+          </ScrollView>
         </View>
       )}
 
@@ -124,24 +211,33 @@ export const ProductsScreen: React.FC = () => {
         ListEmptyComponent={
           <View style={styles.empty}>
             <Ionicons name="cube-outline" size={52} color={colors.textMuted} />
-            <Text style={styles.emptyTitle}>No products yet</Text>
-            <Text style={styles.emptySub}>Tap + to add your first product</Text>
+            <Text style={styles.emptyTitle}>No products found</Text>
+            <Text style={styles.emptySub}>Try adjusting your filters or search text</Text>
           </View>
         }
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: tabBarHeight + 20, paddingTop: 8 }}
         showsVerticalScrollIndicator={false}
+      />
+
+      <FilterModal
+        visible={showFilterModal}
+        onClose={() => setShowFilterModal(false)}
+        groups={filterGroups}
+        onReset={handleResetFilters}
+        onApply={() => setShowFilterModal(false)}
       />
     </View>
   );
 };
 
-const createStyles = (colors: any) => StyleSheet.create({
+const createStyles = (colors: any, insets?: any) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 20 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingTop: 60, paddingBottom: 16,
+    paddingTop: Math.max(insets?.top || 0, 24) + 16, paddingBottom: 16,
   },
   title: { fontSize: 28, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerActionBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
@@ -155,17 +251,80 @@ const createStyles = (colors: any) => StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
   },
-  search: { marginBottom: 14 },
-  filterRow: { flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
-  chip: {
-    paddingHorizontal: 14, paddingVertical: 7,
-    borderRadius: Radius.full,
-    backgroundColor: colors.surface,
-    borderWidth: 1, borderColor: colors.border,
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
   },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
-  chipTextActive: { color: '#fff' },
+  filterControlBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  filterControlBtnActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  badgeDot: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#E53935',
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeDotText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  activeFiltersBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  activeLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+  activePill: {
+    backgroundColor: colors.primary + '15',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  activePillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  clearPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  clearPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#E53935',
+  },
   empty: { alignItems: 'center', paddingTop: 80, gap: 10 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
   emptySub: { fontSize: 14, color: colors.textSecondary },

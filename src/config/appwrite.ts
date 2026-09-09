@@ -16,6 +16,8 @@ export const TABLES = {
   STOCK_MOVEMENTS: 'stock_movements',
   COMPANY_SETTINGS: 'company_settings',
   QUOTES: 'quotes',
+  VENDORS: 'vendors',
+  DIRECT_SALES: 'direct_sales',
 };
 
 export const COLLECTIONS = TABLES;

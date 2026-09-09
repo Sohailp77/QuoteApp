@@ -12,13 +12,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTaxRates } from '../../hooks/useTaxRates';
 import { TaxRate } from '../../types';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Radius, Shadow } from '../../theme';
 import { useAppTheme } from '../../context/ThemeContext';
+import { AppBackground } from '../../components/AppBackground';
 
 export const TaxRatesScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
-  const styles = createStyles(colors);
+  const styles = createStyles(colors, insets);
   const nav = useNavigation();
   const user = useAuthStore((s) => s.user);
   const { taxRates, loading, fetch, create, update, remove } = useTaxRates();
@@ -126,6 +129,7 @@ export const TaxRatesScreen: React.FC = () => {
 
   return (
     <View style={styles.screen}>
+      <AppBackground />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
@@ -214,13 +218,13 @@ export const TaxRatesScreen: React.FC = () => {
   );
 };
 
-const createStyles = (colors: any) => StyleSheet.create({
+const createStyles = (colors: any, insets: any) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 56,
+    paddingTop: Math.max(insets?.top || 0, 24) + 12,
     paddingBottom: 12,
     paddingHorizontal: 20,
   },

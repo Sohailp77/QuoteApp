@@ -19,6 +19,7 @@ import { selectAndUploadImage } from '../../utils/upload';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useProducts } from '../../hooks/useProducts';
 import { useCategories } from '../../hooks/useCategories';
+import { useVendors } from '../../hooks/useVendors';
 import { Button } from '../../components/ui/Button';
 import { BarcodeScannerModal } from '../../components/BarcodeScannerModal';
 import { Radius, Shadow } from '../../theme';
@@ -86,6 +87,7 @@ export const ProductFormScreen: React.FC = () => {
 
   const { create: createProduct, update: updateProduct, findByBarcode } = useProducts();
   const { categories, fetch: fetchCategories, create: createCategory } = useCategories();
+  const { vendors, fetch: fetchVendors } = useVendors();
 
   const initialCalcConfig = existing ? getProductCalcConfig(existing) : {
     calc_method: 'direct' as CalcMethod,
@@ -110,9 +112,11 @@ export const ProductFormScreen: React.FC = () => {
   const [barcode, setBarcode] = useState(existing?.barcode || '');
   const [warehouseLocation, setWarehouseLocation] = useState(existing?.warehouse_location || '');
   const [productImage, setProductImage] = useState(existing?.image_url || '');
+  const [vendorId, setVendorId] = useState<string | undefined>(existing?.vendor_id || undefined);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+  const [showVendorModal, setShowVendorModal] = useState(false);
 
   // Category modal states
   const [categoryModalVisible, setCategoryModalVisible] = useState(false);
@@ -149,6 +153,7 @@ export const ProductFormScreen: React.FC = () => {
 
   useEffect(() => {
     fetchCategories();
+    fetchVendors();
   }, []);
 
   const handleSave = async () => {
@@ -200,6 +205,7 @@ export const ProductFormScreen: React.FC = () => {
         unit_coverage: calcMethod === 'direct' ? 1 : (coverageVal || 1),
         rounding_mode: roundingMode,
         image_url: productImage,
+        vendor_id: vendorId || undefined,
       };
 
       if (isEdit) {
@@ -391,6 +397,55 @@ export const ProductFormScreen: React.FC = () => {
                 )}
               </View>
             </View>
+
+            {/* Vendor / Supplier selection */}
+            <View style={fieldStyles.wrap}>
+              <Text style={fieldStyles.label}>Vendor / Supplier</Text>
+              <TouchableOpacity
+                style={[fieldStyles.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+                onPress={() => setShowVendorModal(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={{ color: vendorId ? colors.textPrimary : colors.textMuted, fontSize: 15 }}>
+                  {vendorId ? (vendors.find(v => v.id === vendorId)?.name || 'Unknown Vendor') : 'Select a vendor (optional)'}
+                </Text>
+                <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Vendor picker modal */}
+            <Modal visible={showVendorModal} animationType="slide" presentationStyle="pageSheet">
+              <View style={{ flex: 1, backgroundColor: colors.background }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', paddingTop: 20, paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderColor: colors.border }}>
+                  <Text style={{ fontSize: 18, fontWeight: '800', color: colors.textPrimary, flex: 1 }}>Select Vendor</Text>
+                  <TouchableOpacity onPress={() => setShowVendorModal(false)}>
+                    <Ionicons name="close" size={24} color={colors.textPrimary} />
+                  </TouchableOpacity>
+                </View>
+                <ScrollView contentContainerStyle={{ padding: 16 }}>
+                  <TouchableOpacity
+                    style={{ padding: 14, borderRadius: 10, marginBottom: 8, backgroundColor: !vendorId ? colors.primary + '20' : colors.surface, borderWidth: 1.5, borderColor: !vendorId ? colors.primary : colors.border }}
+                    onPress={() => { setVendorId(undefined); setShowVendorModal(false); }}
+                  >
+                    <Text style={{ color: !vendorId ? colors.primary : colors.textSecondary, fontWeight: '600' }}>No Vendor</Text>
+                  </TouchableOpacity>
+                  {vendors.filter(v => v.is_active).map(v => (
+                    <TouchableOpacity
+                      key={v.id}
+                      style={{ padding: 14, borderRadius: 10, marginBottom: 8, backgroundColor: vendorId === v.id ? colors.primary + '20' : colors.surface, borderWidth: 1.5, borderColor: vendorId === v.id ? colors.primary : colors.border }}
+                      onPress={() => { setVendorId(v.id); setShowVendorModal(false); }}
+                    >
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textPrimary }}>{v.name}</Text>
+                      {v.contact_person ? <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{v.contact_person}</Text> : null}
+                      {v.phone ? <Text style={{ fontSize: 12, color: colors.textMuted }}>{v.phone}</Text> : null}
+                    </TouchableOpacity>
+                  ))}
+                  {vendors.length === 0 && (
+                    <Text style={{ textAlign: 'center', color: colors.textMuted, marginTop: 40 }}>No vendors yet. Add vendors in the Vendors section.</Text>
+                  )}
+                </ScrollView>
+              </View>
+            </Modal>
 
             <View style={fieldStyles.wrap}>
               <Text style={fieldStyles.label}>Description</Text>

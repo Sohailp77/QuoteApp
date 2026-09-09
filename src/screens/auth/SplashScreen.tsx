@@ -20,9 +20,9 @@ export const SplashScreen: React.FC = () => {
     <View style={styles.container}>
       <Animated.View style={[styles.logoWrap, { opacity, transform: [{ scale }] }]}>
         <View style={styles.logoBox}>
-          <Text style={styles.logoIcon}>Q</Text>
+          <Text style={styles.logoIcon}>B</Text>
         </View>
-        <Text style={styles.appName}>QuoteApp</Text>
+        <Text style={styles.appName}>BizFlow</Text>
         <Text style={styles.tagline}>Smart Quoting. Faster Deals.</Text>
       </Animated.View>
     </View>

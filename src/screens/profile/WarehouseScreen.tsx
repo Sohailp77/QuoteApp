@@ -12,17 +12,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useProducts } from '../../hooks/useProducts';
 import { BarcodeScannerModal } from '../../components/BarcodeScannerModal';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Radius, Shadow } from '../../theme';
 import { Button } from '../../components/ui/Button';
 import { Product } from '../../types';
 import { useAppTheme } from '../../context/ThemeContext';
+import { AppBackground } from '../../components/AppBackground';
 
 const formatCurrency = (amount: number) =>
   `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 
 export const WarehouseScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
-  const styles = createStyles(colors);
+  const styles = createStyles(colors, insets);
   const nav = useNavigation();
   const { products, update: updateProduct } = useProducts();
   const [showScanner, setShowScanner] = useState(false);
@@ -120,6 +123,7 @@ export const WarehouseScreen: React.FC = () => {
 
   return (
     <View style={styles.screen}>
+      <AppBackground />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
@@ -351,13 +355,13 @@ export const WarehouseScreen: React.FC = () => {
   );
 };
 
-const createStyles = (colors: any) => StyleSheet.create({
+const createStyles = (colors: any, insets: any) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 56,
+    paddingTop: Math.max(insets?.top || 0, 24) + 12,
     paddingBottom: 12,
     paddingHorizontal: 20,
   },

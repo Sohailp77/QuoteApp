@@ -211,6 +211,41 @@ const COLLECTIONS = [
       { key: 'tenant_id', type: 'key', attributes: ['tenant_id'] },
       { key: 'status', type: 'key', attributes: ['status'] },
     ]
+  },
+  {
+    id: 'vendors',
+    name: 'Vendors',
+    attributes: [
+      { key: 'tenant_id', type: 'string', size: STRING_SIZE, required: true },
+      { key: 'name', type: 'string', size: STRING_SIZE, required: true },
+      { key: 'contact_person', type: 'string', size: STRING_SIZE, required: false },
+      { key: 'phone', type: 'string', size: 50, required: false },
+      { key: 'email', type: 'string', size: STRING_SIZE, required: false },
+      { key: 'address', type: 'string', size: LARGE_STRING_SIZE, required: false },
+      { key: 'gst_number', type: 'string', size: 50, required: false },
+      { key: 'notes', type: 'string', size: LARGE_STRING_SIZE, required: false },
+      { key: 'is_active', type: 'boolean', required: false, default: true },
+    ],
+    indexes: [{ key: 'tenant_id', type: 'key', attributes: ['tenant_id'] }]
+  },
+  {
+    id: 'direct_sales',
+    name: 'Direct Sales',
+    attributes: [
+      { key: 'tenant_id', type: 'string', size: STRING_SIZE, required: true },
+      { key: 'sale_number', type: 'string', size: STRING_SIZE, required: true },
+      { key: 'customer_name', type: 'string', size: STRING_SIZE, required: false },
+      { key: 'customer_phone', type: 'string', size: STRING_SIZE, required: false },
+      { key: 'items', type: 'string', size: LARGE_STRING_SIZE, required: false },
+      { key: 'subtotal', type: 'double', required: true },
+      { key: 'discount', type: 'double', required: false },
+      { key: 'tax', type: 'double', required: false },
+      { key: 'total', type: 'double', required: true },
+      { key: 'payment_method', type: 'string', size: 50, required: false },
+      { key: 'payment_status', type: 'string', size: 50, required: false, default: 'Pending' },
+      { key: 'notes', type: 'string', size: LARGE_STRING_SIZE, required: false },
+    ],
+    indexes: [{ key: 'tenant_id', type: 'key', attributes: ['tenant_id'] }]
   }
 ];
 

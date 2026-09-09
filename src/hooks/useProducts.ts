@@ -32,6 +32,7 @@ export const useProducts = () => {
       barcode: prod.barcode || '',
       warehouse_location: prod.warehouse_location || '',
       reorder_level: prod.reorder_level !== null ? Number(prod.reorder_level) : undefined,
+      vendor_id: prod.vendor_id || undefined,
       created_at: prod.$createdAt || new Date().toISOString(),
       calc_type: prod.calc_type || 'pcs',
       calc_method: decoded.calc_method,

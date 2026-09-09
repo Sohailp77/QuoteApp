@@ -15,15 +15,20 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { selectAndUploadImage } from '../../utils/upload';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCategories } from '../../hooks/useCategories';
 import { Category } from '../../types';
 import { Radius, Shadow } from '../../theme';
 import { animateLayout } from '../../utils/animation';
 import { useAppTheme } from '../../context/ThemeContext';
+import { AppBackground } from '../../components/AppBackground';
+import { useTabBarHeight } from '../../hooks/useTabBarHeight';
 
 export const CategoryManagerScreen: React.FC = () => {
   const { colors } = useAppTheme();
-  const styles = createStyles(colors);
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useTabBarHeight();
+  const styles = createStyles(colors, insets);
   const nav = useNavigation<any>();
   const { categories, loading, fetch, create, update, remove } = useCategories();
 
@@ -122,6 +127,7 @@ export const CategoryManagerScreen: React.FC = () => {
 
   return (
     <View style={styles.screen}>
+      <AppBackground />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
@@ -138,7 +144,7 @@ export const CategoryManagerScreen: React.FC = () => {
         keyExtractor={(item) => item.id}
         refreshing={loading}
         onRefresh={fetch}
-        contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+        contentContainerStyle={{ padding: 20, paddingBottom: tabBarHeight }}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Ionicons name="grid-outline" size={52} color={colors.textMuted} />
@@ -316,11 +322,11 @@ export const CategoryManagerScreen: React.FC = () => {
   );
 };
 
-const createStyles = (colors: any) => StyleSheet.create({
+const createStyles = (colors: any, insets?: any) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 56, paddingBottom: 16, paddingHorizontal: 20,
+    paddingTop: Math.max(insets?.top || 0, 24) + 12, paddingBottom: 16, paddingHorizontal: 20,
   },
   backBtn: {
     width: 38, height: 38, borderRadius: 19,

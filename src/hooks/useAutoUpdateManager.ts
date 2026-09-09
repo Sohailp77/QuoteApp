@@ -8,9 +8,11 @@ try {
   // Native updates module fallback
 }
 
+
 /**
  * Checks if expo-updates is currently enabled and supported in this environment
  */
+
 export const isOtaEnabled = (): boolean => {
   try {
     return Boolean(Updates && Updates.isEnabled);

@@ -10,16 +10,21 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEmployees } from '../../hooks/useEmployees';
 import { useAuthStore } from '../../store/useAuthStore';
 import { EmployeeCard } from '../../components/EmployeeCard';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { useAppTheme } from '../../context/ThemeContext';
+import { AppBackground } from '../../components/AppBackground';
+import { useTabBarHeight } from '../../hooks/useTabBarHeight';
 
 
 export const EmployeesScreen: React.FC = () => {
   const { colors } = useAppTheme();
-  const styles = createStyles(colors);
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useTabBarHeight();
+  const styles = createStyles(colors, insets);
   const nav = useNavigation<any>();
   const user = useAuthStore((s) => s.user);
   const { employees, loading, fetch, remove } = useEmployees();
@@ -45,10 +50,18 @@ export const EmployeesScreen: React.FC = () => {
 
   return (
     <View style={styles.screen}>
+      <AppBackground />
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Team</Text>
-          <Text style={styles.subtitle}>Employees</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          {nav.canGoBack() && (
+            <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn} activeOpacity={0.8}>
+              <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+          )}
+          <View>
+            <Text style={styles.title}>Team</Text>
+            <Text style={styles.subtitle}>Employees</Text>
+          </View>
         </View>
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
           <TouchableOpacity
@@ -103,23 +116,24 @@ export const EmployeesScreen: React.FC = () => {
             )}
           </View>
         }
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: tabBarHeight }}
         showsVerticalScrollIndicator={false}
       />
     </View>
   );
 };
 
-const createStyles = (colors: any) => StyleSheet.create({
+const createStyles = (colors: any, insets?: any) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 20 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 60,
+    paddingTop: Math.max(insets?.top || 0, 24) + 16,
     paddingBottom: 16,
   },
   title: { fontSize: 26, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
   subtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 1 },
   addBtn: {
     width: 42, height: 42, borderRadius: 21,

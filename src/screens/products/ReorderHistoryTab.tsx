@@ -7,8 +7,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useReorders } from '../../hooks/useReorders';
 import { useCompanySettings } from '../../hooks/useCompanySettings';
 import { Reorder, ReorderItem, ReorderStatus } from '../../types';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Radius, Shadow } from '../../theme';
 import { useAppTheme } from '../../context/ThemeContext';
+import { useTabBarHeight } from '../../hooks/useTabBarHeight';
+import { FilterModal, FilterGroup } from '../../components/ui/FilterModal';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
@@ -303,15 +306,25 @@ const OrderDetailModal: React.FC<DetailProps> = ({ order, onClose, onRefresh, co
 // ─── History Tab ──────────────────────────────────────────────────────────────
 export const ReorderHistoryTab: React.FC = () => {
   const { colors } = useAppTheme();
-  const s = styles(colors);
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useTabBarHeight();
+  const s = styles(colors, insets);
   const { reorders, loading, fetch: fetchReorders, remove } = useReorders();
   const { settings: company, fetch: fetchCompany } = useCompanySettings();
   const [filterStatus, setFilterStatus] = useState<ReorderStatus | 'ALL'>('ALL');
+  const [search, setSearch] = useState('');
+  const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Reorder | null>(null);
 
   useEffect(() => { fetchReorders(true); fetchCompany(); }, []);
 
-  const filtered = reorders.filter(r => filterStatus === 'ALL' || r.status === filterStatus);
+  const filtered = reorders.filter(r => {
+    const matchSearch =
+      r.order_number.toLowerCase().includes(search.toLowerCase()) ||
+      r.vendor_name.toLowerCase().includes(search.toLowerCase());
+    const matchStatus = filterStatus === 'ALL' || r.status === filterStatus;
+    return matchSearch && matchStatus;
+  });
 
   const handleDelete = (r: Reorder) => {
     Alert.alert('Delete Order', `Delete order #${r.order_number}?`, [
@@ -320,24 +333,78 @@ export const ReorderHistoryTab: React.FC = () => {
     ]);
   };
 
-  const statuses: (ReorderStatus | 'ALL')[] = ['ALL', 'Ordered', 'Partially Received', 'Received', 'Draft'];
+  const filterGroups: FilterGroup[] = [
+    {
+      id: 'status',
+      title: 'Order Status',
+      options: [
+        { id: 'ALL', label: 'All Orders' },
+        { id: 'Ordered', label: 'Ordered' },
+        { id: 'Partially Received', label: 'Partially Received' },
+        { id: 'Received', label: 'Received' },
+        { id: 'Draft', label: 'Draft' },
+      ],
+      selectedValue: filterStatus,
+      onSelect: (val) => setFilterStatus(val as any),
+    },
+  ];
+
+  const activeFilterCount = filterStatus !== 'ALL' ? 1 : 0;
 
   return (
     <View style={{ flex: 1 }}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.filterScroll} contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }}>
-        {statuses.map(st => (
-          <TouchableOpacity key={st} style={[s.statusChip, filterStatus === st && s.statusChipActive]} onPress={() => setFilterStatus(st)}>
-            <Text style={[s.statusChipText, filterStatus === st && s.statusChipTextActive]}>{st}</Text>
+      {/* Search & Filter Row */}
+      <View style={s.searchFilterRow}>
+        <View style={s.searchBox}>
+          <Ionicons name="search-outline" size={18} color={colors.textMuted} />
+          <TextInput
+            style={s.searchInput}
+            placeholder="Search orders..."
+            placeholderTextColor={colors.textMuted}
+            value={search}
+            onChangeText={setSearch}
+          />
+          {search !== '' && (
+            <TouchableOpacity onPress={() => setSearch('')}>
+              <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <TouchableOpacity
+          style={[s.filterControlBtn, activeFilterCount > 0 && s.filterControlBtnActive]}
+          onPress={() => setShowFilterModal(true)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="options-outline" size={20} color={activeFilterCount > 0 ? '#fff' : colors.primary} />
+          {activeFilterCount > 0 && (
+            <View style={s.badgeDot}>
+              <Text style={s.badgeDotText}>{activeFilterCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Active Filter Pills Bar */}
+      {activeFilterCount > 0 && (
+        <View style={s.activeFiltersBar}>
+          <Text style={s.activeLabel}>Active Filter:</Text>
+          <View style={s.activePill}>
+            <Text style={s.activePillText}>{filterStatus}</Text>
+          </View>
+          <TouchableOpacity onPress={() => setFilterStatus('ALL')} style={s.clearPill}>
+            <Ionicons name="close-circle" size={14} color="#E53935" />
+            <Text style={s.clearPillText}>Reset</Text>
           </TouchableOpacity>
-        ))}
-      </ScrollView>
+        </View>
+      )}
 
       <FlatList
         data={filtered}
         keyExtractor={r => r.id}
         refreshing={loading}
         onRefresh={() => fetchReorders(true)}
-        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: tabBarHeight + 20 }}
         ListEmptyComponent={
           <View style={s.empty}>
             <Ionicons name="receipt-outline" size={48} color={colors.textMuted} />
@@ -405,16 +472,113 @@ export const ReorderHistoryTab: React.FC = () => {
           onRefresh={() => { fetchReorders(true); setSelectedOrder(null); }}
         />
       )}
+
+      <FilterModal
+        visible={showFilterModal}
+        onClose={() => setShowFilterModal(false)}
+        groups={filterGroups}
+        onReset={() => setFilterStatus('ALL')}
+        onApply={() => setShowFilterModal(false)}
+      />
     </View>
   );
 };
 
-const styles = (colors: any) => StyleSheet.create({
-  filterScroll: { maxHeight: 50, paddingVertical: 8 },
-  statusChip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: Radius.full, backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.border },
-  statusChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  statusChipText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
-  statusChipTextActive: { color: '#fff' },
+const styles = (colors: any, insets?: any) => StyleSheet.create({
+  searchFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  searchBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: Radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.textPrimary,
+    padding: 0,
+  },
+  filterControlBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: Radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  filterControlBtnActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  badgeDot: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#E53935',
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeDotText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  activeFiltersBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    gap: 8,
+  },
+  activeLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+  activePill: {
+    backgroundColor: colors.primary + '15',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  activePillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  clearPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  clearPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#E53935',
+  },
   orderCard: { backgroundColor: colors.surface, borderRadius: Radius.lg, padding: 16, marginBottom: 12, ...Shadow.sm },
   orderTop: { flexDirection: 'row', marginBottom: 10 },
   orderNum: { fontSize: 15, fontWeight: '800', color: colors.textPrimary },
@@ -438,7 +602,16 @@ const styles = (colors: any) => StyleSheet.create({
   emptyText: { fontSize: 15, fontWeight: '600', color: colors.textMuted },
   // Modal
   modal: { flex: 1, backgroundColor: colors.background },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderColor: colors.border },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: Math.max(insets?.top || 0, 24) + 12,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderColor: colors.border,
+  },
   closeBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
   shareBtnHeader: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primary + '20', alignItems: 'center', justifyContent: 'center' },
   modalTitle: { fontSize: 17, fontWeight: '800', color: colors.textPrimary },

@@ -10,13 +10,18 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAnalytics } from '../../hooks/useAnalytics';
 import { useQuotes } from '../../hooks/useQuotes';
 import { useEmployees } from '../../hooks/useEmployees';
+import { useReorders } from '../../hooks/useReorders';
+import { useDirectSales } from '../../hooks/useDirectSales';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Radius, Shadow } from '../../theme';
 import { useAppTheme } from '../../context/ThemeContext';
+import { AppBackground } from '../../components/AppBackground';
+import { useTabBarHeight } from '../../hooks/useTabBarHeight';
 
 const BAR_AREA_HEIGHT = 110;
 const VALUE_LABEL_HEIGHT = 20;
@@ -83,11 +88,15 @@ const createChartStyles = (colors: any) => StyleSheet.create({
 
 export const AnalyticsDashboardScreen: React.FC = () => {
   const { colors } = useAppTheme();
-  const styles = createStyles(colors);
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useTabBarHeight();
+  const styles = createStyles(colors, insets);
   const nav = useNavigation<any>();
   const currentUser = useAuthStore((s) => s.user);
   const { quotes } = useQuotes();
   const { employees, fetch: fetchEmployees } = useEmployees();
+  const { reorders, fetch: fetchReorders } = useReorders();
+  const { directSales, fetch: fetchDirectSales } = useDirectSales();
 
   const [period, setPeriod] = useState<Period>('month');
   const [dateRange, setDateRange] = useState<{ start: Date; end: Date } | undefined>(undefined);
@@ -97,10 +106,12 @@ export const AnalyticsDashboardScreen: React.FC = () => {
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
 
-  const analytics = useAnalytics(quotes, dateRange);
+  const analytics = useAnalytics(quotes, reorders, directSales, dateRange);
 
   useEffect(() => {
     fetchEmployees();
+    fetchReorders();
+    fetchDirectSales();
   }, []);
 
   const chartData = dateRange
@@ -160,6 +171,7 @@ export const AnalyticsDashboardScreen: React.FC = () => {
 
   return (
     <View style={styles.screen}>
+      <AppBackground />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
@@ -285,7 +297,7 @@ export const AnalyticsDashboardScreen: React.FC = () => {
         </View>
       </Modal>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: tabBarHeight }}>
         {/* Main Revenue Card */}
         <View style={styles.revenueCard}>
           <Text style={styles.cardLabel}>
@@ -356,6 +368,33 @@ export const AnalyticsDashboardScreen: React.FC = () => {
             </View>
             <Text style={styles.kpiValue}>{analytics.totalQuotesCount}</Text>
             <Text style={styles.kpiLabel}>Total Quotes</Text>
+          </View>
+        </View>
+
+        {/* Secondary KPIs Summary */}
+        <View style={styles.kpiGrid}>
+          <View style={styles.kpiCard}>
+            <View style={[styles.kpiBadge, { backgroundColor: '#EF444415' }]}>
+              <Ionicons name="cart-outline" size={16} color="#EF4444" />
+            </View>
+            <Text style={styles.kpiValue}>{formatCurrency(analytics.totalReorderCost)}</Text>
+            <Text style={styles.kpiLabel}>Reorder Cost</Text>
+          </View>
+
+          <View style={styles.kpiCard}>
+            <View style={[styles.kpiBadge, { backgroundColor: '#06B6D415' }]}>
+              <Ionicons name="pricetag-outline" size={16} color="#06B6D4" />
+            </View>
+            <Text style={styles.kpiValue}>{formatCurrency(analytics.totalDirectSalesRevenue)}</Text>
+            <Text style={styles.kpiLabel}>Direct Sales</Text>
+          </View>
+
+          <View style={styles.kpiCard}>
+            <View style={[styles.kpiBadge, { backgroundColor: analytics.netProfit >= 0 ? '#10B98115' : '#EF444415' }]}>
+              <Ionicons name="cash-outline" size={16} color={analytics.netProfit >= 0 ? '#10B981' : '#EF4444'} />
+            </View>
+            <Text style={styles.kpiValue}>{formatCurrency(analytics.netProfit)}</Text>
+            <Text style={styles.kpiLabel}>Net Profit</Text>
           </View>
         </View>
 
@@ -483,11 +522,11 @@ export const AnalyticsDashboardScreen: React.FC = () => {
   );
 };
 
-const createStyles = (colors: any) => StyleSheet.create({
+const createStyles = (colors: any, insets?: any) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 56, paddingBottom: 12, paddingHorizontal: 20,
+    paddingTop: Math.max(insets?.top || 0, 24) + 12, paddingBottom: 12, paddingHorizontal: 20,
   },
   backBtn: {
     width: 38, height: 38, borderRadius: 19,

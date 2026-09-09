@@ -9,6 +9,7 @@ import { account, ID, tablesDB, DATABASE_ID, COLLECTIONS, Query, APPWRITE_ENDPOI
 import { useAuthStore } from '../../store/useAuthStore';
 import { Radius, Shadow } from '../../theme';
 import { useAppTheme } from '../../context/ThemeContext';
+import { AppBackground } from '../../components/AppBackground';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -277,12 +278,7 @@ export const LoginScreen: React.FC = () => {
       style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      {/* Background Pixel Line Art & Organic Shape Accents (Active in both Light and Dark modes) */}
-      <View style={styles.topShapeAccent} />
-      <View style={styles.curvedRingLine1} />
-      <View style={styles.curvedRingLine2} />
-      <View style={styles.centerMintCircle} />
-      <View style={styles.bottomShapeAccent} />
+      <AppBackground />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -561,37 +557,6 @@ export const LoginScreen: React.FC = () => {
 
 const createStyles = (colors: any, isDark?: boolean) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  
-  // Organic Line Art & Curved Accents (Vibrant in both Dark & Light modes)
-  topShapeAccent: {
-    position: 'absolute', top: -60, right: -60,
-    width: 300, height: 300, borderRadius: 150,
-    backgroundColor: isDark ? colors.primary + '55' : colors.primary,
-    opacity: isDark ? 0.75 : 0.9,
-  },
-  curvedRingLine1: {
-    position: 'absolute', top: 80, right: -40,
-    width: 240, height: 240, borderRadius: 120,
-    borderWidth: 1.5,
-    borderColor: isDark ? colors.primary + '80' : colors.primary + '35',
-  },
-  curvedRingLine2: {
-    position: 'absolute', top: 120, right: -20,
-    width: 200, height: 200, borderRadius: 100,
-    borderWidth: 1.5,
-    borderColor: isDark ? colors.primary + '50' : colors.primary + '20',
-  },
-  centerMintCircle: {
-    position: 'absolute', top: 220, left: 30,
-    width: 140, height: 140, borderRadius: 70,
-    backgroundColor: isDark ? '#2EC4B630' : colors.surfaceAlt,
-    opacity: isDark ? 0.6 : 0.6,
-  },
-  bottomShapeAccent: {
-    position: 'absolute', bottom: -70, left: -70,
-    width: 220, height: 220, borderRadius: 110,
-    backgroundColor: isDark ? colors.primary + '35' : colors.primary + '18',
-  },
 
   scrollContent: { flexGrow: 1, paddingHorizontal: 28, justifyContent: 'center', paddingVertical: 40 },
   header: { marginBottom: 28, marginTop: 36 },
