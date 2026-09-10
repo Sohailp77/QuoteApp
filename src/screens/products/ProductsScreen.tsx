@@ -140,13 +140,13 @@ export const ProductsScreen: React.FC = () => {
             <Ionicons name="grid-outline" size={18} color={colors.primary} />
             {!isSmallScreen && <Text style={styles.headerActionText}>Categories</Text>}
           </TouchableOpacity>
-          <TouchableOpacity
+          {/* <TouchableOpacity
             style={styles.addBtn}
             onPress={() => nav.navigate('ProductForm', {})}
             activeOpacity={0.8}
           >
             <Ionicons name="add" size={22} color="#fff" />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
       </View>
 

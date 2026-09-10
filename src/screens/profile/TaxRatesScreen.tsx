@@ -7,6 +7,10 @@ import {
   FlatList,
   Alert,
   ActivityIndicator,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -28,6 +32,12 @@ export const TaxRatesScreen: React.FC = () => {
 
   const isBoss = user?.role === 'boss';
 
+  // Add tax slab modal state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newTaxName, setNewTaxName] = useState('');
+  const [newTaxRate, setNewTaxRate] = useState('');
+  const [saving, setSaving] = useState(false);
+
   useEffect(() => {
     fetch();
   }, []);
@@ -37,55 +47,34 @@ export const TaxRatesScreen: React.FC = () => {
       Alert.alert('Access Denied', 'Only the owner (Boss) can create tax slabs.');
       return;
     }
+    setNewTaxName('');
+    setNewTaxRate('');
+    setShowAddModal(true);
+  };
 
-    Alert.prompt(
-      'New Tax Slab',
-      'Enter the tax name (e.g. GST 18%):',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Next',
-          onPress: (name?: string) => {
-            if (!name || !name.trim()) return;
+  const handleSaveNewTax = async () => {
+    const name = newTaxName.trim();
+    const rate = parseFloat(newTaxRate);
 
-            // Ask for the rate percentage
-            Alert.prompt(
-              'Tax Rate',
-              'Enter the tax rate percentage (e.g. 18):',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Add',
-                  onPress: async (rateStr?: string) => {
-                    const rate = parseFloat(rateStr || '');
-                    if (isNaN(rate) || rate < 0) {
-                      Alert.alert('Error', 'Please enter a valid rate percentage.');
-                      return;
-                    }
+    if (!name) {
+      Alert.alert('Validation', 'Please enter a tax name.');
+      return;
+    }
+    if (isNaN(rate) || rate < 0 || rate > 100) {
+      Alert.alert('Validation', 'Please enter a valid percentage between 0 and 100.');
+      return;
+    }
 
-                    try {
-                      await create({
-                        name: name.trim(),
-                        percentage: rate,
-                        is_active: true,
-                        is_default: false,
-                      });
-                      Alert.alert('Success', `Tax slab "${name}" added successfully.`);
-                    } catch (err: any) {
-                      Alert.alert('Error', err.message || 'Failed to create tax slab.');
-                    }
-                  },
-                },
-              ],
-              'plain-text',
-              ''
-            );
-          },
-        },
-      ],
-      'plain-text',
-      ''
-    );
+    setSaving(true);
+    try {
+      await create({ name, percentage: rate, is_active: true, is_default: false });
+      setShowAddModal(false);
+      Alert.alert('Success', `Tax slab "${name}" added successfully.`);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to create tax slab.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleToggleActive = async (item: TaxRate) => {
@@ -214,6 +203,58 @@ export const TaxRatesScreen: React.FC = () => {
           }
         />
       )}
+      {/* Add Tax Slab Modal — cross-platform replacement for Alert.prompt */}
+      <Modal visible={showAddModal} transparent animationType="fade" onRequestClose={() => setShowAddModal(false)}>
+        <KeyboardAvoidingView
+          style={{ flex: 1, justifyContent: 'center', padding: 24, backgroundColor: 'rgba(0,0,0,0.5)' }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={styles.addModal}>
+            <Text style={styles.addModalTitle}>New Tax Slab</Text>
+
+            <Text style={styles.addModalLabel}>Tax Name</Text>
+            <TextInput
+              style={styles.addModalInput}
+              placeholder="e.g. GST, IGST, VAT"
+              placeholderTextColor={colors.textMuted}
+              value={newTaxName}
+              onChangeText={setNewTaxName}
+              autoFocus
+            />
+
+            <Text style={styles.addModalLabel}>Rate (%)</Text>
+            <TextInput
+              style={styles.addModalInput}
+              placeholder="e.g. 18"
+              placeholderTextColor={colors.textMuted}
+              value={newTaxRate}
+              onChangeText={setNewTaxRate}
+              keyboardType="decimal-pad"
+            />
+
+            <View style={styles.addModalActions}>
+              <TouchableOpacity
+                style={styles.addModalCancel}
+                onPress={() => setShowAddModal(false)}
+                disabled={saving}
+              >
+                <Text style={styles.addModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.addModalSave, saving && { opacity: 0.6 }]}
+                onPress={handleSaveNewTax}
+                disabled={saving}
+              >
+                {saving ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.addModalSaveText}>Add Slab</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 };
@@ -309,4 +350,64 @@ const createStyles = (colors: any, insets: any) => StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 100, gap: 10 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
   emptySub: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', paddingHorizontal: 40 },
+  // Add Tax Modal
+  addModal: {
+    backgroundColor: colors.surface,
+    borderRadius: Radius.xl,
+    padding: 24,
+    ...Shadow.lg,
+  },
+  addModalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    marginBottom: 20,
+  },
+  addModalLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    marginBottom: 6,
+  },
+  addModalInput: {
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: Radius.md,
+    padding: 12,
+    fontSize: 16,
+    color: colors.textPrimary,
+    marginBottom: 16,
+  },
+  addModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+  },
+  addModalCancel: {
+    flex: 1,
+    padding: 14,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  addModalCancelText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  addModalSave: {
+    flex: 1,
+    padding: 14,
+    borderRadius: Radius.md,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addModalSaveText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#fff',
+  },
 });

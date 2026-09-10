@@ -528,16 +528,16 @@ export const CreateQuoteScreen: React.FC = () => {
                       </TouchableOpacity>
                     </View>
                     <View style={styles.lineItemBottom}>
-                      <View style={{ gap: 2 }}>
-                        <Text style={styles.lineItemPrice}>
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={styles.lineItemPrice} numberOfLines={1}>
                           MRP: {formatCurrency(item.unit_price)} per unit
                         </Text>
                         {item.formula_text ? (
-                          <Text style={styles.lineItemDimensions}>
+                          <Text style={styles.lineItemDimensions} numberOfLines={2}>
                             {item.formula_text}
                           </Text>
                         ) : (
-                          <Text style={styles.lineItemDimensions}>
+                          <Text style={styles.lineItemDimensions} numberOfLines={1}>
                             Qty: {item.quantity} {item.selling_unit || ''}
                           </Text>
                         )}
@@ -1102,12 +1102,12 @@ const createStyles = (colors: any, insets?: any) => StyleSheet.create({
   lineItemBorder: { borderTopWidth: 1, borderTopColor: colors.divider },
   lineItemTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   lineItemName: { fontSize: 15, fontWeight: '700', color: colors.textPrimary, flex: 1, marginRight: 8 },
-  lineItemBottom: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  lineItemPrice: { flex: 1, fontSize: 13, color: colors.textSecondary },
+  lineItemBottom: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  lineItemPrice: { fontSize: 13, color: colors.textSecondary },
   qtyControls: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surfaceAlt, borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 4 },
   qtyBtn: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
   qtyText: { fontSize: 15, fontWeight: '700', color: colors.textPrimary, minWidth: 20, textAlign: 'center' },
-  lineTotal: { fontSize: 15, fontWeight: '700', color: colors.primary },
+  lineTotal: { fontSize: 15, fontWeight: '700', color: colors.primary, flexShrink: 0, marginLeft: 8 },
   totalCard: {
     backgroundColor: colors.surface,
     borderRadius: Radius.lg,

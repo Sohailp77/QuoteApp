@@ -226,6 +226,15 @@ export interface DirectSaleItem {
   discount: number;
   line_total: number;
   unit?: string;
+  // Quantity calculator fields (mirrors QuoteItem)
+  pcs?: number;
+  length?: number;
+  width?: number;
+  area?: number;
+  input_qty?: number;
+  formula_text?: string;
+  calc_method?: string;
+  selling_unit?: string;
 }
 
 export interface DirectSale {

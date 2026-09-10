@@ -222,5 +222,102 @@ export const useDirectSales = () => {
     }
   };
 
-  return { directSales, loading, error, fetch, create, remove };
+  /**
+   * Delete a direct sale with optional inventory revert.
+   * Since PaymentsScreen derives cash-flow entries directly from directSales,
+   * deleting the record automatically removes it from cash flow — no extra step needed.
+   */
+  const removeWithOptions = async (sale: DirectSale, revertInventory: boolean) => {
+    const stockableItems = (sale.items || []).filter(
+      (item) => item.product_id && item.quantity > 0
+    );
+
+    // --- Step 1: Revert inventory if requested ---
+    if (revertInventory && stockableItems.length > 0) {
+      const stockUpdates: Array<{ product_id: string; newStock: number }> = [];
+
+      // Fetch current stock for all products in parallel
+      const prodDocs = await Promise.all(
+        stockableItems.map((item) =>
+          tablesDB.getRow({
+            databaseId: DATABASE_ID,
+            tableId: COLLECTIONS.PRODUCTS,
+            rowId: item.product_id!,
+          }).catch(() => null)
+        )
+      );
+
+      // Update stock quantities in parallel
+      await Promise.all(
+        stockableItems.map(async (item, idx) => {
+          const prodDoc = prodDocs[idx];
+          if (!prodDoc || prodDoc.stock_quantity == null) return;
+          const currentStock = Number(prodDoc.stock_quantity) || 0;
+          const itemQty = Math.max(1, Math.round(Number(item.quantity) || 1));
+          const newStock = Math.max(0, Math.min(999999, Math.round(currentStock + itemQty)));
+          stockUpdates.push({ product_id: item.product_id!, newStock });
+          await tablesDB.updateRow({
+            databaseId: DATABASE_ID,
+            tableId: COLLECTIONS.PRODUCTS,
+            rowId: item.product_id!,
+            data: { stock_quantity: newStock },
+          });
+        })
+      );
+
+      // Create RETURN stock movement records in parallel
+      const movDocs = await Promise.all(
+        stockableItems.map((item) =>
+          tablesDB.createRow({
+            databaseId: DATABASE_ID,
+            tableId: COLLECTIONS.STOCK_MOVEMENTS,
+            rowId: ID.unique(),
+            data: {
+              tenant_id: user!.tenant_id,
+              product_id: item.product_id,
+              product_name: item.product_name,
+              movement_type: 'RETURN',
+              quantity: Math.max(1, Math.round(Number(item.quantity) || 1)),
+              note: `Sale ${sale.sale_number} deleted (Stock Reverted)`,
+            },
+          }).catch(() => null)
+        )
+      );
+
+      // Batch-update local store
+      const updatedProducts = useAppStore.getState().products.map((p) => {
+        const upd = stockUpdates.find((u) => u.product_id === p.id);
+        return upd ? { ...p, stock_quantity: upd.newStock } : p;
+      });
+      const newMovements = movDocs
+        .filter(Boolean)
+        .map((doc) => ({
+          id: doc!.$id,
+          tenant_id: doc!.tenant_id,
+          product_id: doc!.product_id,
+          product_name: doc!.product_name,
+          movement_type: doc!.movement_type as any,
+          quantity: Number(doc!.quantity),
+          note: doc!.note,
+          created_at: doc!.$createdAt || new Date().toISOString(),
+        }));
+
+      useAppStore.getState().setProducts(updatedProducts);
+      useAppStore.getState().setStockMovements([
+        ...newMovements,
+        ...useAppStore.getState().stockMovements,
+      ]);
+    }
+
+    // --- Step 2: Delete the sale record (this also removes it from PaymentsScreen cash flow) ---
+    await tablesDB.deleteRow({
+      databaseId: DATABASE_ID,
+      tableId: COLLECTIONS.DIRECT_SALES,
+      rowId: sale.id,
+    });
+    animateLayout();
+    setDirectSales(useAppStore.getState().directSales.filter((d) => d.id !== sale.id));
+  };
+
+  return { directSales, loading, error, fetch, create, remove, removeWithOptions };
 };

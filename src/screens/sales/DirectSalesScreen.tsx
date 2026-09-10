@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ScrollView, Modal } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ScrollView, Modal, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,7 +28,7 @@ export const DirectSalesScreen: React.FC = () => {
   const tabBarHeight = useTabBarHeight();
   const styles = createStyles(colors, insets);
   const nav = useNavigation<any>();
-  const { directSales, fetch, loading, remove } = useDirectSales();
+  const { directSales, fetch, loading, remove, removeWithOptions } = useDirectSales();
   const { settings: companySettings } = useCompanySettings();
 
   const [search, setSearch] = useState('');
@@ -37,6 +37,11 @@ export const DirectSalesScreen: React.FC = () => {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState<DirectSale | null>(null);
   const [sharingPdf, setSharingPdf] = useState(false);
+
+  // Delete confirmation state
+  const [deleteConfirmSale, setDeleteConfirmSale] = useState<DirectSale | null>(null);
+  const [deleteRevertInventory, setDeleteRevertInventory] = useState(true);
+  const [deleting, setDeleting] = useState(false);
 
   const handleShareInvoice = async (sale: DirectSale) => {
     setSharingPdf(true);
@@ -77,6 +82,21 @@ export const DirectSalesScreen: React.FC = () => {
       console.warn('Failed to share direct sale invoice:', err);
     } finally {
       setSharingPdf(false);
+    }
+  };
+
+  const handleDeleteSale = async () => {
+    if (!deleteConfirmSale) return;
+    setDeleting(true);
+    try {
+      await removeWithOptions(deleteConfirmSale, deleteRevertInventory);
+      setDeleteConfirmSale(null);
+      // Close the detail modal too if it was showing this sale
+      setSelectedSale(null);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to delete sale.');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -179,8 +199,23 @@ export const DirectSalesScreen: React.FC = () => {
               <TooltipText style={styles.sellerChipText} numberOfLines={1} tooltipTitle="Processed By">{sellerName} ({sellerRole})</TooltipText>
             </View>
           </View>
-          <View style={[styles.badge, { backgroundColor: item.payment_status === 'Paid' ? '#E6F4EA' : '#FEF7E0' }]}>
-            <Text style={[styles.badgeText, { color: item.payment_status === 'Paid' ? '#1E8E3E' : '#B06000' }]}>
+          <View style={[
+            styles.badge,
+            {
+              backgroundColor: item.payment_status === 'Paid'
+                ? colors.statusAccepted + '20'
+                : item.payment_status === 'Pending'
+                ? colors.statusExpired + '20'
+                : colors.statusSent + '20',
+            },
+          ]}>
+            <Text style={[styles.badgeText, {
+              color: item.payment_status === 'Paid'
+                ? colors.statusAccepted
+                : item.payment_status === 'Pending'
+                ? colors.statusExpired
+                : colors.statusSent,
+            }]}>
               {item.payment_status}
             </Text>
           </View>
@@ -203,7 +238,13 @@ export const DirectSalesScreen: React.FC = () => {
           </Text>
           <View style={styles.actionsRow}>
             <Text style={styles.cardAmount}>{formatCurrency(item.total)}</Text>
-            <TouchableOpacity onPress={() => remove(item.id)} style={styles.deleteBtn}>
+            <TouchableOpacity
+              onPress={() => {
+                setDeleteRevertInventory(true);
+                setDeleteConfirmSale(item);
+              }}
+              style={styles.deleteBtn}
+            >
               <Ionicons name="trash-outline" size={18} color="#E53935" />
             </TouchableOpacity>
           </View>
@@ -343,7 +384,14 @@ export const DirectSalesScreen: React.FC = () => {
                     </View>
                     <View style={styles.metaRow}>
                       <Text style={styles.metaLabel}>Payment Status:</Text>
-                      <Text style={[styles.metaValue, { fontWeight: '700', color: selectedSale.payment_status === 'Paid' ? '#1E8E3E' : '#B06000' }]}>
+                      <Text style={[styles.metaValue, {
+                        fontWeight: '700',
+                        color: selectedSale.payment_status === 'Paid'
+                          ? colors.statusAccepted
+                          : selectedSale.payment_status === 'Pending'
+                          ? colors.statusExpired
+                          : colors.statusSent,
+                      }]}>
                         {selectedSale.payment_status} ({selectedSale.payment_method || 'Cash'})
                       </Text>
                     </View>
@@ -413,6 +461,88 @@ export const DirectSalesScreen: React.FC = () => {
                     </Text>
                   </TouchableOpacity>
                 </ScrollView>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal visible={!!deleteConfirmSale} transparent animationType="fade" onRequestClose={() => setDeleteConfirmSale(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { padding: 24 }]}>
+            {deleteConfirmSale && (
+              <>
+                {/* Header */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                  <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#FDEEEE', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="trash" size={22} color="#E53935" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.modalTitle, { fontSize: 17 }]}>Delete Sale?</Text>
+                    <Text style={styles.modalSubtitle}>{deleteConfirmSale.sale_number} • {formatCurrency(deleteConfirmSale.total)}</Text>
+                  </View>
+                </View>
+
+                {/* Items summary */}
+                <View style={{ backgroundColor: colors.surfaceAlt, borderRadius: Radius.md, padding: 12, marginBottom: 16, gap: 4 }}>
+                  {(deleteConfirmSale.items || []).slice(0, 3).map((it, i) => (
+                    <Text key={i} style={{ fontSize: 13, color: colors.textSecondary }}>
+                      • {it.quantity}x {it.product_name}
+                    </Text>
+                  ))}
+                  {(deleteConfirmSale.items || []).length > 3 && (
+                    <Text style={{ fontSize: 12, color: colors.textMuted }}>+ {deleteConfirmSale.items.length - 3} more items</Text>
+                  )}
+                </View>
+
+                {/* Revert inventory toggle */}
+                <TouchableOpacity
+                  style={[styles.revertToggle, deleteRevertInventory && styles.revertToggleActive]}
+                  onPress={() => setDeleteRevertInventory(!deleteRevertInventory)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.checkbox, deleteRevertInventory && styles.checkboxChecked]}>
+                    {deleteRevertInventory && <Ionicons name="checkmark" size={14} color="#fff" />}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.revertToggleTitle, deleteRevertInventory && { color: colors.primary }]}>
+                      Revert Inventory Stock
+                    </Text>
+                    <Text style={styles.revertToggleSub}>
+                      Add back quantities sold to product stock levels
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Cash flow note */}
+                <View style={styles.cashFlowNote}>
+                  <Ionicons name="information-circle-outline" size={16} color={colors.primary} />
+                  <Text style={styles.cashFlowNoteText}>
+                    Cash flow entry for this sale will be automatically removed from the Payments screen.
+                  </Text>
+                </View>
+
+                {/* Action buttons */}
+                <View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>
+                  <TouchableOpacity
+                    style={styles.cancelDeleteBtn}
+                    onPress={() => setDeleteConfirmSale(null)}
+                    disabled={deleting}
+                  >
+                    <Text style={styles.cancelDeleteBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.confirmDeleteBtn, deleting && { opacity: 0.6 }]}
+                    onPress={handleDeleteSale}
+                    disabled={deleting}
+                  >
+                    <Ionicons name="trash-outline" size={16} color="#fff" />
+                    <Text style={styles.confirmDeleteBtnText}>
+                      {deleting ? 'Deleting...' : 'Delete Sale'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </>
             )}
           </View>
@@ -670,4 +800,90 @@ const createStyles = (colors: any, insets?: any) => StyleSheet.create({
   },
   notesLabel: { fontSize: 11, fontWeight: '700', color: colors.textMuted, marginBottom: 2 },
   notesText: { fontSize: 13, color: colors.textSecondary },
+  // Delete confirmation modal styles
+  revertToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    marginBottom: 12,
+    backgroundColor: colors.surfaceAlt,
+  },
+  revertToggleActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary + '10',
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+  },
+  checkboxChecked: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
+  },
+  revertToggleTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 2,
+  },
+  revertToggleSub: {
+    fontSize: 12,
+    color: colors.textMuted,
+  },
+  cashFlowNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: colors.primary + '10',
+    borderRadius: Radius.md,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.primary + '25',
+  },
+  cashFlowNoteText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  cancelDeleteBtn: {
+    flex: 1,
+    padding: 14,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelDeleteBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  confirmDeleteBtn: {
+    flex: 1,
+    padding: 14,
+    borderRadius: Radius.md,
+    backgroundColor: '#E53935',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  confirmDeleteBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#fff',
+  },
 });
