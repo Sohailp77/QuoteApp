@@ -6,6 +6,8 @@ import { Badge } from './ui/Badge';
 import { Radius, Shadow } from '../theme';
 import { useAppTheme } from '../context/ThemeContext';
 
+import { TooltipText } from './ui/TooltipText';
+
 interface QuoteCardProps {
   quote: Quote;
   onPress: () => void;
@@ -22,11 +24,13 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, onPress, onDelete }
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.quoteNumber}>{quote.quote_number}</Text>
+          <TooltipText style={styles.quoteNumber} numberOfLines={1} tooltipTitle="Quote Number">
+            {quote.quote_number}
+          </TooltipText>
           <Badge label={quote.status} status={quote.status} />
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={styles.amount}>{formatCurrency(quote.total)}</Text>
+          <Text style={styles.amount} numberOfLines={1}>{formatCurrency(quote.total)}</Text>
           {onDelete && (
             <TouchableOpacity onPress={(e) => { e.stopPropagation(); onDelete(); }} style={{ padding: 4 }}>
               <Ionicons name="trash-outline" size={18} color="#E53935" />
@@ -40,16 +44,22 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, onPress, onDelete }
       <View style={styles.footer}>
         <View style={styles.clientRow}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{quote.client_name.charAt(0).toUpperCase()}</Text>
+            <Text style={styles.avatarText}>{quote.client_name ? quote.client_name.charAt(0).toUpperCase() : 'C'}</Text>
           </View>
-          <View>
-            <Text style={styles.clientName}>{quote.client_name}</Text>
-            <Text style={styles.clientEmail}>{quote.client_email}</Text>
+          <View style={{ flex: 1 }}>
+            <TooltipText style={styles.clientName} numberOfLines={1} tooltipTitle="Client Name">
+              {quote.client_name}
+            </TooltipText>
+            {quote.client_email ? (
+              <TooltipText style={styles.clientEmail} numberOfLines={1} tooltipTitle="Client Email">
+                {quote.client_email}
+              </TooltipText>
+            ) : null}
           </View>
         </View>
         <View style={styles.dateRow}>
           <Ionicons name="calendar-outline" size={12} color={colors.textMuted} />
-          <Text style={styles.date}>
+          <Text style={styles.date} numberOfLines={1}>
             {new Date(quote.created_at).toLocaleDateString('en-IN', {
               day: 'numeric',
               month: 'short',
@@ -85,7 +95,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  clientRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  clientRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, marginRight: 8 },
   avatar: {
     width: 34,
     height: 34,

@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Radius, Shadow } from '../../theme';
 import { useAppTheme } from '../../context/ThemeContext';
 
+import { TooltipText } from './TooltipText';
+
 interface StatCardProps {
   label: string;
   value: string | number;
@@ -20,8 +22,12 @@ export const StatCard: React.FC<StatCardProps> = ({ label, value, icon, color, s
       <View style={[styles.iconWrap, { backgroundColor: color + '18' }]}>
         <Ionicons name={icon} size={22} color={color} />
       </View>
-      <Text style={styles.value}>{value}</Text>
-      <Text style={styles.label}>{label}</Text>
+      <TooltipText style={styles.value} numberOfLines={1} tooltipTitle={label}>
+        {value}
+      </TooltipText>
+      <TooltipText style={styles.label} numberOfLines={1} tooltipTitle="Metric Label">
+        {label}
+      </TooltipText>
     </View>
   );
 };

@@ -14,6 +14,8 @@ import { useAppTheme } from '../../context/ThemeContext';
 import { AppBackground } from '../../components/AppBackground';
 import { useTabBarHeight } from '../../hooks/useTabBarHeight';
 
+import { TooltipText } from '../../components/ui/TooltipText';
+
 export const CustomersScreen: React.FC = () => {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
@@ -95,15 +97,27 @@ export const CustomersScreen: React.FC = () => {
             activeOpacity={0.85}
           >
             <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>{item.name[0].toUpperCase()}</Text>
+              <Text style={styles.avatarText}>{item.name ? item.name[0].toUpperCase() : 'C'}</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.customerName}>{item.name}</Text>
-              {item.email ? <Text style={styles.customerDetail}>{item.email}</Text> : null}
-              {item.phone ? <Text style={styles.customerDetail}>{item.phone}</Text> : null}
+              <TooltipText style={styles.customerName} numberOfLines={1} tooltipTitle="Customer Name">
+                {item.name}
+              </TooltipText>
+              {item.email ? (
+                <TooltipText style={styles.customerDetail} numberOfLines={1} tooltipTitle="Customer Email">
+                  {item.email}
+                </TooltipText>
+              ) : null}
+              {item.phone ? (
+                <TooltipText style={styles.customerDetail} numberOfLines={1} tooltipTitle="Customer Phone">
+                  {item.phone}
+                </TooltipText>
+              ) : null}
               {item.gst_number ? (
                 <View style={styles.gstBadge}>
-                  <Text style={styles.gstText}>GST: {item.gst_number}</Text>
+                  <TooltipText style={styles.gstText} numberOfLines={1} tooltipTitle="GST Number">
+                    GST: {item.gst_number}
+                  </TooltipText>
                 </View>
               ) : null}
             </View>

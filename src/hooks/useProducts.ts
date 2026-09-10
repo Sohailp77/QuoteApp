@@ -88,18 +88,33 @@ export const useProducts = () => {
         user_id: user.id,
       };
 
-      // Strip non-Appwrite top-level properties before database invocation
-      delete payload.calc_method;
-      delete payload.input_unit;
-      delete payload.unit_coverage;
-      delete payload.rounding_mode;
+      // Clean up vendor_id if empty or null
+      if (!payload.vendor_id) {
+        delete payload.vendor_id;
+      }
 
-      const doc = await tablesDB.createRow({
-        databaseId: DATABASE_ID,
-        tableId: COLLECTIONS.PRODUCTS,
-        rowId: ID.unique(),
-        data: payload
-      });
+      let doc;
+      try {
+        doc = await tablesDB.createRow({
+          databaseId: DATABASE_ID,
+          tableId: COLLECTIONS.PRODUCTS,
+          rowId: ID.unique(),
+          data: payload
+        });
+      } catch (dbErr: any) {
+        // If vendor_id attribute does not exist in Appwrite database schema yet, retry without vendor_id
+        if (payload.vendor_id && (dbErr.message?.toLowerCase().includes('vendor_id') || dbErr.message?.toLowerCase().includes('vendor id'))) {
+          delete payload.vendor_id;
+          doc = await tablesDB.createRow({
+            databaseId: DATABASE_ID,
+            tableId: COLLECTIONS.PRODUCTS,
+            rowId: ID.unique(),
+            data: payload
+          });
+        } else {
+          throw dbErr;
+        }
+      }
 
       const newProduct = mapProductDoc(doc);
 
@@ -142,12 +157,32 @@ export const useProducts = () => {
       delete payload.id;
       delete payload.created_at;
 
-      const doc = await tablesDB.updateRow({
-        databaseId: DATABASE_ID,
-        tableId: COLLECTIONS.PRODUCTS,
-        rowId: id,
-        data: payload
-      });
+      // Clean up vendor_id if empty or null
+      if (!payload.vendor_id && payload.vendor_id !== undefined) {
+        delete payload.vendor_id;
+      }
+
+      let doc;
+      try {
+        doc = await tablesDB.updateRow({
+          databaseId: DATABASE_ID,
+          tableId: COLLECTIONS.PRODUCTS,
+          rowId: id,
+          data: payload
+        });
+      } catch (dbErr: any) {
+        if (payload.vendor_id && (dbErr.message?.toLowerCase().includes('vendor_id') || dbErr.message?.toLowerCase().includes('vendor id'))) {
+          delete payload.vendor_id;
+          doc = await tablesDB.updateRow({
+            databaseId: DATABASE_ID,
+            tableId: COLLECTIONS.PRODUCTS,
+            rowId: id,
+            data: payload
+          });
+        } else {
+          throw dbErr;
+        }
+      }
 
       const updated = mapProductDoc(doc);
 

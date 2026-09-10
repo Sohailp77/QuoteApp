@@ -5,6 +5,8 @@ import { Employee } from '../types';
 import { Radius, Shadow } from '../theme';
 import { useAppTheme } from '../context/ThemeContext';
 
+import { TooltipText } from './ui/TooltipText';
+
 interface EmployeeCardProps {
   employee: Employee;
   onPress: () => void;
@@ -20,7 +22,7 @@ export const EmployeeCard: React.FC<EmployeeCardProps> = ({
 }) => {
   const { colors } = useAppTheme();
   const styles = createStyles(colors);
-  const initials = employee.name
+  const initials = (employee.name || 'E')
     .split(' ')
     .map((n) => n[0])
     .join('')
@@ -28,7 +30,7 @@ export const EmployeeCard: React.FC<EmployeeCardProps> = ({
     .slice(0, 2);
 
   const avatarColors = ['#6C63FF', '#FF6B6B', '#10B981', '#F59E0B', '#3B82F6', '#EC4899'];
-  const colorIndex = employee.name.charCodeAt(0) % avatarColors.length;
+  const colorIndex = (employee.name || 'E').charCodeAt(0) % avatarColors.length;
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
@@ -38,16 +40,24 @@ export const EmployeeCard: React.FC<EmployeeCardProps> = ({
         </View>
 
         <View style={styles.info}>
-          <Text style={styles.name}>{employee.name}</Text>
-          <Text style={styles.role}>{employee.role}</Text>
+          <TooltipText style={styles.name} numberOfLines={1} tooltipTitle="Employee Name">
+            {employee.name}
+          </TooltipText>
+          <TooltipText style={styles.role} numberOfLines={1} tooltipTitle="Role">
+            {employee.role}
+          </TooltipText>
           <View style={styles.contactRow}>
             <Ionicons name="mail-outline" size={12} color={colors.textMuted} />
-            <Text style={styles.contact}>{employee.email}</Text>
+            <TooltipText style={styles.contact} numberOfLines={1} tooltipTitle="Email">
+              {employee.email}
+            </TooltipText>
           </View>
           {employee.phone ? (
             <View style={styles.contactRow}>
               <Ionicons name="call-outline" size={12} color={colors.textMuted} />
-              <Text style={styles.contact}>{employee.phone}</Text>
+              <TooltipText style={styles.contact} numberOfLines={1} tooltipTitle="Phone">
+                {employee.phone}
+              </TooltipText>
             </View>
           ) : null}
         </View>
@@ -61,7 +71,9 @@ export const EmployeeCard: React.FC<EmployeeCardProps> = ({
 
       {employee.department ? (
         <View style={styles.deptBadge}>
-          <Text style={styles.deptText}>{employee.department}</Text>
+          <TooltipText style={styles.deptText} numberOfLines={1} tooltipTitle="Department">
+            {employee.department}
+          </TooltipText>
         </View>
       ) : null}
     </TouchableOpacity>

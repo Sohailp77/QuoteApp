@@ -197,7 +197,7 @@ export const useQuotes = () => {
               }
 
               const stockDiff = isTransitioningToAccepted ? -item.quantity : item.quantity;
-              const newStock = Math.max(0, currentStock + stockDiff);
+              const newStock = Math.max(0, Math.min(999999, Math.round(currentStock + stockDiff)));
 
               await tablesDB.updateRow({
                 databaseId: DATABASE_ID,
@@ -221,7 +221,7 @@ export const useQuotes = () => {
                   product_id: item.product_id,
                   product_name: item.product_name,
                   movement_type: movementType,
-                  quantity: item.quantity,
+                  quantity: Math.max(1, Math.round(Number(item.quantity) || 1)),
                   note: ledgerQueryNote,
                 },
               });
@@ -398,7 +398,7 @@ export const useQuotes = () => {
             const prodDoc = prodDocs[idx];
             if (!prodDoc || prodDoc.stock_quantity === null || prodDoc.stock_quantity === undefined) return;
             const currentStock = Number(prodDoc.stock_quantity) || 0;
-            const newStock = currentStock + item.quantity;
+            const newStock = Math.max(0, Math.min(999999, Math.round(currentStock + item.quantity)));
             stockUpdates.push({ product_id: item.product_id!, newStock });
             await tablesDB.updateRow({
               databaseId: DATABASE_ID,
@@ -421,7 +421,7 @@ export const useQuotes = () => {
                 product_id: item.product_id,
                 product_name: item.product_name,
                 movement_type: 'RETURN',
-                quantity: item.quantity,
+                quantity: Math.max(1, Math.round(Number(item.quantity) || 1)),
                 note: ledgerQueryNote,
               },
             }).catch(() => null)

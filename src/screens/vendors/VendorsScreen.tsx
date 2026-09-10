@@ -13,6 +13,7 @@ import { SearchBar } from '../../components/ui/SearchBar';
 import { useAppTheme } from '../../context/ThemeContext';
 import { AppBackground } from '../../components/AppBackground';
 import { useTabBarHeight } from '../../hooks/useTabBarHeight';
+import { TooltipText } from '../../components/ui/TooltipText';
 
 export const VendorsScreen: React.FC = () => {
   const { colors } = useAppTheme();
@@ -28,6 +29,7 @@ export const VendorsScreen: React.FC = () => {
   const filtered = (vendors || []).filter(
     (v) =>
       v.name.toLowerCase().includes(search.toLowerCase()) ||
+      (v.contact_person && v.contact_person.toLowerCase().includes(search.toLowerCase())) ||
       (v.email && v.email.toLowerCase().includes(search.toLowerCase())) ||
       (v.phone && v.phone.includes(search))
   );
@@ -56,7 +58,7 @@ export const VendorsScreen: React.FC = () => {
               <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
           )}
-          <Text style={styles.title}>Vendors</Text>
+          <Text style={styles.title}>Vendors & Suppliers</Text>
         </View>
         <TouchableOpacity
           style={styles.addBtn}
@@ -84,7 +86,7 @@ export const VendorsScreen: React.FC = () => {
             <Ionicons name="business-outline" size={52} color={colors.textMuted} />
             <Text style={styles.emptyTitle}>{search ? 'No results' : 'No vendors yet'}</Text>
             <Text style={styles.emptySub}>
-              {search ? 'Try a different search' : 'Tap + to add your first vendor'}
+              {search ? 'Try a different search' : 'Tap + to add your first supplier'}
             </Text>
           </View>
         }
@@ -95,19 +97,27 @@ export const VendorsScreen: React.FC = () => {
             activeOpacity={0.85}
           >
             <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>{item.name[0].toUpperCase()}</Text>
+              <Text style={styles.avatarText}>{item.name ? item.name[0].toUpperCase() : 'V'}</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.vendorName}>{item.name}</Text>
-              {item.contact_person ? <Text style={styles.vendorDetail}>Contact: {item.contact_person}</Text> : null}
+              <TooltipText style={styles.vendorName} numberOfLines={1} tooltipTitle="Vendor Name">
+                {item.name}
+              </TooltipText>
+              {item.contact_person ? (
+                <TooltipText style={styles.vendorDetail} numberOfLines={1} tooltipTitle="Contact Person">
+                  Contact: {item.contact_person}
+                </TooltipText>
+              ) : null}
               {item.email || item.phone ? (
-                <Text style={styles.vendorDetail}>
+                <TooltipText style={styles.vendorDetail} numberOfLines={1} tooltipTitle="Contact Info">
                   {[item.phone, item.email].filter(Boolean).join(' • ')}
-                </Text>
+                </TooltipText>
               ) : null}
               {item.gst_number ? (
                 <View style={styles.gstBadge}>
-                  <Text style={styles.gstText}>GST: {item.gst_number}</Text>
+                  <TooltipText style={styles.gstText} numberOfLines={1} tooltipTitle="GST Number">
+                    GST: {item.gst_number}
+                  </TooltipText>
                 </View>
               ) : null}
             </View>

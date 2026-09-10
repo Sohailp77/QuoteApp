@@ -5,6 +5,8 @@ import { Product } from '../types';
 import { Radius, Shadow } from '../theme';
 import { useAppTheme } from '../context/ThemeContext';
 
+import { TooltipText } from './ui/TooltipText';
+
 interface ProductCardProps {
   product: Product;
   onPress: () => void;
@@ -28,18 +30,24 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onDe
         </View>
 
         <View style={styles.info}>
-          <Text style={styles.name}>{product.name}</Text>
+          <TooltipText style={styles.name} numberOfLines={1} tooltipTitle="Product Name">
+            {product.name}
+          </TooltipText>
           {product.description ? (
-            <Text style={styles.desc} numberOfLines={1}>{product.description}</Text>
+            <TooltipText style={styles.desc} numberOfLines={1} tooltipTitle="Description">
+              {product.description}
+            </TooltipText>
           ) : null}
           
           <View style={styles.meta}>
             {product.category ? (
               <View style={styles.catBadge}>
-                <Text style={styles.catText}>{product.category}</Text>
+                <TooltipText style={styles.catText} numberOfLines={1} tooltipTitle="Category">
+                  {product.category}
+                </TooltipText>
               </View>
             ) : null}
-            <Text style={styles.unit}>per {product.unit || 'unit'}</Text>
+            <Text style={styles.unit} numberOfLines={1}>per {product.unit || 'unit'}</Text>
           </View>
 
           {/* Stock display */}
@@ -50,11 +58,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onDe
                 size={isOutOfStock ? 14 : 8} 
                 color={isOutOfStock ? colors.statusRejected : isLowStock ? colors.statusExpired : colors.textMuted} 
               />
-              <Text style={[
-                styles.stockText, 
-                isOutOfStock && styles.stockOut, 
-                isLowStock && styles.stockLow
-              ]}>
+              <Text 
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={[
+                  styles.stockText, 
+                  isOutOfStock && styles.stockOut, 
+                  isLowStock && styles.stockLow
+                ]}
+              >
                 {isOutOfStock ? 'Out of stock' : isLowStock ? `Low Stock: ${product.stock_quantity} ${product.unit}s` : `Stock: ${product.stock_quantity} ${product.unit}s`}
               </Text>
             </View>
@@ -64,12 +76,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onDe
         <View style={styles.rightSide}>
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>MRP</Text>
-            <Text style={styles.price}>{formatCurrency(product.unit_price)}</Text>
+            <Text style={styles.price} numberOfLines={1}>{formatCurrency(product.unit_price)}</Text>
           </View>
           {product.cost_price !== undefined ? (
             <View style={styles.priceRow}>
               <Text style={styles.costLabel}>Cost</Text>
-              <Text style={styles.costPrice}>{formatCurrency(product.cost_price)}</Text>
+              <Text style={styles.costPrice} numberOfLines={1}>{formatCurrency(product.cost_price)}</Text>
             </View>
           ) : null}
           
@@ -85,18 +97,24 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onDe
 
       <View style={styles.cardFooter}>
         {product.sku ? (
-          <Text style={styles.sku}>SKU: {product.sku}</Text>
+          <TooltipText style={styles.sku} numberOfLines={1} tooltipTitle="SKU">
+            SKU: {product.sku}
+          </TooltipText>
         ) : null}
         {product.barcode ? (
           <View style={styles.footerField}>
             <Ionicons name="barcode-outline" size={12} color={colors.textMuted} />
-            <Text style={styles.sku}>{product.barcode}</Text>
+            <TooltipText style={styles.sku} numberOfLines={1} tooltipTitle="Barcode">
+              {product.barcode}
+            </TooltipText>
           </View>
         ) : null}
         {product.warehouse_location ? (
           <View style={styles.footerField}>
             <Ionicons name="location-outline" size={12} color={colors.textMuted} />
-            <Text style={styles.sku}>{product.warehouse_location}</Text>
+            <TooltipText style={styles.sku} numberOfLines={1} tooltipTitle="Location">
+              {product.warehouse_location}
+            </TooltipText>
           </View>
         ) : null}
       </View>

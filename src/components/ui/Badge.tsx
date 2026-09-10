@@ -16,7 +16,11 @@ export const Badge: React.FC<BadgeProps> = ({ label, status, color, style, textS
   const styles = createStyles(colors);
   const bgColor = color || (status ? (colors as any)[`status${status}`] : colors.accent);
   return (
-    <Text style={[styles.badge, { backgroundColor: bgColor + '20', color: bgColor }, style, textStyle]}>
+    <Text 
+      numberOfLines={1} 
+      ellipsizeMode="tail" 
+      style={[styles.badge, { backgroundColor: bgColor + '20', color: bgColor }, style, textStyle]}
+    >
       {label}
     </Text>
   );

@@ -371,31 +371,33 @@ export const AnalyticsDashboardScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Secondary KPIs Summary */}
-        <View style={styles.kpiGrid}>
-          <View style={styles.kpiCard}>
-            <View style={[styles.kpiBadge, { backgroundColor: '#EF444415' }]}>
-              <Ionicons name="cart-outline" size={16} color="#EF4444" />
-            </View>
-            <Text style={styles.kpiValue}>{formatCurrency(analytics.totalReorderCost)}</Text>
-            <Text style={styles.kpiLabel}>Reorder Cost</Text>
-          </View>
+        {/* Financial Transparency: Revenue vs Debits / Expenses */}
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Financial Transparency & Profitability</Text>
+          
+          <StatRow
+            label="Total Gross Sales / Revenue"
+            value={formatCurrency(analytics.totalRevenue)}
+            sub={`Quotes: ${formatCurrency(analytics.totalRevenue - analytics.totalDirectSalesRevenue)} • Direct Sales: ${formatCurrency(analytics.totalDirectSalesRevenue)}`}
+            color="#2BAE78"
+            icon="trending-up-outline"
+          />
 
-          <View style={styles.kpiCard}>
-            <View style={[styles.kpiBadge, { backgroundColor: '#06B6D415' }]}>
-              <Ionicons name="pricetag-outline" size={16} color="#06B6D4" />
-            </View>
-            <Text style={styles.kpiValue}>{formatCurrency(analytics.totalDirectSalesRevenue)}</Text>
-            <Text style={styles.kpiLabel}>Direct Sales</Text>
-          </View>
+          <StatRow
+            label="Debit Expenses (Vendor Stock Purchases)"
+            value={formatCurrency(analytics.totalReorderCost)}
+            sub="Inventory reorders & supplier costs"
+            color="#E53935"
+            icon="trending-down-outline"
+          />
 
-          <View style={styles.kpiCard}>
-            <View style={[styles.kpiBadge, { backgroundColor: analytics.netProfit >= 0 ? '#10B98115' : '#EF444415' }]}>
-              <Ionicons name="cash-outline" size={16} color={analytics.netProfit >= 0 ? '#10B981' : '#EF4444'} />
-            </View>
-            <Text style={styles.kpiValue}>{formatCurrency(analytics.netProfit)}</Text>
-            <Text style={styles.kpiLabel}>Net Profit</Text>
-          </View>
+          <StatRow
+            label="Net Profit Balance"
+            value={formatCurrency(analytics.netProfit)}
+            sub={analytics.totalRevenue > 0 ? `Profit Margin: ${((analytics.netProfit / analytics.totalRevenue) * 100).toFixed(1)}%` : 'No revenue yet'}
+            color={analytics.netProfit >= 0 ? '#10B981' : '#E53935'}
+            icon="cash-outline"
+          />
         </View>
 
         {/* Revenue Trend Chart */}

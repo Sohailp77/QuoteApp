@@ -156,14 +156,23 @@ export const useAnalytics = (
         percentage: totalRevenue > 0 ? (p.revenue / totalRevenue) * 100 : 0,
       }));
 
-    // Employee revenue
+    // Employee / Team revenue (Quotes + Direct Sales)
     const empMap: Record<string, { userId: string; revenue: number; quotesCount: number }> = {};
     acceptedQuotes.forEach((q) => {
-      const uid = q.user_id || 'unknown';
+      const uid = q.user_id || 'owner';
       if (!empMap[uid]) {
         empMap[uid] = { userId: uid, revenue: 0, quotesCount: 0 };
       }
       empMap[uid].revenue += q.total;
+      empMap[uid].quotesCount += 1;
+    });
+
+    filteredDirectSales.forEach((ds) => {
+      const uid = ds.user_id || ds.created_by_name || 'owner';
+      if (!empMap[uid]) {
+        empMap[uid] = { userId: uid, revenue: 0, quotesCount: 0 };
+      }
+      empMap[uid].revenue += (ds.total || 0);
       empMap[uid].quotesCount += 1;
     });
 

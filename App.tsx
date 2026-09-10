@@ -27,14 +27,17 @@ if (
 }
 
 import { ThemeProvider } from './src/context/ThemeContext';
+import { TooltipProvider } from './src/context/TooltipContext';
 
 export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider>
-          <StatusBar style="auto" />
-          <RootNavigator />
+          <TooltipProvider>
+            <StatusBar style="auto" />
+            <RootNavigator />
+          </TooltipProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

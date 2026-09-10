@@ -12,6 +12,7 @@ import { Radius, Shadow } from '../../theme';
 import { useAppTheme } from '../../context/ThemeContext';
 import { useTabBarHeight } from '../../hooks/useTabBarHeight';
 import { FilterModal, FilterGroup } from '../../components/ui/FilterModal';
+import { generatePurchaseOrderPDFHtml } from '../../utils/pdfTemplates';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
@@ -81,6 +82,7 @@ const OrderDetailModal: React.FC<DetailProps> = ({ order, onClose, onRefresh, co
   const { colors } = useAppTheme();
   const s = styles(colors);
   const { receiveReorder } = useReorders();
+  const { settings: companySettings } = useCompanySettings();
 
   const [receiveMode, setReceiveMode] = useState(false);
   const [step, setStep] = useState<'qty' | 'expense'>('qty');
@@ -104,7 +106,7 @@ const OrderDetailModal: React.FC<DetailProps> = ({ order, onClose, onRefresh, co
   const handleSharePDF = async () => {
     setSharing(true);
     try {
-      const html = buildPdf(order, companyName);
+      const html = generatePurchaseOrderPDFHtml(order, companySettings);
       const { uri } = await Print.printToFileAsync({ html });
 
       const cleanNum = (order.order_number || 'order').replace(/[^a-zA-Z0-9_-]/g, '_');

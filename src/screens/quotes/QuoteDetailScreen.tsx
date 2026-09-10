@@ -48,6 +48,8 @@ const safeLocale = (val: number | null | undefined): string => {
 };
 // ────────────────────────────────────────────────────────────────────────
 
+import { generateQuotePDFHtml } from '../../utils/pdfTemplates';
+
 export const QuoteDetailScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
@@ -445,9 +447,11 @@ export const QuoteDetailScreen: React.FC = () => {
   }
 
   const handleSharePDF = async () => {
+    if (!quote) return;
     setPdfLoading(true);
     try {
-      const html = generateHTML();
+      const docType = quote.status === 'Accepted' ? 'INVOICE' : 'QUOTATION';
+      const html = generateQuotePDFHtml(quote, company, docType);
 
       const { uri } = await Print.printToFileAsync({ html });
       

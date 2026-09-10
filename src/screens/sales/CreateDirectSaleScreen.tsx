@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDirectSales } from '../../hooks/useDirectSales';
 import { useAppStore } from '../../store/useAppStore';
+import { useAuthStore } from '../../store/useAuthStore';
 import { useAppTheme } from '../../context/ThemeContext';
 import { AppBackground } from '../../components/AppBackground';
 import { Radius, Shadow } from '../../theme';
@@ -17,6 +18,7 @@ export const CreateDirectSaleScreen: React.FC = () => {
   const nav = useNavigation();
   const { create, loading } = useDirectSales();
   const { products, taxRates } = useAppStore();
+  const currentUser = useAuthStore((s) => s.user);
 
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -85,6 +87,9 @@ export const CreateDirectSaleScreen: React.FC = () => {
       return;
     }
 
+    const createdByName = currentUser?.displayName || currentUser?.email || 'Staff';
+    const createdByRole = currentUser?.role === 'boss' ? 'Business Owner' : 'Employee';
+
     try {
       await create({
         customer_name: customerName,
@@ -97,6 +102,9 @@ export const CreateDirectSaleScreen: React.FC = () => {
         payment_method: paymentMethod,
         payment_status: paymentStatus,
         notes,
+        created_by_name: createdByName,
+        created_by_role: createdByRole,
+        user_id: currentUser?.id,
       });
       nav.goBack();
     } catch (err: any) {
@@ -275,13 +283,21 @@ export const CreateDirectSaleScreen: React.FC = () => {
           <Text style={styles.summaryText}>Subtotal:</Text>
           <Text style={styles.summaryText}>₹{subtotal.toFixed(2)}</Text>
         </View>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryText}>Tax:</Text>
-          <Text style={styles.summaryText}>₹{taxAmount.toFixed(2)}</Text>
-        </View>
+        {discountAmount > 0 && (
+          <View style={styles.summaryRow}>
+            <Text style={[styles.summaryText, { color: '#E53935' }]}>Discount ({discountVal}%):</Text>
+            <Text style={[styles.summaryText, { color: '#E53935' }]}>-₹{discountAmount.toFixed(2)}</Text>
+          </View>
+        )}
+        {taxAmount > 0 && (
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryText}>Tax ({taxPercent}% {taxObj?.name || ''}):</Text>
+            <Text style={styles.summaryText}>+₹{taxAmount.toFixed(2)}</Text>
+          </View>
+        )}
         <View style={[styles.summaryRow, { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8, marginTop: 8 }]}>
-          <Text style={styles.grandTotalText}>Total:</Text>
-          <Text style={styles.grandTotalText}>₹{grandTotal.toFixed(2)}</Text>
+          <Text style={styles.grandTotalText}>Grand Total:</Text>
+          <Text style={[styles.grandTotalText, { color: colors.primary }]}>₹{grandTotal.toFixed(2)}</Text>
         </View>
         <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={loading}>
           <Text style={styles.saveBtnText}>{loading ? 'Saving...' : 'Save Sale'}</Text>
@@ -353,7 +369,7 @@ const createStyles = (colors: any, insets: any) => StyleSheet.create({
   itemHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   itemRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-end', marginBottom: 8 },
   qtyControls: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 36 },
-  qtyText: { fontSize: 16, fontWeight: '600', minWidth: 20, textAlign: 'center' },
+  qtyText: { fontSize: 16, fontWeight: '600', minWidth: 20, textAlign: 'center', color: colors.textPrimary },
   itemTotal: { textAlign: 'right', fontWeight: '700', color: colors.primary },
   chip: {
     paddingHorizontal: 14,

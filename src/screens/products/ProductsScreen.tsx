@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Alert,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -15,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useProducts } from '../../hooks/useProducts';
 import { ProductCard } from '../../components/ProductCard';
 import { SearchBar } from '../../components/ui/SearchBar';
-import { Radius } from '../../theme';
+import { Radius, Shadow } from '../../theme';
 import { animateLayout } from '../../utils/animation';
 import { useAppTheme } from '../../context/ThemeContext';
 import { AppBackground } from '../../components/AppBackground';
@@ -26,7 +27,9 @@ export const ProductsScreen: React.FC = () => {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useTabBarHeight();
-  const styles = createStyles(colors, insets);
+  const { width } = useWindowDimensions();
+  const isSmallScreen = width < 380;
+  const styles = createStyles(colors, insets, tabBarHeight);
   const nav = useNavigation<any>();
   const { products, loading, fetch, remove } = useProducts();
   const [search, setSearch] = useState('');
@@ -112,30 +115,30 @@ export const ProductsScreen: React.FC = () => {
     <View style={styles.screen}>
       <AppBackground />
       <View style={styles.header}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
           {nav.canGoBack() && (
             <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn} activeOpacity={0.8}>
-              <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+              <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
             </TouchableOpacity>
           )}
-          <Text style={styles.title}>Products</Text>
+          <Text style={styles.title} numberOfLines={1}>Products</Text>
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity
-            style={styles.headerActionBtn}
+            style={[styles.headerActionBtn, isSmallScreen && { paddingHorizontal: 7 }]}
             onPress={() => nav.navigate('StockManagement')}
             activeOpacity={0.8}
           >
             <Ionicons name="analytics-outline" size={18} color={colors.primary} />
-            <Text style={styles.headerActionText}>Stock</Text>
+            {!isSmallScreen && <Text style={styles.headerActionText}>Stock</Text>}
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.headerActionBtn}
+            style={[styles.headerActionBtn, isSmallScreen && { paddingHorizontal: 7 }]}
             onPress={() => nav.navigate('CategoryManager')}
             activeOpacity={0.8}
           >
             <Ionicons name="grid-outline" size={18} color={colors.primary} />
-            <Text style={styles.headerActionText}>Categories</Text>
+            {!isSmallScreen && <Text style={styles.headerActionText}>Categories</Text>}
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.addBtn}
@@ -215,9 +218,18 @@ export const ProductsScreen: React.FC = () => {
             <Text style={styles.emptySub}>Try adjusting your filters or search text</Text>
           </View>
         }
-        contentContainerStyle={{ paddingBottom: tabBarHeight + 20, paddingTop: 8 }}
+        contentContainerStyle={{ paddingBottom: tabBarHeight + 80, paddingTop: 8 }}
         showsVerticalScrollIndicator={false}
       />
+
+      {/* Floating Action Button (FAB) for adding product */}
+      <TouchableOpacity
+        style={styles.fabBtn}
+        onPress={() => nav.navigate('ProductForm', {})}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
 
       <FilterModal
         visible={showFilterModal}
@@ -230,15 +242,15 @@ export const ProductsScreen: React.FC = () => {
   );
 };
 
-const createStyles = (colors: any, insets?: any) => StyleSheet.create({
+const createStyles = (colors: any, insets?: any, tabBarHeight: number = 60) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 20 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingTop: Math.max(insets?.top || 0, 24) + 16, paddingBottom: 16,
   },
-  title: { fontSize: 28, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  title: { fontSize: 26, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 },
+  backBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   headerActionBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: colors.primary + '15',
@@ -247,9 +259,22 @@ const createStyles = (colors: any, insets?: any) => StyleSheet.create({
   },
   headerActionText: { fontSize: 12, fontWeight: '700', color: colors.primary },
   addBtn: {
-    width: 42, height: 42, borderRadius: 21,
+    width: 38, height: 38, borderRadius: 19,
     backgroundColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
+  },
+  fabBtn: {
+    position: 'absolute',
+    bottom: tabBarHeight + 16,
+    right: 20,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Shadow.lg,
+    zIndex: 99,
   },
   searchRow: {
     flexDirection: 'row',

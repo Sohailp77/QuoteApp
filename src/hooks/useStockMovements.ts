@@ -78,15 +78,17 @@ export const useStockMovements = () => {
       });
       
       const currentStock = Number(productDoc.stock_quantity) || 0;
+      const movQty = Math.max(1, Math.round(Number(movement.quantity) || 1));
       let newStock = currentStock;
 
       if (['IN', 'RETURN'].includes(movement.movement_type)) {
-        newStock += movement.quantity;
+        newStock += movQty;
       } else if (['OUT', 'DAMAGE'].includes(movement.movement_type)) {
-        newStock = Math.max(0, currentStock - movement.quantity);
+        newStock = Math.max(0, currentStock - movQty);
       } else if (movement.movement_type === 'ADJUSTMENT') {
-        newStock = Math.max(0, movement.quantity);
+        newStock = Math.max(0, movQty);
       }
+      newStock = Math.max(0, Math.min(999999, Math.round(newStock)));
 
       // 2. Insert movement record
       const doc = await tablesDB.createRow({
@@ -98,7 +100,7 @@ export const useStockMovements = () => {
           product_id: movement.product_id,
           product_name: movement.product_name,
           movement_type: movement.movement_type,
-          quantity: movement.quantity,
+          quantity: movQty,
           note: movement.note,
           supplier: movement.supplier,
         }

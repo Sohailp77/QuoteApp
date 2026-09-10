@@ -116,6 +116,7 @@ export interface Reorder {
   status: ReorderStatus;
   items: ReorderItem[];
   total_paid: number;
+  total_estimated_cost?: number;
   invoice_number?: string;
   purchase_date?: string;
   notes?: string;
@@ -233,6 +234,9 @@ export interface DirectSale {
   sale_number: string;
   customer_name: string;
   customer_phone?: string;
+  user_id?: string;
+  created_by_name?: string;
+  created_by_role?: string;
   items: DirectSaleItem[];
   subtotal: number;
   discount: number;

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ScrollView, Modal } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +11,13 @@ import { Radius, Shadow } from '../../theme';
 import { useTabBarHeight } from '../../hooks/useTabBarHeight';
 import { FilterModal, FilterGroup } from '../../components/ui/FilterModal';
 import { animateLayout } from '../../utils/animation';
+import { DirectSale } from '../../types';
+import { TooltipText } from '../../components/ui/TooltipText';
+
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import { useCompanySettings } from '../../hooks/useCompanySettings';
+import { generateQuotePDFHtml } from '../../utils/pdfTemplates';
 
 const formatCurrency = (n: number) =>
   `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -22,10 +29,56 @@ export const DirectSalesScreen: React.FC = () => {
   const styles = createStyles(colors, insets);
   const nav = useNavigation<any>();
   const { directSales, fetch, loading, remove } = useDirectSales();
+  const { settings: companySettings } = useCompanySettings();
+
   const [search, setSearch] = useState('');
-  const [paymentStatus, setPaymentStatus] = useState<'All' | 'Paid' | 'Pending' | 'Partial'>('All');
+  const [paymentStatus, setPaymentStatus] = useState<string>('All');
   const [dateRange, setDateRange] = useState<'All' | 'Today' | 'This Week' | 'This Month'>('All');
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [selectedSale, setSelectedSale] = useState<DirectSale | null>(null);
+  const [sharingPdf, setSharingPdf] = useState(false);
+
+  const handleShareInvoice = async (sale: DirectSale) => {
+    setSharingPdf(true);
+    try {
+      const mockQuote: any = {
+        id: sale.id,
+        quote_number: sale.sale_number,
+        client_name: sale.customer_name || 'Walk-in Customer',
+        client_email: '',
+        client_phone: sale.customer_phone || '',
+        status: 'Accepted',
+        subtotal: sale.subtotal,
+        discount: sale.discount,
+        tax: sale.tax,
+        total: sale.total,
+        created_at: sale.created_at,
+        valid_until: sale.created_at,
+        items: (sale.items || []).map((i) => ({
+          product_name: i.product_name,
+          quantity: i.quantity,
+          unit_price: i.unit_price,
+          discount: i.discount,
+          line_total: i.line_total,
+        })),
+      };
+
+      const html = generateQuotePDFHtml(mockQuote, companySettings, 'INVOICE');
+      const { uri } = await Print.printToFileAsync({ html });
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: `Share Invoice ${sale.sale_number}`,
+          UTI: 'com.adobe.pdf',
+        });
+      }
+    } catch (err: any) {
+      console.warn('Failed to share direct sale invoice:', err);
+    } finally {
+      setSharingPdf(false);
+    }
+  };
 
   useEffect(() => {
     fetch();
@@ -43,7 +96,9 @@ export const DirectSalesScreen: React.FC = () => {
     return directSales.filter((s) => {
       const matchSearch =
         s.sale_number.toLowerCase().includes(search.toLowerCase()) ||
-        (s.customer_name && s.customer_name.toLowerCase().includes(search.toLowerCase()));
+        (s.customer_name && s.customer_name.toLowerCase().includes(search.toLowerCase())) ||
+        (s.created_by_name && s.created_by_name.toLowerCase().includes(search.toLowerCase())) ||
+        (s.items && s.items.some(i => i.product_name.toLowerCase().includes(search.toLowerCase())));
 
       const matchStatus = paymentStatus === 'All' || s.payment_status === paymentStatus;
 
@@ -107,28 +162,55 @@ export const DirectSalesScreen: React.FC = () => {
     },
   ];
 
-  const renderItem = ({ item }: { item: any }) => (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>{item.sale_number}</Text>
-        <View style={[styles.badge, { backgroundColor: item.payment_status === 'Paid' ? '#E6F4EA' : '#FEF7E0' }]}>
-          <Text style={[styles.badgeText, { color: item.payment_status === 'Paid' ? '#1E8E3E' : '#B06000' }]}>
-            {item.payment_status}
+  const renderItem = ({ item }: { item: DirectSale }) => {
+    const itemsPreview = (item.items || [])
+      .map((i) => `${i.quantity}x ${i.product_name}`)
+      .join(', ');
+    const sellerName = item.created_by_name || 'Staff';
+    const sellerRole = item.created_by_role || 'Team';
+
+    return (
+      <TouchableOpacity style={styles.card} onPress={() => setSelectedSale(item)} activeOpacity={0.85}>
+        <View style={styles.cardHeader}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <TooltipText style={styles.cardTitle} numberOfLines={1} tooltipTitle="Sale Number">{item.sale_number}</TooltipText>
+            <View style={styles.sellerChip}>
+              <Ionicons name="person-circle-outline" size={14} color={colors.primary} />
+              <TooltipText style={styles.sellerChipText} numberOfLines={1} tooltipTitle="Processed By">{sellerName} ({sellerRole})</TooltipText>
+            </View>
+          </View>
+          <View style={[styles.badge, { backgroundColor: item.payment_status === 'Paid' ? '#E6F4EA' : '#FEF7E0' }]}>
+            <Text style={[styles.badgeText, { color: item.payment_status === 'Paid' ? '#1E8E3E' : '#B06000' }]}>
+              {item.payment_status}
+            </Text>
+          </View>
+        </View>
+
+        <TooltipText style={styles.cardSubtitle} numberOfLines={1} tooltipTitle="Customer">{item.customer_name ? `Customer: ${item.customer_name}` : 'Walk-in Counter Sale'}</TooltipText>
+
+        {itemsPreview ? (
+          <View style={styles.itemsPreviewBox}>
+            <Ionicons name="cube-outline" size={14} color={colors.textSecondary} />
+            <TooltipText style={styles.itemsPreviewText} numberOfLines={2} tooltipTitle="Purchased Items">
+              {itemsPreview} ({item.items.length} item{item.items.length !== 1 ? 's' : ''})
+            </TooltipText>
+          </View>
+        ) : null}
+
+        <View style={styles.cardFooter}>
+          <Text style={styles.cardDate}>
+            {new Date(item.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} • {item.payment_method || 'Cash'}
           </Text>
+          <View style={styles.actionsRow}>
+            <Text style={styles.cardAmount}>{formatCurrency(item.total)}</Text>
+            <TouchableOpacity onPress={() => remove(item.id)} style={styles.deleteBtn}>
+              <Ionicons name="trash-outline" size={18} color="#E53935" />
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-      <Text style={styles.cardSubtitle}>{item.customer_name || 'Walk-in Customer'}</Text>
-      <View style={styles.cardFooter}>
-        <Text style={styles.cardDate}>{new Date(item.created_at).toLocaleDateString()}</Text>
-        <View style={styles.actionsRow}>
-          <Text style={styles.cardAmount}>{formatCurrency(item.total)}</Text>
-          <TouchableOpacity onPress={() => remove(item.id)} style={styles.deleteBtn}>
-            <Ionicons name="trash-outline" size={18} color="#E53935" />
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.screen}>
@@ -167,7 +249,7 @@ export const DirectSalesScreen: React.FC = () => {
               animateLayout();
               setSearch(text);
             }}
-            placeholder="Search sales..."
+            placeholder="Search sales, items, or seller..."
             style={{ marginBottom: 0 }}
           />
         </View>
@@ -222,6 +304,120 @@ export const DirectSalesScreen: React.FC = () => {
           </View>
         }
       />
+
+      {/* Itemized Direct Sale Receipt Modal */}
+      <Modal visible={!!selectedSale} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {selectedSale && (
+              <>
+                <View style={styles.modalHeader}>
+                  <View>
+                    <Text style={styles.modalTitle}>{selectedSale.sale_number}</Text>
+                    <Text style={styles.modalSubtitle}>
+                      {new Date(selectedSale.created_at).toLocaleString('en-IN')}
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setSelectedSale(null)}>
+                    <Ionicons name="close" size={24} color={colors.textPrimary} />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
+                  <View style={styles.metaBox}>
+                    <View style={styles.metaRow}>
+                      <Text style={styles.metaLabel}>Customer:</Text>
+                      <Text style={styles.metaValue}>{selectedSale.customer_name || 'Walk-in Customer'}</Text>
+                    </View>
+                    {selectedSale.customer_phone ? (
+                      <View style={styles.metaRow}>
+                        <Text style={styles.metaLabel}>Phone:</Text>
+                        <Text style={styles.metaValue}>{selectedSale.customer_phone}</Text>
+                      </View>
+                    ) : null}
+                    <View style={styles.metaRow}>
+                      <Text style={styles.metaLabel}>Processed By:</Text>
+                      <Text style={[styles.metaValue, { color: colors.primary, fontWeight: '700' }]}>
+                        {selectedSale.created_by_name || 'Staff'} ({selectedSale.created_by_role || 'Team Member'})
+                      </Text>
+                    </View>
+                    <View style={styles.metaRow}>
+                      <Text style={styles.metaLabel}>Payment Status:</Text>
+                      <Text style={[styles.metaValue, { fontWeight: '700', color: selectedSale.payment_status === 'Paid' ? '#1E8E3E' : '#B06000' }]}>
+                        {selectedSale.payment_status} ({selectedSale.payment_method || 'Cash'})
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.itemsSectionTitle}>Itemized Products Sold</Text>
+                  {(selectedSale.items || []).map((item, idx) => (
+                    <View key={idx} style={styles.modalItemRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.modalItemName}>{item.product_name}</Text>
+                        <Text style={styles.modalItemMeta}>
+                          {item.quantity} x {formatCurrency(item.unit_price)} {item.discount ? `(${item.discount}% off)` : ''}
+                        </Text>
+                      </View>
+                      <Text style={styles.modalItemTotal}>{formatCurrency(item.line_total)}</Text>
+                    </View>
+                  ))}
+
+                  <View style={styles.breakdownBox}>
+                    <View style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>Subtotal:</Text>
+                      <Text style={styles.breakdownValue}>{formatCurrency(selectedSale.subtotal)}</Text>
+                    </View>
+                    {selectedSale.discount > 0 && (
+                      <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabel}>Discount:</Text>
+                        <Text style={[styles.breakdownValue, { color: '#E53935' }]}>-{formatCurrency(selectedSale.discount)}</Text>
+                      </View>
+                    )}
+                    {selectedSale.tax > 0 && (
+                      <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabel}>Tax:</Text>
+                        <Text style={styles.breakdownValue}>+{formatCurrency(selectedSale.tax)}</Text>
+                      </View>
+                    )}
+                    <View style={[styles.breakdownRow, styles.grandTotalRow]}>
+                      <Text style={styles.grandTotalLabel}>Grand Total:</Text>
+                      <Text style={styles.grandTotalValue}>{formatCurrency(selectedSale.total)}</Text>
+                    </View>
+                  </View>
+
+                  {selectedSale.notes ? (
+                    <View style={styles.notesBox}>
+                      <Text style={styles.notesLabel}>Notes:</Text>
+                      <Text style={styles.notesText}>{selectedSale.notes}</Text>
+                    </View>
+                  ) : null}
+
+                  <TouchableOpacity
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      backgroundColor: colors.primary,
+                      paddingVertical: 12,
+                      borderRadius: Radius.md,
+                      marginTop: 16,
+                    }}
+                    onPress={() => handleShareInvoice(selectedSale)}
+                    disabled={sharingPdf}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="document-text-outline" size={18} color="#fff" />
+                    <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>
+                      {sharingPdf ? 'Generating PDF...' : 'Share Invoice PDF'}
+                    </Text>
+                  </TouchableOpacity>
+                </ScrollView>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       <FilterModal
         visible={showFilterModal}
@@ -353,16 +549,125 @@ const createStyles = (colors: any, insets?: any) => StyleSheet.create({
     marginBottom: 12,
     ...Shadow.sm,
   },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   cardTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
-  badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: Radius.sm },
-  badgeText: { fontSize: 11, fontWeight: '600' },
-  cardSubtitle: { fontSize: 14, color: colors.textSecondary, marginBottom: 12 },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: Radius.full },
+  badgeText: { fontSize: 11, fontWeight: '700' },
+  cardSubtitle: { fontSize: 13, color: colors.textSecondary, marginBottom: 8 },
+  sellerChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.primary + '15',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: Radius.full,
+  },
+  sellerChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  itemsPreviewBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.surfaceAlt,
+    padding: 8,
+    borderRadius: Radius.sm,
+    marginBottom: 10,
+  },
+  itemsPreviewText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
   cardDate: { fontSize: 12, color: colors.textMuted },
   actionsRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  cardAmount: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
+  cardAmount: { fontSize: 16, fontWeight: '800', color: colors.primary },
   deleteBtn: { padding: 4 },
-  empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyText: { fontSize: 16, color: colors.textSecondary },
+  empty: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
+  emptyText: { fontSize: 14, color: colors.textMuted, marginTop: 8 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: Radius.xl,
+    padding: 20,
+    ...Shadow.lg,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingBottom: 12,
+  },
+  modalTitle: { fontSize: 20, fontWeight: '800', color: colors.textPrimary },
+  modalSubtitle: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  metaBox: {
+    backgroundColor: colors.surfaceAlt,
+    padding: 12,
+    borderRadius: Radius.md,
+    marginBottom: 16,
+    gap: 6,
+  },
+  metaRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  metaLabel: { fontSize: 13, color: colors.textSecondary, fontWeight: '600' },
+  metaValue: { fontSize: 13, color: colors.textPrimary, fontWeight: '600' },
+  itemsSectionTitle: { fontSize: 14, fontWeight: '700', color: colors.textPrimary, marginBottom: 8 },
+  modalItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border + '50',
+  },
+  modalItemName: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
+  modalItemMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  modalItemTotal: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
+  breakdownBox: {
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: 6,
+  },
+  breakdownRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  breakdownLabel: { fontSize: 13, color: colors.textSecondary },
+  breakdownValue: { fontSize: 13, fontWeight: '600', color: colors.textPrimary },
+  grandTotalRow: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: 8,
+    marginTop: 6,
+  },
+  grandTotalLabel: { fontSize: 16, fontWeight: '800', color: colors.textPrimary },
+  grandTotalValue: { fontSize: 18, fontWeight: '800', color: colors.primary },
+  notesBox: {
+    marginTop: 12,
+    backgroundColor: colors.surfaceAlt,
+    padding: 10,
+    borderRadius: Radius.md,
+  },
+  notesLabel: { fontSize: 11, fontWeight: '700', color: colors.textMuted, marginBottom: 2 },
+  notesText: { fontSize: 13, color: colors.textSecondary },
 });

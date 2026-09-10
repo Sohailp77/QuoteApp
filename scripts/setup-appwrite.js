@@ -107,6 +107,7 @@ const COLLECTIONS = [
       { key: 'warehouse_location', type: 'string', size: STRING_SIZE, required: false },
       { key: 'calc_type', type: 'string', size: 50, required: false },
       { key: 'image_url', type: 'string', size: 1000, required: false },
+      { key: 'vendor_id', type: 'string', size: STRING_SIZE, required: false },
     ],
     indexes: [{ key: 'tenant_id', type: 'key', attributes: ['tenant_id'] }, { key: 'barcode', type: 'key', attributes: ['barcode'] }]
   },
@@ -233,6 +234,9 @@ const COLLECTIONS = [
     name: 'Direct Sales',
     attributes: [
       { key: 'tenant_id', type: 'string', size: STRING_SIZE, required: true },
+      { key: 'user_id', type: 'string', size: STRING_SIZE, required: false },
+      { key: 'created_by_name', type: 'string', size: STRING_SIZE, required: false },
+      { key: 'created_by_role', type: 'string', size: 50, required: false },
       { key: 'sale_number', type: 'string', size: STRING_SIZE, required: true },
       { key: 'customer_name', type: 'string', size: STRING_SIZE, required: false },
       { key: 'customer_phone', type: 'string', size: STRING_SIZE, required: false },
